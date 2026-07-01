@@ -1,0 +1,17 @@
+package com.automationportal.events;
+
+public enum ExecutionEventType {
+    SUITE_STARTED,
+    MODULE_STARTED,
+    TEST_STARTED,
+    TEST_PASSED,
+    TEST_FAILED,
+    TEST_SKIPPED,
+    SCREENSHOT_CAPTURED,
+    LOG_ENTRY,
+    MODULE_COMPLETED,
+    SUITE_COMPLETED,
+    EXECUTION_STARTING,
+    EXECUTION_PAUSED,
+    EXECUTION_RESUMED
+}

@@ -1,0 +1,7 @@
+# Local dev profile — overrides application.yml for running backend outside Docker
+# MySQL is the Docker container exposed on port 13306
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:13306/automation_portal?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: root

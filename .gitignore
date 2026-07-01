@@ -1,0 +1,27 @@
+﻿# Node
+frontend/node_modules/
+loveable.ai/automation-hub/node_modules/
+
+# Build outputs
+frontend/dist/
+backend/target/
+
+# Logs
+*.log
+logs/
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+loveable.ai/
