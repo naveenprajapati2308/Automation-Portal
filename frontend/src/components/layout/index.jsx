@@ -170,7 +170,7 @@ export function PortalLayout({ sidebar, topbar, children, shellClassName = '', m
 }
 
 // ── Layout: Topbar ────────────────────────────────────────────────────────────
-export function Topbar({ pageTitle, notice, superAdmin, onOpenAdmin, session }) {
+export function Topbar({ pageTitle, superAdmin, onOpenAdmin, session }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -191,9 +191,7 @@ export function Topbar({ pageTitle, notice, superAdmin, onOpenAdmin, session }) 
       <div>
         <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', fontSize: '22px', fontWeight: 800 }}>
           {pageTitle}
-          <span style={{ fontSize: '11px', background: '#1e2f48', color: '#60b3e0', padding: '3px 8px', borderRadius: '6px', fontWeight: 600, border: '1px solid rgba(96, 179, 224, 0.15)' }}>v1.2.0</span>
         </h1>
-        <p style={{ color: '#7a9cb8', marginTop: '4px', fontSize: '13px' }}>{notice}</p>
       </div>
 
       <div className="topbar-right">

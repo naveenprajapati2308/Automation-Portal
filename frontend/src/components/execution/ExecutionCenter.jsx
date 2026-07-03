@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Square, AlertCircle, RefreshCw, Terminal, Image as ImageIcon, ChevronRight } from 'lucide-react';
+import { Play, Square, RefreshCw, Terminal, Image as ImageIcon, ChevronDown } from 'lucide-react';
 import { api, auth } from '../../api.js';
 import { Panel, DataTable } from '../shared/index.jsx';
 
@@ -14,14 +14,16 @@ export function ExecutionCenter({
   executions,
   onSelectExecution
 }) {
+  const activeModules = (modules || []).filter(m => m.active !== false);
+
   const [runnerSuites, setRunnerSuites] = useState([]);
   const [selectedSuite, setSelectedSuite] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeExec, setActiveExec] = useState(null);
-  
+
   // Real-time streams
   const [liveLogs, setLiveLogs] = useState([]);
   const [liveScreenshots, setLiveScreenshots] = useState([]);
-  const [isPaused, setIsPaused] = useState(false);
   const [activeTab, setActiveTab] = useState('logs');
 
   const sseRef = useRef(null);
@@ -97,7 +99,6 @@ export function ExecutionCenter({
 
     setLiveLogs([]);
     setLiveScreenshots([]);
-    setIsPaused(false);
 
     // Subscribe to SSE endpoint
     const token = auth.get()?.accessToken;
@@ -118,10 +119,13 @@ export function ExecutionCenter({
 
     sse.addEventListener('SUITE_STARTED', (e) => {
       const payload = JSON.parse(e.data);
-      setActiveExec(prev => prev ? { 
-        ...prev, 
+      setActiveExec(prev => prev ? {
+        ...prev,
         status: 'RUNNING',
-        suiteName: payload.data.suiteName || prev.suiteName
+        suiteName: payload.data.suiteName || prev.suiteName,
+        // Expected test count is known upfront (TestNG suite is fully resolved before it runs) —
+        // seed it here so the progress bar reflects real progress instead of always reading 100%.
+        totalTests: payload.data.totalExpectedTests || prev.totalTests
       } : null);
       appendLog('SYSTEM', 'Suite started: ' + (payload.data.suiteName || ''));
     });
@@ -135,11 +139,10 @@ export function ExecutionCenter({
       const payload = JSON.parse(e.data);
       setActiveExec(prev => {
         if (!prev) return null;
-        const total = prev.totalTests + 1;
         const passed = prev.passedTests + 1;
         return {
           ...prev,
-          totalTests: total,
+          totalTests: Math.max(prev.totalTests, passed + prev.failedTests + prev.skippedTests),
           passedTests: passed
         };
       });
@@ -150,11 +153,10 @@ export function ExecutionCenter({
       const payload = JSON.parse(e.data);
       setActiveExec(prev => {
         if (!prev) return null;
-        const total = prev.totalTests + 1;
         const failed = prev.failedTests + 1;
         return {
           ...prev,
-          totalTests: total,
+          totalTests: Math.max(prev.totalTests, prev.passedTests + failed + prev.skippedTests),
           failedTests: failed
         };
       });
@@ -165,11 +167,10 @@ export function ExecutionCenter({
       const payload = JSON.parse(e.data);
       setActiveExec(prev => {
         if (!prev) return null;
-        const total = prev.totalTests + 1;
         const skipped = prev.skippedTests + 1;
         return {
           ...prev,
-          totalTests: total,
+          totalTests: Math.max(prev.totalTests, prev.passedTests + prev.failedTests + skipped),
           skippedTests: skipped
         };
       });
@@ -185,16 +186,6 @@ export function ExecutionCenter({
     sse.addEventListener('LOG_ENTRY', (e) => {
       const payload = JSON.parse(e.data);
       appendLog(payload.data.level, payload.data.message, payload.data.source);
-    });
-
-    sse.addEventListener('EXECUTION_PAUSED', () => {
-      setIsPaused(true);
-      appendLog('SYSTEM', 'Execution paused by user');
-    });
-
-    sse.addEventListener('EXECUTION_RESUMED', () => {
-      setIsPaused(false);
-      appendLog('SYSTEM', 'Execution resumed');
     });
 
     sse.addEventListener('SUITE_COMPLETED', (e) => {
@@ -220,10 +211,14 @@ export function ExecutionCenter({
   };
 
   const handleStartRun = async () => {
-    if (!selectedSuite) return;
     try {
-      // Trigger runner run via XML_SUITE path
-      await run('XML_SUITE', selectedSuite);
+      if (showAdvanced) {
+        if (!selectedSuite) return;
+        await run('XML_SUITE', selectedSuite);
+      } else {
+        if (!selectedModule) return;
+        await run('MODULE', null, selectedModule);
+      }
     } catch (e) {
       console.error(e);
     }
@@ -238,16 +233,6 @@ export function ExecutionCenter({
       } catch (e) {
         alert("Failed to cancel: " + e.message);
       }
-    }
-  };
-
-  const handlePauseResume = async () => {
-    if (!activeExec) return;
-    try {
-      const path = isPaused ? 'resume' : 'pause';
-      await fetch(`/api/executions/${activeExec.id}/${path}`, { method: 'POST' });
-    } catch (e) {
-      alert("Failed to execute pause/resume action: " + e.message);
     }
   };
 
@@ -301,33 +286,62 @@ export function ExecutionCenter({
         <Panel title="Execution Controls">
           <div style={{ display: 'grid', gap: '16px' }}>
             
-            {/* Suite dropdown selector */}
+            {/* Module dropdown selector (admin-registered modules) */}
             <div className="form-row" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <label style={{ fontWeight: 600, fontSize: '13px', color: '#555' }}>Select Test Suite (Dynamic)</label>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <select 
-                  value={selectedSuite} 
-                  onChange={(e) => setSelectedSuite(e.target.value)}
-                  style={{ flex: 1, height: '40px', borderRadius: '8px', border: '1px solid #cfdae6', padding: '0 10px', background: '#fff' }}
-                >
-                  {runnerSuites.length === 0 ? (
-                    <option value="">No suites discovered</option>
-                  ) : (
-                    runnerSuites.map(suite => (
-                      <option key={suite.xml} value={suite.xml}>{suite.name} ({suite.xml})</option>
-                    ))
-                  )}
-                </select>
-                
-                <button 
-                  onClick={fetchSuites}
-                  className="btn btn-secondary btn-icon-only"
-                  style={{ height: '40px', width: '40px' }}
-                  title="Reload Suites"
-                >
-                  <RefreshCw size={16} />
-                </button>
-              </div>
+              <label style={{ fontWeight: 600, fontSize: '13px', color: '#555' }}>What do you want to run?</label>
+              <select
+                value={selectedModule}
+                onChange={(e) => setSelectedModule(e.target.value)}
+                disabled={showAdvanced}
+                style={{ height: '40px', borderRadius: '8px', border: '1px solid #cfdae6', padding: '0 10px', background: showAdvanced ? '#f1f5f9' : '#fff' }}
+              >
+                {activeModules.length === 0 ? (
+                  <option value="">No modules registered — ask an admin to add one</option>
+                ) : (
+                  activeModules.map(mod => (
+                    <option key={mod.code} value={mod.code}>{mod.name} ({mod.code})</option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            {/* Advanced: raw XML suite picker, for dev/debug */}
+            <div className="form-row" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: '4px', border: 0, background: 'transparent', cursor: 'pointer', padding: 0, fontSize: '12px', fontWeight: 600, color: '#617084' }}
+              >
+                <ChevronDown size={13} style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                Advanced: run a raw XML suite instead
+              </button>
+
+              {showAdvanced && (
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <select
+                    value={selectedSuite}
+                    onChange={(e) => setSelectedSuite(e.target.value)}
+                    style={{ flex: 1, height: '40px', borderRadius: '8px', border: '1px solid #cfdae6', padding: '0 10px', background: '#fff' }}
+                  >
+                    {runnerSuites.length === 0 ? (
+                      <option value="">No suites discovered</option>
+                    ) : (
+                      runnerSuites.map(suite => (
+                        <option key={suite.xml} value={suite.xml}>{suite.name} ({suite.xml})</option>
+                      ))
+                    )}
+                  </select>
+
+                  <button
+                    onClick={fetchSuites}
+                    className="btn btn-secondary btn-icon-only"
+                    style={{ height: '40px', width: '40px' }}
+                    title="Reload Suites"
+                  >
+                    <RefreshCw size={16} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Environment selector */}
@@ -349,7 +363,7 @@ export function ExecutionCenter({
               onClick={handleStartRun}
               className="btn btn-primary btn-icon"
               style={{ height: '44px', width: '100%', fontSize: '15px' }}
-              disabled={activeExec && activeExec.status === 'RUNNING'}
+              disabled={(activeExec && activeExec.status === 'RUNNING') || (showAdvanced ? !selectedSuite : !selectedModule)}
             >
               <Play size={18} />
               <span>Launch Execution</span>
@@ -422,16 +436,7 @@ export function ExecutionCenter({
 
               {/* Control Buttons */}
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button 
-                  onClick={handlePauseResume}
-                  className="btn btn-secondary btn-icon"
-                  style={{ flex: 1, height: '38px' }}
-                >
-                  {isPaused ? <Play size={16} /> : <Pause size={16} />}
-                  <span>{isPaused ? 'Resume' : 'Pause'}</span>
-                </button>
-                
-                <button 
+                <button
                   onClick={handleCancelRun}
                   className="btn btn-secondary btn-icon"
                   style={{ flex: 1, height: '38px', color: '#dc2626', borderColor: '#fca5a5' }}

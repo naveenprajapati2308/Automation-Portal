@@ -70,6 +70,11 @@ export function ModuleManagement({ setNotice }) {
       render: (val) => val ? <code style={{ fontSize: '12px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{val}</code> : <span style={{ color: '#94a3b8' }}>—</span>
     },
     {
+      key: 'runnerType',
+      label: 'Runner Type',
+      render: (val) => <span className="status">{val || 'MAVEN_TESTNG'}</span>
+    },
+    {
       key: 'active',
       label: 'Status',
       render: (val) => (
@@ -204,6 +209,7 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
     description: mod?.description || '',
     xmlFile:     mod?.xmlFile     || '',
     reportPath:  mod?.reportPath  || '',
+    runnerType:  mod?.runnerType  || 'MAVEN_TESTNG',
     active:      mod ? mod.active : true
   });
   const [errors, setErrors] = useState({});
@@ -246,6 +252,22 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
       <Field label="Description" value={form.description} onChange={(v) => update('description', v)} placeholder="Optional description" />
       <Field label="Suite XML File" required value={form.xmlFile} onChange={(v) => update('xmlFile', v)} error={errors.xmlFile} placeholder="e.g. land.xml" />
       <Field label="Report Path" value={form.reportPath} onChange={(v) => update('reportPath', v)} placeholder="e.g. reports/MasterReport2.html" />
+
+      <div className="form-field">
+        <label className="form-row">
+          <span>Runner Type</span>
+          <div className="field-input-wrap">
+            <select
+              value={form.runnerType}
+              onChange={(e) => update('runnerType', e.target.value)}
+              style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '6px', padding: '0 10px', background: '#fff' }}
+            >
+              <option value="MAVEN_TESTNG">Maven + TestNG (MPHIDB framework)</option>
+            </select>
+          </div>
+        </label>
+        <span style={{ fontSize: '11px', color: '#94a3b8' }}>More runner types can be added here as new frameworks are integrated.</span>
+      </div>
 
       <div className="form-field" style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '14px 0' }}>
         <input

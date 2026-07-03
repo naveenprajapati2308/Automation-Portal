@@ -61,10 +61,12 @@ portal:
         xml: "Emp_Arch.xml"
         report: "reports/MasterReport.html"
     result-files:
-      testng-results: "test-output/testng-results.xml"
-      testng-failed: "test-output/testng-failed.xml"
-      emailable-report: "test-output/emailable-report.html"
-      index-report: "test-output/index.html"
+      # Maven Surefire's TestNG provider writes TestNG's native reports under
+      # target/surefire-reports (not test-output) once -Dusedefaultlisteners=true is set.
+      testng-results: "target/surefire-reports/testng-results.xml"
+      testng-failed: "target/surefire-reports/testng-failed.xml"
+      emailable-report: "target/surefire-reports/emailable-report.html"
+      index-report: "target/surefire-reports/index.html"
       screenshots: "screenShots"
       logs: "logs"
   app:

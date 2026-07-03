@@ -20,6 +20,17 @@ public class ExecutionEventController {
     @Value("${portal.events.api-key:shared-secret}")
     private String expectedApiKey;
 
+    // MPHIDB's PortalApiClient pushes events fire-and-forget, so a TEST_STARTED and its matching
+    // TEST_PASSED/FAILED/SKIPPED for the same test case can arrive on two Tomcat threads close
+    // together. @Transactional commits only when eventService.processEvent(...) returns to this
+    // caller, so the lock has to wrap the whole call here (not inside the transactional method)
+    // or a second thread can still read before the first thread's insert is committed and durable.
+    private final java.util.concurrent.ConcurrentHashMap<String, Object> executionLocks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private Object lockFor(String executionCode) {
+        return executionLocks.computeIfAbsent(executionCode, code -> new Object());
+    }
+
     public ExecutionEventController(ExecutionEventService eventService, LiveBroadcastService broadcastService) {
         this.eventService = eventService;
         this.broadcastService = broadcastService;
@@ -29,14 +40,16 @@ public class ExecutionEventController {
     public ResponseEntity<?> receiveEvent(
             @RequestHeader(value = "X-API-Key", required = false) String apiKey,
             @RequestBody ExecutionEventPayload payload) {
-        
+
         if (expectedApiKey != null && !expectedApiKey.isEmpty() && !expectedApiKey.equals(apiKey)) {
             log.warn("Unauthorized execution event request with API key: {}", apiKey);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or missing X-API-Key header");
         }
 
         try {
-            eventService.processEvent(payload);
+            synchronized (lockFor(payload.getExecutionId())) {
+                eventService.processEvent(payload);
+            }
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("Error processing execution event", e);

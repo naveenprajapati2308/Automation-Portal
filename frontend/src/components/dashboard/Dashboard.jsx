@@ -9,8 +9,6 @@ import {
   Target,
   Layers,
   Monitor,
-  Search,
-  Cpu,
   HelpCircle
 } from 'lucide-react';
 import { api } from '../../api.js';
@@ -209,98 +207,11 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
 
   return (
     <section style={{ background: '#060913', color: '#f8fafc', padding: '20px', minHeight: '100vh', fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      
-      {/* 1. Dashboard Header */}
-      <div style={{
-        background: '#0c1020',
-        border: '1px solid #192038',
-        borderRadius: '12px',
-        padding: '16px 24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.3)',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800, color: '#fff' }}>Dashboard</h2>
-          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#94a3b8' }}>Signed in successfully.</p>
-        </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Search bar */}
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', color: '#64748b' }} />
-            <input
-              type="text"
-              placeholder="Search executions, reports"
-              style={{
-                background: '#060913',
-                border: '1px solid #192038',
-                color: '#fff',
-                padding: '8px 12px 8px 36px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                width: '220px',
-                outline: 'none',
-                transition: 'border-color 0.2s'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#6366f1'}
-              onBlur={(e) => e.target.style.borderColor = '#192038'}
-            />
-          </div>
 
-          {/* Super Admin Pill */}
-          <div style={{
-            background: 'rgba(251, 191, 36, 0.1)',
-            border: '1px solid rgba(251, 191, 36, 0.3)',
-            color: '#fbbf24',
-            padding: '6px 14px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}>
-            <span style={{ width: '6px', height: '6px', background: '#fbbf24', borderRadius: '50%' }} />
-            Super Admin
-          </div>
-
-          {/* Administration Button */}
-          <button
-            onClick={() => onNavigate && onNavigate('administration')}
-            style={{
-              background: 'rgba(99, 102, 241, 0.1)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
-              color: '#a5b4fc',
-              padding: '6px 14px',
-              borderRadius: '8px',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)';
-              e.currentTarget.style.borderColor = '#6366f1';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-            }}
-          >
-            <Cpu size={14} />
-            Administration
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Subheader (Portal Info & Range Filter) */}
+      {/* Subheader (Portal Info & Range Filter) — the page title, sign-in notice, search,
+          Super Admin badge and Admin Panel button are all already provided once by the
+          global Topbar (components/layout/index.jsx), so this page only owns what's unique
+          to it. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <span style={{ fontSize: '10px', fontWeight: 800, color: '#6366f1', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Quality Analytics Portal</span>

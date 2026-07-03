@@ -12,6 +12,9 @@ public interface ExecutionTestCaseRepository extends JpaRepository<ExecutionTest
     
     java.util.Optional<ExecutionTestCase> findFirstByExecutionIdAndTestNameAndClassNameAndMethodName(
             Long executionId, String testName, String className, String methodName);
+
+    java.util.Optional<ExecutionTestCase> findFirstByExecutionIdAndClassNameAndMethodName(
+            Long executionId, String className, String methodName);
     
     @Query("SELECT tc.exceptionType, COUNT(tc), tc.methodName, MAX(e.executionCode) " +
            "FROM ExecutionTestCase tc JOIN Execution e ON tc.executionId = e.id " +

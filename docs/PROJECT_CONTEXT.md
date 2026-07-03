@@ -1,11 +1,20 @@
 # Automation Portal — Project Context (Master Reference)
 
 > Purpose of this file: a single, factual, code-verified snapshot of what this project actually
-> is and actually does, as of **2026-07-01**. It exists so that future conversations don't need
+> is and actually does, as of **2026-07-02**. It exists so that future conversations don't need
 > to re-derive architecture from scratch — paste/reference this file for context, then layer new
 > instructions on top of it. This document was built by reading every doc in `docs/` AND by
 > directly inspecting the source of every service, so it reconciles "what was planned" with
-> "what is actually built." It is analysis only — no code was changed to produce it.
+> "what is actually built."
+>
+> **2026-07-02 update:** the original 2026-07-01 analysis below assumed several pipeline pieces
+> were "real, not stubbed" based on reading the code alone. A follow-up session actually ran the
+> full stack (MySQL + Backend + Execution Manager + Framework Runner) end-to-end against the real
+> MPHIDB suite eight times in a row, fixing what broke each time, and found that the execution
+> pipeline was in fact **completely dead** end-to-end due to one missing annotation, plus five
+> more real bugs only a live run could surface. See §9 for the full account — read it before
+> trusting any "this works" claim elsewhere in this file about the execution pipeline, since parts
+> of §3/§5 below are now superseded by §9.
 
 ---
 
@@ -180,9 +189,14 @@ refresh-token rotation, optional Google OAuth2.
 Packages: `auth`, `users`, `audit`, `executions`, `events` (SSE), `dashboard`, `modules`,
 `environments`, `profile`, `config`, `reports`, `screenshots`, `common`, `logs`.
 
-Core pipeline classes, all real (not stubbed):
-- `ExecutionWorker` — polls the queue every 5s, submits to Execution Manager, copies artifacts.
+Core pipeline classes (status as verified by real E2E runs on 2026-07-02, see §9):
+- `ExecutionWorker` — polls the queue every 5s, submits to Execution Manager, copies artifacts,
+  and now also invokes `TestNGXmlParser` as a gap-fill merge (see §9). **Was completely inert
+  until 2026-07-02** — `@EnableScheduling` was missing from `AutomationPortalApplication`, so its
+  `@Scheduled` poll loop never ran and every execution sat at `QUEUED` forever. Now fixed.
 - `TestNGXmlParser` — parses `testng-results.xml` into test cases/steps/tags/retries/screenshots.
+  Was written correctly but **never called from anywhere** until 2026-07-02 (dead code) — now
+  wired into `ExecutionWorker.copyExecutionArtifacts()` via a new `mergeTestNgXmlResults()` method.
 - `ExecutionEventController` / `ExecutionEventService` / `LiveBroadcastService` — live event
   ingestion (`POST /api/events/execution`, API-key validated) and SSE broadcast
   (`GET /api/events/execution/{code}/stream`).
@@ -216,9 +230,15 @@ Spring Boot + JPA. Real, working concurrency control:
 
 Not a Spring app — a small standalone Java process using `com.sun.net.httpserver`. This is the
 thing that actually runs Maven:
-- `POST /runner/run` builds and runs `mvn test -DsuiteXmlFile=... -DexecutionId=... -DportalUrl=...
-  -DopenReport=false` against the MPHIDB checkout (mounted as a Docker volume), in a background
-  thread; blocks on `process.waitFor()` and then calls back to the Execution Manager.
+- `POST /runner/run` builds and runs `mvn clean test -DsuiteXmlFile=... -DexecutionId=...
+  -DportalUrl=... -DopenReport=false -Dusedefaultlisteners=true` against the MPHIDB checkout
+  (mounted as a Docker volume), in a background thread; blocks on `process.waitFor()` and then
+  calls back to the Execution Manager. `clean` and an explicit `deleteStaleTestOutput()` call
+  (wipes `<frameworkPath>/test-output`, which lives outside Maven's `target/` so `clean` alone
+  doesn't touch it) were added 2026-07-02 after a real run showed a previous suite's results
+  bleeding into the next one. `-Dusedefaultlisteners=true` was also added that day — without it,
+  Surefire's TestNG provider silently disables TestNG's own native XMLReporter and only its own
+  JUnit-schema report gets written, which `TestNGXmlParser` can't read (see §9).
 - `GET /runner/health`, `/runner/status`, `/runner/suites`, `POST /runner/cancel` all implemented.
 - **No `/runner/pause` or `/runner/resume`** — these are referenced in the docs' API contract
   but don't exist in code. Only a single Maven process at a time per runner instance (no
@@ -246,12 +266,26 @@ reports,screenshots,shared}/`, plus root `App.jsx`, `api.js`, `constants.js`.
 - `api.js` wraps ~50 backend endpoints across auth/profile/admin/dashboard/executions/reports/
   screenshots/compare — matches the backend surface closely.
 - **No SSE/WebSocket consumption** anywhere (confirmed by grep) — see the note in §3. All data
-  is fetched via REST, some of it in `Promise.all` batches.
+  is fetched via REST, some of it in `Promise.all` batches. **Correction as of 2026-07-02:**
+  `ExecutionCenter.jsx` *does* consume SSE (`EventSource` on `/api/events/execution/{code}/
+  stream`) for its live monitor panel — this was already true before the 2026-07-01 analysis, that
+  analysis statement was inaccurate. What's still missing is SSE consumption *outside* Execution
+  Center (e.g. Dashboard doesn't live-update).
 - Remaining hardcoded/mock spots: Topbar's 3-item notification sample list (not wired to any
   backend — there is no notification system yet, matches the v1.3 "Notification Center" backlog
   item), `Dashboard.jsx`'s `standardModules` fallback table shape, `ExecutionCenter.jsx`'s
   `queueColumns` (structural, not data), and `ApiCollection.jsx` / `InternalDocs.jsx` which are
   intentionally static reference/documentation content, not business data.
+- **2026-07-02 fixes** (see §9 for full detail): `ExecutionCenter.jsx`'s primary run picker was
+  populated by scanning raw `.xml` files in the MPHIDB folder (`/runner/suites`), completely
+  bypassing admin-registered Modules — fixed to use the `modules` prop (active modules only) as
+  the primary picker, with the raw XML scan demoted to a collapsed "Advanced" option. The
+  Pause/Resume button (cosmetic — no real pause capability anywhere in the stack) was removed;
+  Cancel (real) stays. `LogsViewer.jsx`'s `TestLogDrawer` now shows `failureReason`/
+  `exceptionType`/`stackTrace`/`screenshotPath` inline for failed tests, not just TestNG steps.
+  The live progress bar had a real bug — `totalTests` was being incremented on every completed
+  test instead of held at the expected count, so progress always read ~100%; fixed to seed from
+  `SUITE_STARTED`'s `totalExpectedTests` and hold steady.
 
 ### 5.6 MPHIDB — external automation framework (`D:\New folder\MPHIDB`)
 
@@ -301,6 +335,7 @@ shippable code — only as inspiration, per explicit prior instruction from the 
 | `retries` col, `total_duration_ms`, `pass_percentage`, `fail_percentage` | V5 | Analytics depth |
 | `machine_name`, `os_name`, `java_version`, `browser_name`, `browser_version`, `machine_ip` on `executions` | V6 | Execution Manager + system-info integration |
 | `xml_file`, `report_path` on `modules` | V7 | Suite/module mapping |
+| `runner_type` on `modules` (default `MAVEN_TESTNG`) | V8 | Seam for future non-Maven/TestNG frameworks — not yet read by any dispatch logic, see §9/`docs/version2.1.md` |
 
 Roles: `SUPER_ADMIN`, `ADMIN`, `QA_LEAD`, `AUTOMATION_ENGINEER`, `VIEWER`. No self-registration —
 all accounts created by SUPER_ADMIN via Admin Dashboard. Default seed:
@@ -331,9 +366,16 @@ all accounts created by SUPER_ADMIN via Admin Dashboard. Default seed:
    report parser service, standardized per-execution artifact folder, plugin-style dashboard
    widgets.
 8. **v1.3.0** (`version1.3cammand.md`, planned/deferred) — global search, failure analysis page,
-   framework health dashboard, **real-time SSE streaming to the UI** (still the biggest gap —
-   see §3/§5.5), notification center, advanced filtering, historical analytics, role/permission
-   UI, execution scheduler, configuration management, execution queue rework.
+   framework health dashboard, **real-time SSE streaming to the UI** (partially done — see the
+   §5.5 correction; Execution Center has it, other pages don't), notification center, advanced
+   filtering, historical analytics, role/permission UI, execution scheduler, configuration
+   management, execution queue rework.
+9. **v1.4** (`docs/version1.4.md`, content-identical duplicate of `docs/version1.1.3.md` which was
+   already overwritten with v1.4 content but never renamed) — multi-project/multi-user/RBAC future
+   scope, Execution Center integration completion. The integration-completion half was
+   substantially executed on 2026-07-02 — see §9. The multi-project/RBAC half is still future
+   scope, with an architecture design for it saved separately at `docs/version2.1.md` (not
+   implemented, explicitly deferred until a real second project exists to build against).
 
 **Read as a whole, the docs read like a live specification the project owner has been iterating**
 **on with an AI assistant — later docs correct/refine earlier ones (`1.2CR.md` explicitly**
@@ -347,12 +389,15 @@ all accounts created by SUPER_ADMIN via Admin Dashboard. Default seed:
 These are factual observations, not judgments — useful as a starting punch list whenever you're
 ready to decide what to work on next:
 
-1. **Frontend does not consume the SSE live-event stream** the backend already exposes
-   (`/api/events/execution/{code}/stream`). This is the core "batch vs. live" architecture gap
-   relative to the `1.2CR.md` vision.
+1. ~~Frontend does not consume the SSE live-event stream~~ — **inaccurate as written**; see §5.5
+   correction. `ExecutionCenter.jsx` does consume it. Other pages (Dashboard) still don't.
 2. **Execution Manager `pause`/`resume` are state-only** — no corresponding capability exists
-   in the Framework Runner to actually pause a running Maven/TestNG process.
-3. **`GET /api/logs` (LogController) is a dead stub** returning an empty list.
+   in the Framework Runner to actually pause a running Maven/TestNG process. As of 2026-07-02 the
+   Pause/Resume button was removed from `ExecutionCenter.jsx` (was presenting a capability that
+   didn't exist); the backend stub endpoints were left alone as harmless dead code.
+3. **`GET /api/logs` (LogController) is a dead stub** returning an empty list. Still true —
+   `LogsViewer.jsx` gets its data from `/api/executions/{id}/test-cases` and
+   `/api/test-cases/{id}/steps` instead, so this endpoint appears genuinely unused. Not touched.
 4. **Notification Center is entirely absent** — Topbar shows 3 hardcoded sample notifications;
    this matches the v1.3 backlog (not yet started), so it's an expected gap, not a bug.
 5. **Global Search, Failure Analysis page, Framework Health dashboard, Role/Access Management
@@ -364,16 +409,128 @@ ready to decide what to work on next:
    needs to be reconciled with the current portal version.
 7. **`loveable.ai/automation-hub` is unused as running code** — it's reference-only per explicit
    instruction; don't treat its presence as "half-migrated" work.
+8. **The execution pipeline was completely non-functional until 2026-07-02** (missing
+   `@EnableScheduling`) — everything in §3's workflow description above was aspirational/
+   as-designed, not as-verified, until that day. See §9 for the corrected, live-run-verified
+   account.
+9. **Framework Runner is still hardcoded to Maven/TestNG** — `ModuleEntity.runnerType` (V8) is a
+   seam, not a working dispatch switch. No other framework type is actually runnable yet. Design
+   for closing this gap (and for true multi-project support) is saved at `docs/version2.1.md`,
+   explicitly not implemented.
+10. **No per-project concurrency, no `Project` entity, no multi-runner routing by capability** —
+    `QueueProcessor.selectRunner()` in `execution-manager/` just grabs the first IDLE runner or a
+    single hardcoded default; `runner_registry` has no `project_id`/`runner_type` columns yet.
+    Fine for the current one-project-one-framework deployment; would need the `docs/version2.1.md`
+    work before a second project or framework could be safely onboarded.
 
 ---
 
-## 9. How to Use This Document
+## 9. Session Update — 2026-07-02: Execution Center Integration Completion (Real, Verified)
+
+The user's ask was specific: make clicking "Run" actually go execution server → framework →
+real file execution → real data, "not just status, every single thing you can get, into the
+dashboard." That required going past code-reading into actually standing up the full stack
+(throwaway MySQL container + Backend + Execution Manager + Framework Runner, all run natively,
+not via docker-compose) and triggering real `MODULE`-type executions against the real MPHIDB
+Land suite, iterating until the whole chain — including data correctness, not just "it ran" —
+held up. Eight real runs, six real bugs found and fixed:
+
+1. **`@EnableScheduling` was missing** from `AutomationPortalApplication` (`backend/src/main/
+   java/com/automationportal/AutomationPortalApplication.java`). `ExecutionWorker.pollQueue()`
+   (`@Scheduled(fixedDelay=5000)`) never ran — every execution sat at `QUEUED` forever. This alone
+   meant the entire pipeline described in §3 was dead in practice, regardless of how correct the
+   rest of the code was. (Execution Manager's own `QueueProcessor` already had
+   `@EnableScheduling` on `ExecutionManagerApp` — only the main Portal Backend was missing it.)
+2. **`testng-results.xml` path was wrong, and the file wasn't even being generated.**
+   `application.yml`'s `portal.automation.result-files.testng-results` pointed at
+   `test-output/testng-results.xml` — correct for a bare `java org.testng.TestNG` invocation, but
+   this project's actual runner does `mvn test`, which routes through Surefire's TestNG provider.
+   That provider (a) writes its own JUnit-schema report to `target/surefire-reports/`, not
+   TestNG's native schema `TestNGXmlParser` expects, and (b) **disables TestNG's own default
+   listeners (including its native XMLReporter) unless `-Dusedefaultlisteners=true` is passed** —
+   so the file `TestNGXmlParser` needed didn't exist anywhere on disk at all until that flag was
+   added. Fixed both: added the system property in `FrameworkRunnerService.runMaven()`, and
+   corrected all four `result-files` paths in `application.yml` to `target/surefire-reports/...`.
+3. **Stale `test-output/` contamination across runs.** That directory lives outside Maven's
+   `target/`, so `mvn clean` never touches it; a previous unrelated suite's leftover
+   `testng-results.xml` was bleeding into the current run's parsed data (confirmed: an "Architect
+   Empanelment Tests" block showed up in a Land-only run's results). Fixed by explicitly deleting
+   `<frameworkPath>/test-output` before every run (`FrameworkRunnerService.deleteStaleTestOutput()`).
+4. **Duplicate `ExecutionTestCase` rows from a real race condition.** MPHIDB's `PortalApiClient`
+   pushes lifecycle events fire-and-forget; a `TEST_STARTED` and its matching
+   `TEST_PASSED/FAILED/SKIPPED` could land on two Tomcat threads close together, both querying
+   "does a row exist for this test" before either's insert had committed. A `synchronized` block
+   added *inside* `ExecutionEventService.processEvent()` (a `@Transactional` method) didn't fix
+   it — Spring's transaction commits only when the method *returns to its caller*, which is after
+   an in-method `synchronized` block has already released. Fix: moved the per-execution lock to
+   `ExecutionEventController.receiveEvent()`, wrapping the whole call to
+   `eventService.processEvent(payload)`, so the lock is held across the full commit.
+5. **Execution-level totals were computed before the XML merge could correct them.**
+   `ExecutionEventService.finalizeExecution()` tallied `totalTests`/`passedTests`/etc. from
+   whatever the live event stream had captured, *then* called `executionWorker.
+   copyExecutionArtifacts()` (which runs the `TestNGXmlParser` gap-fill merge and can flip a
+   test case stuck on `RUNNING` — e.g. one whose terminal event never arrived — over to its real
+   final `SKIP`/`FAIL` status). The execution-level summary never picked up that correction.
+   Fixed by extracting the tally logic into `recomputeExecutionTotals()` and calling it twice:
+   once immediately (fast UI feedback) and once again after the artifact/merge step.
+6. **A separate timing race**: MPHIDB's listener pushes `SUITE_COMPLETED` from its
+   `afterSuite`/`onFinish` hook, which fires *before* TestNG's native XMLReporter (enabled by fix
+   #2) finishes writing `testng-results.xml` — that reporter runs as one of the very last steps of
+   TestNG's own shutdown sequence, after all test listeners' hooks. `copyExecutionArtifacts()` was
+   copying immediately on receiving that event and sometimes finding nothing yet. Fixed with a
+   short bounded wait (`ExecutionWorker.waitForFile()`, up to 5s, polling every 500ms) for the
+   source file before copying.
+
+Also fixed as smaller, concrete gaps (not "bugs" exactly, but real inaccuracies):
+- `execution.triggeredBy` was hardcoded to `1L` ("Default admin user") on every run regardless of
+  who actually clicked Run. `ExecutionController` now resolves the real user via the existing
+  `AuthenticatedUserService` and threads it through `ExecutionService.queue()/rerun()/
+  rerunFailed()`.
+- `SUITE_STARTED`'s payload field names didn't match what `ExecutionEventService` read:
+  MPHIDB sends `hostname`, the backend was reading `machineName` (so `machineName` was always
+  null); `javaVersion` was sent but never read at all. Both fixed. Also added: seed
+  `execution.totalTests` from the payload's `totalExpectedTests` immediately on `SUITE_STARTED`,
+  so the live progress bar has a real denominator from the start instead of reading "0/0" or (per
+  the separate frontend bug fixed alongside this) a meaningless always-100%.
+
+**Final verified run** (execution `AUTO-20260702123831`, Land module, real Selenium session
+against the actual `godavari.mp.gov.in` QA target — confirmed reachable from a native Windows
+Chrome process even though this sandbox's own `curl` could not reach it directly): `totalTests:
+10, failedTests: 5, skippedTests: 5, passedTests: 0` — exactly matching Maven's own `Tests run:
+10, Failures: 5, Skipped: 5` output. Every `ExecutionTestCase` row had correct status, duration,
+exception type/message/stack trace (for failures), and screenshot path; `test_steps` and
+`execution_test_case_tags` (both previously always-empty — `TestNGXmlParser` was dead code, see
+point 1 in §5.1's correction above) were populated correctly; `/api/dashboard/summary` reflected
+the same numbers. Test failures themselves were genuine Selenium/app issues (an expected UI
+element wasn't found on the QA site) — unrelated to any Portal code, proof the pipeline correctly
+captures real failure data, not just happy-path passes.
+
+Frontend changes made alongside this (detailed in §5.5): Execution Center's run picker now uses
+admin-registered Modules as primary (raw XML file scan demoted to a collapsed "Advanced" option);
+Test Logs drawer shows exception/stack trace/screenshot inline for failed tests; the fake
+Pause/Resume button was removed; `ModuleEntity` gained a `runnerType` column (V8 migration,
+default `MAVEN_TESTNG`) as a not-yet-wired seam for future framework types.
+
+All throwaway test infrastructure (Docker MySQL container, generated `backend/artifacts/`, test
+executions in the DB) was torn down/cleaned after verification — `git status` reflects only real
+source changes.
+
+**Future scope, explicitly not built this session:** true multi-framework (Playwright/pytest/
+.NET) and multi-project support. A full architecture design for that — `Project` entity, per-
+project Runner routing via the already-existing but currently-unused `runner_registry` table,
+new Admin screens (Projects, Runners), Execution Center project selector — is saved at
+`docs/version2.1.md`, deliberately deferred until a real second project/framework needs
+onboarding.
+
+## 10. How to Use This Document
 
 - Treat this as the **baseline mental model**. When you give new instructions, they add to or
   override specific sections here — they don't replace the whole architecture.
-- This file is a snapshot from **2026-07-01**. Code moves faster than docs — if something here
+- This file is a snapshot from **2026-07-02**. Code moves faster than docs — if something here
   looks wrong when you next open the code, trust the code and update this file, don't argue with
-  memory of this file.
+  memory of this file. Note that §1–§9 were written from a code-reading-only pass on 2026-07-01
+  and contain some claims later corrected by the live-run verification in §9 — where they
+  conflict, §9 is the more trustworthy, ground-truth-tested account.
 - This document intentionally does not enumerate every one of the ~70+ backend REST endpoints or
   every React component prop — for that level of detail, read the actual controller/component,
   since restating it here would just drift out of date. It gives you the map; the code is the

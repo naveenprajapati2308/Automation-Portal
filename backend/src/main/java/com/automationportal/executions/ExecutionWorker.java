@@ -32,6 +32,10 @@ public class ExecutionWorker {
     private final ExecutionLogRepository logRepository;
     private final PortalAutomationProperties properties;
     private final ModuleRepository moduleRepository;
+    private final ExecutionTestCaseRepository testCaseRepository;
+    private final TestStepRepository testStepRepository;
+    private final TagRepository tagRepository;
+    private final TestNGXmlParser testNGXmlParser;
     private final HttpClient httpClient;
 
     @Value("${portal.execution-manager.url:http://localhost:8090}")
@@ -41,12 +45,20 @@ public class ExecutionWorker {
                            ExecutionArtifactRepository artifactRepository,
                            ExecutionLogRepository logRepository,
                            PortalAutomationProperties properties,
-                           ModuleRepository moduleRepository) {
+                           ModuleRepository moduleRepository,
+                           ExecutionTestCaseRepository testCaseRepository,
+                           TestStepRepository testStepRepository,
+                           TagRepository tagRepository,
+                           TestNGXmlParser testNGXmlParser) {
         this.executionRepository = executionRepository;
         this.artifactRepository = artifactRepository;
         this.logRepository = logRepository;
         this.properties = properties;
         this.moduleRepository = moduleRepository;
+        this.testCaseRepository = testCaseRepository;
+        this.testStepRepository = testStepRepository;
+        this.tagRepository = tagRepository;
+        this.testNGXmlParser = testNGXmlParser;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -217,9 +229,19 @@ public class ExecutionWorker {
             Files.createDirectories(artifactBaseDir.resolve("screenshots"));
             Files.createDirectories(artifactBaseDir.resolve("logs"));
 
+            // MPHIDB's listener pushes SUITE_COMPLETED (which triggers this method) from its
+            // afterSuite/onFinish hook, but TestNG's native XMLReporter writes testng-results.xml
+            // as one of the very last steps of its own shutdown sequence — slightly after that
+            // hook runs. Give it a short bounded window to land before copying artifacts.
+            waitForFile(new File(repoPath, properties.getResultFiles().getOrDefault("testng-results", "")), 10, 500);
+
             // Copy files
             copyArtifacts(repoPath, artifactBaseDir.toString(), executionCode, suiteReport);
-            
+
+            // Re-parse testng-results.xml as the structured source of truth: fills in
+            // parameters, groups/tags and per-step logs that the live event stream doesn't carry.
+            mergeTestNgXmlResults(execution, artifactBaseDir, artifactsRoot);
+
             // Save console log artifact if it exists
             File consoleLogFile = artifactBaseDir.resolve("logs/console.log").toFile();
             if (consoleLogFile.exists()) {
@@ -241,6 +263,80 @@ public class ExecutionWorker {
             log.info("Artifacts successfully copied for execution: {}", executionCode);
         } catch (Exception e) {
             log.error("Failed to copy artifacts for execution: {}", execution.getExecutionCode(), e);
+        }
+    }
+
+    private void waitForFile(File file, int maxAttempts, long delayMs) {
+        for (int i = 0; i < maxAttempts; i++) {
+            if (file.exists()) return;
+            try {
+                Thread.sleep(delayMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+    }
+
+    /**
+     * The live event stream (ExecutionEventService) creates/updates ExecutionTestCase rows in
+     * real time, but doesn't carry parameters, groups/tags, or per-step logs. testng-results.xml
+     * is the structured source of truth for that extra detail, so re-parse it once the run
+     * finishes and merge the gaps in rather than duplicating rows the live pipeline already made.
+     */
+    private void mergeTestNgXmlResults(Execution execution, Path artifactBaseDir, String artifactsRoot) {
+        try {
+            File resultsXml = artifactBaseDir.resolve("xml/testng-results.xml").toFile();
+            if (!resultsXml.exists()) {
+                log.warn("No testng-results.xml found to merge for execution {}", execution.getExecutionCode());
+                return;
+            }
+
+            List<ExecutionTestCase> parsed = testNGXmlParser.parse(
+                    resultsXml, execution.getId(), execution.getExecutionCode(), artifactsRoot);
+
+            for (ExecutionTestCase parsedTc : parsed) {
+                // Match on class+method only: the live event stream's "testName" is the
+                // per-test-case label (e.g. "TC_001"), while testng-results.xml's testName is the
+                // enclosing <test> tag (e.g. "Land Management Suite") — they're not comparable.
+                ExecutionTestCase tc = testCaseRepository
+                        .findFirstByExecutionIdAndClassNameAndMethodName(
+                                execution.getId(), parsedTc.getClassName(), parsedTc.getMethodName())
+                        .orElse(null);
+
+                boolean isNew = tc == null;
+                if (isNew) {
+                    tc = parsedTc;
+                } else {
+                    if (tc.getParameters() == null) tc.setParameters(parsedTc.getParameters());
+                    if (tc.getScreenshotPath() == null) tc.setScreenshotPath(parsedTc.getScreenshotPath());
+                    if (tc.getSuiteName() == null) tc.setSuiteName(parsedTc.getSuiteName());
+                    if (tc.getStatus() == null || "RUNNING".equalsIgnoreCase(tc.getStatus())) {
+                        tc.setStatus(parsedTc.getStatus());
+                    }
+                    if (tc.getRetries() < parsedTc.getRetries()) tc.setRetries(parsedTc.getRetries());
+                }
+                tc.setConfigMethod(parsedTc.isConfigMethod());
+
+                for (Tag parsedTag : parsedTc.getTags()) {
+                    Tag persistedTag = tagRepository.findByName(parsedTag.getName())
+                            .orElseGet(() -> tagRepository.save(new Tag(parsedTag.getName())));
+                    tc.getTags().add(persistedTag);
+                }
+
+                tc = testCaseRepository.save(tc);
+
+                if (testStepRepository.findByTestCaseIdOrderByStepOrder(tc.getId()).isEmpty()) {
+                    for (TestStep step : parsedTc.getTransientSteps()) {
+                        step.setTestCaseId(tc.getId());
+                        testStepRepository.save(step);
+                    }
+                }
+            }
+
+            log.info("Merged testng-results.xml data ({} test cases) for execution {}", parsed.size(), execution.getExecutionCode());
+        } catch (Exception e) {
+            log.error("Failed to merge testng-results.xml for execution {}", execution.getExecutionCode(), e);
         }
     }
 

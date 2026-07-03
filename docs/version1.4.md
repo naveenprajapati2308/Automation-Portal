@@ -142,6 +142,7 @@ For example,
 * Failed
 * Duration
 * Current Logs
+and most importatent data of exicution that will help in dashboard 
 
 If live tracking is difficult,
 
@@ -366,8 +367,7 @@ The architecture should be designed today so these features can be added without
 
 # Development Notes
 
-* Follow the Version 1.
-1.3 roadmap wherever applicable.
+* Follow the Version 1.1.3 roadmap wherever applicable.
 * Implement all changes according to these Version 1.4 requirements.
 * Framework modifications are allowed if required for better integration.
 * Reference projects may be used only for understanding or implementation ideas and should not be modified.

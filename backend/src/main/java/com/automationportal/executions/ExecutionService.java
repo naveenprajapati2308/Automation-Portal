@@ -45,14 +45,14 @@ public class ExecutionService {
         this.broadcastService = broadcastService;
     }
 
-    public Execution queue(RunExecutionRequest request) {
+    public Execution queue(RunExecutionRequest request, Long triggeredByUserId) {
         Execution execution = new Execution();
         execution.setExecutionCode("AUTO-" + DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(java.time.ZoneOffset.UTC).format(Instant.now()));
         execution.setExecutionType(request.executionType());
         execution.setEnvironmentId(request.environmentId());
         execution.setModuleCode(request.executionType() == ExecutionType.ALL_MODULES ? "ALL" : request.moduleCode());
         execution.setSuiteXmlPath(request.suiteXmlPath());
-        execution.setTriggeredBy(1L); // Default admin user
+        execution.setTriggeredBy(triggeredByUserId);
         execution.setStatus(ExecutionStatus.QUEUED);
         return repository.save(execution);
     }
@@ -75,7 +75,7 @@ public class ExecutionService {
         worker.cancelExecution(id);
     }
 
-    public Execution rerun(Long id) {
+    public Execution rerun(Long id, Long triggeredByUserId) {
         Execution old = repository.findById(id).orElseThrow();
         RunExecutionRequest req = new RunExecutionRequest(
                 old.getExecutionType(),
@@ -83,10 +83,10 @@ public class ExecutionService {
                 old.getModuleCode(),
                 old.getSuiteXmlPath()
         );
-        return queue(req);
+        return queue(req, triggeredByUserId);
     }
 
-    public Execution rerunFailed(Long id) {
+    public Execution rerunFailed(Long id, Long triggeredByUserId) {
         Execution old = repository.findById(id).orElseThrow();
         
         // Find failed xml artifact
@@ -118,7 +118,7 @@ public class ExecutionService {
         execution.setEnvironmentId(old.getEnvironmentId());
         execution.setModuleCode(old.getModuleCode());
         execution.setSuiteXmlPath(tempSuiteName);
-        execution.setTriggeredBy(1L);
+        execution.setTriggeredBy(triggeredByUserId);
         execution.setStatus(ExecutionStatus.QUEUED);
         
         return repository.save(execution);

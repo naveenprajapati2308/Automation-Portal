@@ -82,11 +82,24 @@ public class ExecutionEventService {
                     if (data.containsKey("os")) {
                         execution.setOsName((String) data.get("os"));
                     }
-                    if (data.containsKey("machineName")) {
+                    if (data.containsKey("javaVersion")) {
+                        execution.setJavaVersion((String) data.get("javaVersion"));
+                    }
+                    // MPHIDB's PortalApiClient sends the machine name as "hostname"
+                    if (data.containsKey("hostname")) {
+                        execution.setMachineName((String) data.get("hostname"));
+                    } else if (data.containsKey("machineName")) {
                         execution.setMachineName((String) data.get("machineName"));
                     }
                     if (data.containsKey("machineIp")) {
                         execution.setMachineIp((String) data.get("machineIp"));
+                    }
+                    // Seed the expected test count immediately so live progress isn't stuck at 0/0
+                    // until the first test finishes.
+                    if (data.containsKey("totalExpectedTests")) {
+                        try {
+                            execution.setTotalTests(((Number) data.get("totalExpectedTests")).intValue());
+                        } catch (Exception ignored) {}
                     }
                 }
                 executionRepository.save(execution);
@@ -254,8 +267,26 @@ public class ExecutionEventService {
     }
 
     private void finalizeExecution(Execution execution, Map<String, Object> data) {
+        // First pass: settle status/counts immediately from whatever the live event stream has
+        // captured, so the UI reflects completion without delay.
+        recomputeExecutionTotals(execution, data);
+        logToDb(execution.getId(), "INFO", "Suite execution completed. Status: " + execution.getStatus(), "SYSTEM");
+
+        // Copy artifacts and re-parse testng-results.xml, which can correct test cases the live
+        // stream left in a stale state (e.g. a SKIPPED test whose terminal event never arrived).
+        executionWorker.copyExecutionArtifacts(execution);
+
+        // Second pass: recompute from the now-corrected test case rows so the execution-level
+        // summary (dashboard, reports) matches what's actually in execution_test_cases.
+        recomputeExecutionTotals(execution, data);
+
+        // Notify Execution Manager of completion to release concurrency slot
+        notifyExecutionManagerCompleted(execution.getExecutionCode());
+    }
+
+    private void recomputeExecutionTotals(Execution execution, Map<String, Object> data) {
         List<ExecutionTestCase> testCases = testCaseRepository.findByExecutionId(execution.getId());
-        
+
         int total = 0, passed = 0, failed = 0, skipped = 0;
         long totalDurationMs = 0;
 
@@ -315,13 +346,6 @@ public class ExecutionEventService {
         }
 
         executionRepository.save(execution);
-        logToDb(execution.getId(), "INFO", "Suite execution completed. Status: " + execution.getStatus(), "SYSTEM");
-
-        // Copy artifacts from framework directory
-        executionWorker.copyExecutionArtifacts(execution);
-
-        // Notify Execution Manager of completion to release concurrency slot
-        notifyExecutionManagerCompleted(execution.getExecutionCode());
     }
 
     private void notifyExecutionManagerCompleted(String executionCode) {

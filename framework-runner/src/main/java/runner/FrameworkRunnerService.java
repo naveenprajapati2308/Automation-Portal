@@ -43,7 +43,7 @@ public class FrameworkRunnerService {
 
     public static void main(String[] args) throws Exception {
         int port = Integer.parseInt(System.getProperty("runner.port", "9090"));
-        
+
         // Allow path override via system property or env variable
         String envPath = System.getenv("FRAMEWORK_PATH");
         if (envPath != null && !envPath.isEmpty()) {
@@ -60,8 +60,9 @@ public class FrameworkRunnerService {
         if (emUrl != null && !emUrl.isEmpty()) {
             executionManagerUrl = emUrl;
         }
-        
-        // If path doesn't exist, fall back to "D:\\New folder\\MPHIDB" or current directory
+
+        // If path doesn't exist, fall back to "D:\\New folder\\MPHIDB" or current
+        // directory
         if (!Files.exists(Paths.get(frameworkPath))) {
             if (Files.exists(Paths.get("D:\\New folder\\MPHIDB"))) {
                 frameworkPath = "D:\\New folder\\MPHIDB";
@@ -93,8 +94,7 @@ public class FrameworkRunnerService {
     private static void handleStatus(HttpExchange exchange) throws IOException {
         String json = String.format(
                 "{\"running\":%b,\"currentJobId\":\"%s\"}",
-                running, currentJobId
-        );
+                running, currentJobId);
         send(exchange, 200, json, "application/json");
     }
 
@@ -111,7 +111,8 @@ public class FrameworkRunnerService {
 
         // Read request body
         String body;
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8))) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(exchange.getRequestBody(), StandardCharsets.UTF_8))) {
             body = reader.lines().collect(Collectors.joining("\n"));
         }
 
@@ -137,22 +138,38 @@ public class FrameworkRunnerService {
     private static void runMaven(String executionId, String suiteXml, String portalUrl, String apiKey) {
         try {
             System.out.println("Starting Maven run for job " + executionId + ", suite: " + suiteXml);
-            
+
+            // TestNG writes to <frameworkPath>/test-output, which sits outside Maven's
+            // target/
+            // directory, so "mvn clean" never touches it. Wipe it explicitly so a previous
+            // run's
+            // testng-results.xml can't bleed into this execution's parsed data.
+            deleteStaleTestOutput();
+
             List<String> command = new ArrayList<>();
             String os = System.getProperty("os.name").toLowerCase();
-            
+
             // Check if mvn command is provided as env
             String mavenCmd = System.getenv("MAVEN_CMD");
             if (mavenCmd == null || mavenCmd.isEmpty()) {
                 mavenCmd = os.contains("win") ? "mvn.cmd" : "mvn";
             }
-            
+
             command.add(mavenCmd);
+            command.add("clean");
             command.add("test");
             command.add("-DsuiteXmlFile=" + suiteXml);
             command.add("-DexecutionId=" + executionId);
             command.add("-DportalUrl=" + portalUrl);
             command.add("-DopenReport=false");
+            // Surefire's TestNG provider disables TestNG's own default listeners (including
+            // its
+            // native XMLReporter) unless told otherwise, so it never writes
+            // test-output/testng-
+            // results.xml — only its own JUnit-schema report. The portal's parser needs the
+            // native
+            // TestNG schema, so force it back on.
+            command.add("-Dusedefaultlisteners=true");
             if (apiKey != null && !apiKey.isEmpty()) {
                 command.add("-DportalApiKey=" + apiKey);
             }
@@ -166,7 +183,8 @@ public class FrameworkRunnerService {
             currentProcess = pb.start();
 
             // Read output so process doesn't hang
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(currentProcess.getInputStream(), StandardCharsets.UTF_8))) {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(currentProcess.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
                     // System print console output for Docker logs
@@ -192,6 +210,22 @@ public class FrameworkRunnerService {
         }
     }
 
+    private static void deleteStaleTestOutput() {
+        Path testOutput = Paths.get(frameworkPath, "test-output");
+        if (!Files.exists(testOutput))
+            return;
+        try (Stream<Path> walk = Files.walk(testOutput)) {
+            walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (IOException ignored) {
+                }
+            });
+        } catch (IOException e) {
+            System.err.println("Failed to clear stale test-output directory: " + e.getMessage());
+        }
+    }
+
     private static void notifyExecutionManagerCompleted(String jobId) {
         try {
             String url = executionManagerUrl + "/em/executions/" + jobId + "/completed";
@@ -202,7 +236,8 @@ public class FrameworkRunnerService {
                     .timeout(Duration.ofSeconds(10))
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            System.out.println("Notified Execution Manager of job completion. jobId=" + jobId + ", status=" + response.statusCode());
+            System.out.println("Notified Execution Manager of job completion. jobId=" + jobId + ", status="
+                    + response.statusCode());
         } catch (Exception e) {
             System.err.println("Failed to notify Execution Manager of job completion for jobId=" + jobId);
             e.printStackTrace();
@@ -224,7 +259,8 @@ public class FrameworkRunnerService {
             System.out.println("Cancelling job: " + currentJobId);
             currentProcess.descendants().forEach(ProcessHandle::destroyForcibly);
             currentProcess.destroyForcibly();
-            send(exchange, 200, "{\"status\":\"CANCELLED\",\"message\":\"Job cancelled successfully\"}", "application/json");
+            send(exchange, 200, "{\"status\":\"CANCELLED\",\"message\":\"Job cancelled successfully\"}",
+                    "application/json");
         } catch (Exception e) {
             send(exchange, 500, "{\"error\":\"" + e.getMessage() + "\"}", "application/json");
         }
@@ -245,11 +281,10 @@ public class FrameworkRunnerService {
                 String fileName = files.get(i);
                 String suiteName = SUITE_NAMES.getOrDefault(fileName, fileName.replace(".xml", "") + " Suite");
                 String key = fileName.replace(".xml", "").toLowerCase();
-                
+
                 json.append(String.format(
                         "{\"key\":\"%s\",\"name\":\"%s\",\"xml\":\"%s\"}",
-                        key, suiteName, fileName
-                ));
+                        key, suiteName, fileName));
                 if (i < files.size() - 1) {
                     json.append(",");
                 }
@@ -264,18 +299,23 @@ public class FrameworkRunnerService {
 
     private static String getJsonVal(String json, String key) {
         int idx = json.indexOf("\"" + key + "\"");
-        if (idx == -1) return "";
+        if (idx == -1)
+            return "";
         int colon = json.indexOf(":", idx);
-        if (colon == -1) return "";
+        if (colon == -1)
+            return "";
         int startQuote = json.indexOf("\"", colon);
-        if (startQuote == -1 || startQuote > json.indexOf(",", colon) && json.indexOf(",", colon) != -1 || startQuote > json.indexOf("}", colon)) {
+        if (startQuote == -1 || startQuote > json.indexOf(",", colon) && json.indexOf(",", colon) != -1
+                || startQuote > json.indexOf("}", colon)) {
             // It's a boolean or number
             int end = json.indexOf(",", colon);
-            if (end == -1) end = json.indexOf("}", colon);
+            if (end == -1)
+                end = json.indexOf("}", colon);
             return json.substring(colon + 1, end).trim();
         }
         int endQuote = json.indexOf("\"", startQuote + 1);
-        if (endQuote == -1) return "";
+        if (endQuote == -1)
+            return "";
         return json.substring(startQuote + 1, endQuote);
     }
 

@@ -19,6 +19,9 @@ public class ModuleEntity {
     @Column(name = "report_path")
     private String reportPath;
 
+    @Column(name = "runner_type", nullable = false)
+    private String runnerType = "MAVEN_TESTNG";
+
     protected ModuleEntity() {
     }
 
@@ -40,4 +43,6 @@ public class ModuleEntity {
     public void setXmlFile(String xmlFile) { this.xmlFile = xmlFile; }
     public String getReportPath() { return reportPath; }
     public void setReportPath(String reportPath) { this.reportPath = reportPath; }
+    public String getRunnerType() { return runnerType; }
+    public void setRunnerType(String runnerType) { this.runnerType = runnerType; }
 }

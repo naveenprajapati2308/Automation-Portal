@@ -1,5 +1,6 @@
 package com.automationportal.executions;
 
+import com.automationportal.auth.AuthenticatedUserService;
 import com.automationportal.common.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -13,14 +14,16 @@ import java.util.Map;
 public class ExecutionController {
     private final ExecutionService service;
     private final ExecutionRepository repository;
+    private final AuthenticatedUserService authenticatedUserService;
     private final java.net.http.HttpClient httpClient;
 
     @org.springframework.beans.factory.annotation.Value("${portal.execution-manager.url:http://localhost:8090}")
     private String executionManagerUrl;
 
-    public ExecutionController(ExecutionService service, ExecutionRepository repository) {
+    public ExecutionController(ExecutionService service, ExecutionRepository repository, AuthenticatedUserService authenticatedUserService) {
         this.service = service;
         this.repository = repository;
+        this.authenticatedUserService = authenticatedUserService;
         this.httpClient = java.net.http.HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(5))
                 .build();
@@ -28,7 +31,7 @@ public class ExecutionController {
 
     @PostMapping("/run")
     public ApiResponse<Execution> run(@Valid @RequestBody RunExecutionRequest request) {
-        return ApiResponse.created("Execution queued", service.queue(request));
+        return ApiResponse.created("Execution queued", service.queue(request, authenticatedUserService.currentUser().getId()));
     }
 
     @GetMapping
@@ -80,12 +83,12 @@ public class ExecutionController {
 
     @PostMapping("/{id}/rerun")
     public ApiResponse<Execution> rerun(@PathVariable Long id) {
-        return ApiResponse.created("Execution rerun queued", service.rerun(id));
+        return ApiResponse.created("Execution rerun queued", service.rerun(id, authenticatedUserService.currentUser().getId()));
     }
 
     @PostMapping("/{id}/rerun-failed")
     public ApiResponse<Execution> rerunFailed(@PathVariable Long id) {
-        return ApiResponse.created("Failed tests rerun queued", service.rerunFailed(id));
+        return ApiResponse.created("Failed tests rerun queued", service.rerunFailed(id, authenticatedUserService.currentUser().getId()));
     }
 
     @PostMapping("/{id}/state")

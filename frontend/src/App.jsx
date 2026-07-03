@@ -150,7 +150,7 @@ export function App() {
   const [selectedEnv, setSelectedEnv] = useState(1);
   const [selectedModule, setSelectedModule] = useState('LAND');
   const [suiteXmlPath, setSuiteXmlPath] = useState('');
-  const [notice, setNotice] = useState('Security foundation is active.');
+  const [notice, setNotice] = useState('');
   const [selectedExecutionId, setSelectedExecutionId] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     localStorage.getItem('sidebar-collapsed') === 'true'
@@ -181,6 +181,13 @@ export function App() {
     });
     return () => api.setErrorCallback(null);
   }, []);
+
+  // `notice` is a toast, not a permanent header fixture — auto-dismiss it.
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(''), 3500);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   const refresh = async () => {
     try {
@@ -229,12 +236,12 @@ export function App() {
     }
   };
 
-  const run = async (executionType, overrideXml = null) => {
+  const run = async (executionType, overrideXml = null, overrideModuleCode = null) => {
     try {
       const payload = {
         executionType,
         environmentId: selectedEnv,
-        moduleCode: executionType === 'MODULE' ? selectedModule : undefined,
+        moduleCode: executionType === 'MODULE' ? (overrideModuleCode || selectedModule) : undefined,
         suiteXmlPath: overrideXml || (executionType === 'XML_SUITE' ? suiteXmlPath : undefined)
       };
       const execution = await api.runExecution(payload);
@@ -295,7 +302,6 @@ export function App() {
         topbar={(
           <Topbar
             pageTitle={pageTitle}
-            notice={notice}
             superAdmin={superAdmin}
             onOpenAdmin={openAdminWorkspace}
             session={session}
@@ -341,7 +347,62 @@ export function App() {
   return (
     <>
       {content}
-      
+
+      {notice && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'rgba(16, 185, 129, 0.12)',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            color: '#34d399',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            fontSize: '13px',
+            fontWeight: 600,
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(6px)',
+          }}
+        >
+          <span
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              width: '18px',
+              height: '18px',
+              borderRadius: '50%',
+              background: '#10b981',
+              color: '#052e1d',
+              flexShrink: 0,
+            }}
+          >
+            <Check size={12} strokeWidth={3} />
+          </span>
+          {notice}
+          <button
+            onClick={() => setNotice('')}
+            aria-label="Dismiss"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#34d399',
+              cursor: 'pointer',
+              padding: '2px',
+              marginLeft: '4px',
+              opacity: 0.7,
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {globalError && (
         <Modal 
           title="" 
