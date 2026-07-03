@@ -26,6 +26,35 @@ public class PortalCallbackClient {
                 .build();
     }
 
+    /**
+     * Fired every time a runner's process exits, success or failure. If MPHIDB's own listener
+     * already pushed SUITE_COMPLETED and the portal computed a real terminal status, this is a
+     * no-op there. It only matters when the run failed before any listener code ran at all (e.g.
+     * the Maven build itself failing) — otherwise the execution stays stuck on RUNNING and blocks
+     * ExecutionWorker's "one at a time" queue gate forever.
+     */
+    public void notifyJobFinished(Long executionId) {
+        try {
+            String url = portalBackendUrl + "/api/executions/" + executionId + "/job-finished";
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .timeout(Duration.ofSeconds(5))
+                    .build();
+
+            log.info("Sending job-finished callback to portal backend: {}", url);
+            httpClient.sendAsync(request, HttpResponse.BodyHandlers.discarding())
+                    .thenAccept(res -> log.info("Job-finished callback completed with status: {}", res.statusCode()))
+                    .exceptionally(ex -> {
+                        log.error("Failed to send job-finished callback for executionId: {}", executionId, ex);
+                        return null;
+                    });
+        } catch (Exception e) {
+            log.error("Exception in job-finished callback for executionId: {}", executionId, e);
+        }
+    }
+
     public void notifyStateChange(Long executionId, String state) {
         try {
             String url = portalBackendUrl + "/api/executions/" + executionId + "/state";

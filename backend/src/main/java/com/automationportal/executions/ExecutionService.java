@@ -125,7 +125,7 @@ public class ExecutionService {
     }
 
     public List<ExecutionTestCase> getTestCases(Long id) {
-        return testCaseRepository.findByExecutionId(id);
+        return testCaseRepository.findByExecutionIdWithTags(id);
     }
 
     public List<ExecutionArtifact> getArtifacts(Long id) {
@@ -182,6 +182,41 @@ public class ExecutionService {
         } else {
             payload.setEventType(ExecutionEventType.SUITE_COMPLETED);
         }
+        broadcastService.broadcast(e.getExecutionCode(), payload);
+    }
+
+    /**
+     * Called when the Framework Runner's process has exited, regardless of whether it ever ran
+     * a single test. In the normal case MPHIDB's listener already pushed SUITE_COMPLETED and
+     * ExecutionEventService.finalizeExecution() already set a real terminal status (PASSED/
+     * FAILED/PARTIAL), so this is a no-op. But if the run failed before TestNG ever started
+     * (e.g. "mvn clean" itself failing on a permission error) no listener code runs at all, and
+     * without this the execution — and ExecutionWorker.pollQueue()'s "at most one RUNNING at a
+     * time" gate with it — would stay stuck on RUNNING forever.
+     */
+    public void markStaleIfStillRunning(Long id) {
+        Execution e = repository.findById(id).orElseThrow();
+        if (e.getStatus() != ExecutionStatus.RUNNING) {
+            return;
+        }
+        e.setStatus(ExecutionStatus.ERROR);
+        e.setEndTime(Instant.now());
+        if (e.getStartTime() != null) {
+            e.setDurationSeconds(java.time.Duration.between(e.getStartTime(), e.getEndTime()).toSeconds());
+        }
+        repository.save(e);
+
+        ExecutionLog logRec = new ExecutionLog();
+        logRec.setExecutionId(id);
+        logRec.setLevel("ERROR");
+        logRec.setMessage("Framework Runner process exited without ever reporting suite completion — marked as ERROR so the execution queue isn't blocked.");
+        logRec.setSource("SYSTEM");
+        logRepository.save(logRec);
+
+        ExecutionEventPayload payload = new ExecutionEventPayload();
+        payload.setExecutionId(e.getExecutionCode());
+        payload.setTimestamp(java.time.LocalDateTime.now());
+        payload.setEventType(ExecutionEventType.SUITE_COMPLETED);
         broadcastService.broadcast(e.getExecutionCode(), payload);
     }
 }

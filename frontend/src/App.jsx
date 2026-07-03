@@ -304,7 +304,6 @@ export function App() {
             pageTitle={pageTitle}
             superAdmin={superAdmin}
             onOpenAdmin={openAdminWorkspace}
-            session={session}
           />
         )}
       >

@@ -98,6 +98,12 @@ public class ExecutionController {
         return ApiResponse.ok(null);
     }
 
+    @PostMapping("/{id}/job-finished")
+    public ApiResponse<Void> jobFinished(@PathVariable Long id) {
+        service.markStaleIfStillRunning(id);
+        return ApiResponse.ok(null);
+    }
+
     @GetMapping("/runner/suites")
     public ApiResponse<Object> getRunnerSuites() {
         try {

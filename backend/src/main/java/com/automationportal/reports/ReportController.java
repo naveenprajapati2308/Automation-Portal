@@ -112,7 +112,7 @@ public class ReportController {
 
     @GetMapping("/{executionId}/failed-tests")
     public ApiResponse<List<ExecutionTestCase>> getFailedTests(@PathVariable Long executionId) {
-        List<ExecutionTestCase> failed = testCaseRepository.findByExecutionIdAndStatus(executionId, "FAIL");
+        List<ExecutionTestCase> failed = testCaseRepository.findByExecutionIdAndStatusWithTags(executionId, "FAIL");
         return ApiResponse.ok(failed);
     }
 }

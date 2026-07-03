@@ -74,6 +74,27 @@ const unwrap = async (response, path = response.url || '') => {
   return body.data;
 };
 
+// Refresh tokens rotate server-side (RefreshTokenService.rotate revokes the old one on every
+// use). If several requests 401 around the same time — e.g. Dashboard's Promise.all of several
+// calls — each independently retrying '/api/auth/refresh' with the same (soon-to-be-revoked)
+// refresh token means only the first actually succeeds; the rest see it as already-revoked and
+// were incorrectly clearing the session and showing "Session Expired" even though the session
+// was fine. Sharing one in-flight refresh across all concurrent callers fixes that.
+let inFlightRefresh = null;
+
+const refreshSession = (refreshToken) => {
+  if (!inFlightRefresh) {
+    inFlightRefresh = fetch('/api/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    })
+      .then((refreshResponse) => unwrap(refreshResponse, '/api/auth/refresh'))
+      .finally(() => { inFlightRefresh = null; });
+  }
+  return inFlightRefresh;
+};
+
 const request = async (path, options = {}, retryCount = 0) => {
   const session = authStore.get();
   const headers = {
@@ -94,16 +115,20 @@ const request = async (path, options = {}, retryCount = 0) => {
   }
   if (response.status === 401 && session?.refreshToken && retryCount < 1) {
     try {
-      const refreshed = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: session.refreshToken })
-      }).then((refreshResponse) => unwrap(refreshResponse, '/api/auth/refresh'));
+      const refreshed = await refreshSession(session.refreshToken);
       authStore.set(refreshed);
       return request(path, options, retryCount + 1);
     } catch {
-      authStore.clear();
-      triggerGlobalError(401, 'Your session has expired. Please sign in again.');
+      // A concurrent caller may have already refreshed successfully while this one was
+      // waiting — only treat it as a real expiry if the stored session is still the
+      // pre-refresh one (i.e. nothing else updated it in the meantime).
+      const current = authStore.get();
+      if (current?.refreshToken === session.refreshToken) {
+        authStore.clear();
+        triggerGlobalError(401, 'Your session has expired. Please sign in again.');
+      } else {
+        return request(path, options, retryCount + 1);
+      }
     }
   } else if (response.status === 401) {
     triggerGlobalError(401, 'Your session has expired. Please sign in again.');

@@ -75,34 +75,6 @@ export function Sidebar({
             </button>
           );
         })}
-
-        {/* SUPER_ADMIN only — Administration entry */}
-        {superAdmin && (
-          <>
-            <div 
-              className="nav-section-label nav-section-admin"
-              style={{ 
-                textAlign: isCollapsed ? 'center' : 'left', 
-                fontSize: isCollapsed ? '9px' : '10px',
-                padding: isCollapsed ? '10px 0 4px' : '10px 12px 4px'
-              }}
-            >
-              {isCollapsed ? 'ADM' : 'Admin Area'}
-            </div>
-            <button
-              className="admin-nav-btn admin-entry-btn"
-              onClick={onOpenAdmin}
-              title="Open Administration Workspace"
-              style={{
-                justifyContent: isCollapsed ? 'center' : 'flex-start',
-                padding: isCollapsed ? '0' : '0 12px'
-              }}
-            >
-              <LayoutDashboard size={18} style={{ flexShrink: 0 }} />
-              {!isCollapsed && <span style={{ animation: 'fadeIn 0.2s' }}>Administration</span>}
-            </button>
-          </>
-        )}
       </nav>
 
       {/* Collapse Toggle Button */}
@@ -170,7 +142,7 @@ export function PortalLayout({ sidebar, topbar, children, shellClassName = '', m
 }
 
 // ── Layout: Topbar ────────────────────────────────────────────────────────────
-export function Topbar({ pageTitle, superAdmin, onOpenAdmin, session }) {
+export function Topbar({ pageTitle, superAdmin, onOpenAdmin }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -181,10 +153,6 @@ export function Topbar({ pageTitle, superAdmin, onOpenAdmin, session }) {
   ];
 
   const unreadCount = notifications.filter(n => n.unread).length;
-
-  const userInitials = session?.user?.displayName
-    ? session.user.displayName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-    : 'U';
 
   return (
     <header className="topbar" style={{ background: '#070d19', borderBottom: '1px solid #14253f', paddingBottom: '16px', marginBottom: '16px' }}>
@@ -257,17 +225,6 @@ export function Topbar({ pageTitle, superAdmin, onOpenAdmin, session }) {
               </div>
             </div>
           )}
-        </div>
-
-        {/* User profile pill */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#0d1527', padding: '4px 10px 4px 4px', borderRadius: '20px', border: '1px solid #14253f' }}>
-          <div style={{ width: '28px', height: '28px', background: '#60b3e0', color: '#070d19', borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: '12px', fontWeight: 800 }}>
-            {userInitials}
-          </div>
-          <div style={{ fontSize: '11px', display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: 700, color: '#fff', lineHeight: 1.2 }}>{session?.user?.displayName || 'User'}</span>
-            <span style={{ color: '#7a9cb8', fontSize: '9px' }}>{session?.user?.role || 'Viewer'}</span>
-          </div>
         </div>
 
         {superAdmin && (

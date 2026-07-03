@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
-import java.time.LocalDate;
+//import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -20,14 +20,14 @@ public class DashboardService {
     private final ExecutionTestCaseRepository testCaseRepository;
 
     public DashboardService(ExecutionRepository executionRepository,
-                            ExecutionTestCaseRepository testCaseRepository) {
+            ExecutionTestCaseRepository testCaseRepository) {
         this.executionRepository = executionRepository;
         this.testCaseRepository = testCaseRepository;
     }
 
     public Map<String, Object> getSummary() {
         List<Execution> executions = executionRepository.findAll();
-        
+
         long totalExecutions = executions.size();
         long totalTests = 0;
         long passedTests = 0;
@@ -35,7 +35,7 @@ public class DashboardService {
         long skippedTests = 0;
         long durationSum = 0;
         long durationCount = 0;
-        
+
         String lastStatus = null;
         Instant latestTime = null;
 
@@ -181,7 +181,7 @@ public class DashboardService {
     public List<Map<String, Object>> getFailureAnalysis(String range) {
         Instant since = getSinceInstant(range);
         List<Object[]> raw = testCaseRepository.findFailureAnalysisRaw(since);
-        
+
         List<Map<String, Object>> analysis = new ArrayList<>();
         for (Object[] row : raw) {
             Map<String, Object> item = new HashMap<>();
@@ -191,7 +191,7 @@ public class DashboardService {
             item.put("latestExecution", row[3]);
             analysis.add(item);
         }
-        
+
         // Sort by failure count desc
         analysis.sort((a, b) -> Long.compare((Long) b.get("count"), (Long) a.get("count")));
         return analysis;
@@ -213,7 +213,8 @@ public class DashboardService {
                 item.put("duration", tc.getDurationMs() != null ? tc.getDurationMs() / 1000.0 : 0.0);
                 item.put("module", tc.getModuleCode());
                 slow.add(item);
-                if (slow.size() >= 10) break;
+                if (slow.size() >= 10)
+                    break;
             }
         }
         return slow;
@@ -248,7 +249,8 @@ public class DashboardService {
         }
 
         flaky.sort((a, b) -> {
-            int comp = Double.compare(Double.parseDouble(b.get("flakinessRate").toString()), Double.parseDouble(a.get("flakinessRate").toString()));
+            int comp = Double.compare(Double.parseDouble(b.get("flakinessRate").toString()),
+                    Double.parseDouble(a.get("flakinessRate").toString()));
             if (comp == 0) {
                 return Long.compare((Long) b.get("totalRuns"), (Long) a.get("totalRuns"));
             }
@@ -265,8 +267,16 @@ public class DashboardService {
         for (Object[] row : raw) {
             Map<String, Object> map = new HashMap<>();
             map.put("date", row[0] != null ? row[0].toString() : "");
-            map.put("passRate", row[1] != null ? BigDecimal.valueOf(Double.parseDouble(row[1].toString())).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO);
-            map.put("failRate", row[2] != null ? BigDecimal.valueOf(Double.parseDouble(row[2].toString())).setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO);
+            map.put("passRate",
+                    row[1] != null
+                            ? BigDecimal.valueOf(Double.parseDouble(row[1].toString())).setScale(2,
+                                    RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO);
+            map.put("failRate",
+                    row[2] != null
+                            ? BigDecimal.valueOf(Double.parseDouble(row[2].toString())).setScale(2,
+                                    RoundingMode.HALF_UP)
+                            : BigDecimal.ZERO);
             map.put("execCount", row[3] != null ? Long.parseLong(row[3].toString()) : 0L);
             result.add(map);
         }
@@ -318,7 +328,8 @@ public class DashboardService {
     public List<Map<String, Object>> getRegressionAlerts() {
         List<Execution> all = executionRepository.findAll();
         Map<String, List<Execution>> grouped = all.stream()
-                .filter(e -> e.getModuleCode() != null && e.getStatus() != ExecutionStatus.QUEUED && e.getStatus() != ExecutionStatus.RUNNING)
+                .filter(e -> e.getModuleCode() != null && e.getStatus() != ExecutionStatus.QUEUED
+                        && e.getStatus() != ExecutionStatus.RUNNING)
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .collect(Collectors.groupingBy(Execution::getModuleCode));
 
@@ -350,16 +361,22 @@ public class DashboardService {
 
     private Instant getSinceInstant(String range) {
         int days = 7;
-        if ("30d".equalsIgnoreCase(range)) days = 30;
-        else if ("90d".equalsIgnoreCase(range)) days = 90;
+        if ("30d".equalsIgnoreCase(range))
+            days = 30;
+        else if ("90d".equalsIgnoreCase(range))
+            days = 90;
         return Instant.now().minus(days, ChronoUnit.DAYS);
     }
 
     private String getModuleName(String code) {
-        if ("LAND".equalsIgnoreCase(code)) return "Land Management";
-        if ("SURVEY".equalsIgnoreCase(code)) return "Survey Management";
-        if ("GIS".equalsIgnoreCase(code)) return "GIS System";
-        if ("ARCHITECT".equalsIgnoreCase(code)) return "Architect Empanelment";
+        if ("LAND".equalsIgnoreCase(code))
+            return "Land Management";
+        if ("SURVEY".equalsIgnoreCase(code))
+            return "Survey Management";
+        if ("GIS".equalsIgnoreCase(code))
+            return "GIS System";
+        if ("ARCHITECT".equalsIgnoreCase(code))
+            return "Architect Empanelment";
         return code;
     }
 }

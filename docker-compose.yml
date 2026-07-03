@@ -8,7 +8,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_ROOT_HOST: "%"
     ports:
-      - "13306:3306"
+      - "3306:3306"
     volumes:
       - automation_portal_mysql_data:/var/lib/mysql
     healthcheck:
@@ -86,6 +86,18 @@ services:
     restart: unless-stopped
     depends_on:
       - automation-portal-backend
+    # MPHIDB's test code launches real (non-headless, non-sandboxed-off) Chrome by design, so
+    # it keeps working unchanged on a Windows desktop with a real display. Chrome's own sandbox
+    # needs to create Linux namespaces to do that safely, which Docker blocks by default even
+    # for a non-root user (see the framework-runner Dockerfile's non-root user) — SYS_ADMIN is
+    # the standard, narrowly-scoped capability grant for exactly this, without disabling
+    # Chrome's sandbox via --no-sandbox in the framework's own code.
+    cap_add:
+      - SYS_ADMIN
+    # Docker's default /dev/shm is 64MB, which is too small for Chrome's renderer process and
+    # causes intermittent "WebDriver tab crashed" errors mid-test (distinct from the launch
+    # issues above — this only shows up once tests are actually running real pages).
+    shm_size: '2gb'
     environment:
       FRAMEWORK_PATH: /app/framework
       MAVEN_CMD: mvn

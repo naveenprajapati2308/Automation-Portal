@@ -15,6 +15,14 @@
 > more real bugs only a live run could surface. See §9 for the full account — read it before
 > trusting any "this works" claim elsewhere in this file about the execution pipeline, since parts
 > of §3/§5 below are now superseded by §9.
+>
+> **2026-07-04 update:** Chrome/Selenium now runs successfully inside the Docker Framework Runner
+> container (previously failed every time — Docker-only fix, zero MPHIDB code changes); two
+> independent real "false session expired" bugs (frontend refresh-token race + backend
+> lazy-loading-outside-session serialization bug) were found and fixed; a stuck-`RUNNING`-forever
+> execution bug that could block the entire queue indefinitely was fixed with an event-driven
+> (not timeout-based) unstick mechanism. See §10 for full detail. All changes are currently
+> uncommitted in the working tree.
 
 ---
 
@@ -60,7 +68,7 @@ Five deployable units, orchestrated by `docker-compose.yml`, plus one external f
                                  │ POST /em/executions │
                                  ▼                     ▼
                     ┌─────────────────────────┐   ┌─────────┐
-                    │  Execution Manager       │   │  MySQL  │  :13306 (docker) / :3306
+                    │  Execution Manager       │   │  MySQL  │  :3306 (both)
                     │  (queue/concurrency)     │   │   8.4   │
                     │  :8090                   │   └─────────┘
                     └────────────┬─────────────┘
@@ -104,7 +112,7 @@ Also present but **not shipped/deployed**:
 | Execution Manager | 8090 | 8090 | Spring Boot (JPA-backed queue broker) |
 | Framework Runner | 9090 | 9090 | Plain Java `com.sun.net.httpserver` (no Spring) |
 | Report Artifact Service | 9091 | 9091 | Plain Java `com.sun.net.httpserver` (no Spring) |
-| MySQL | 3306 | 13306 | MySQL 8.4 |
+| MySQL | 3306 | 3306 (changed from 13306 on 2026-07-03, see §9) | MySQL 8.4 |
 
 ---
 
@@ -522,7 +530,180 @@ new Admin screens (Projects, Runners), Execution Center project selector — is 
 `docs/version2.1.md`, deliberately deferred until a real second project/framework needs
 onboarding.
 
-## 10. How to Use This Document
+**2026-07-03 follow-up fixes (frontend cosmetics + local dev port standardization):**
+- Dashboard had a second, fully redundant page-local header (title/notice/search/Super Admin
+  pill/Administration button) duplicating the global Topbar — removed, keeping only the page's
+  actually-unique "Analytics Dashboard" subheader + range filter.
+- The Topbar's permanent "v1.2.0" badge and its always-visible `notice` text (e.g. "Signed in
+  successfully.") were replaced with a proper auto-dismissing toast (`App.jsx`, top-right,
+  green/success-styled, 3.5s), since a status line that never goes away isn't useful and read as
+  UI clutter on every single page.
+- The Topbar also had a redundant user-profile pill (avatar + name + role) sitting right next to
+  the "Super Admin" badge — removed; the badge + "Admin Panel" button alone are sufficient.
+  Similarly the Sidebar had its own "Admin Area → Administration" nav entry that opened the exact
+  same `AdminWorkspace` as the Topbar's "Admin Panel" button — removed from the Sidebar, keeping
+  Topbar's as the single entry point. The admin workspace's own internal navigation/menus were
+  not touched.
+- **MySQL host port standardized to 3306 everywhere** (was `13306:3306` in `docker-compose.yml`,
+  deliberately offset per `docker-setup-v1.1.md` to avoid clashing with other local Docker
+  projects when running the *full* docker-compose stack). In practice, day-to-day local dev runs
+  Backend/Execution Manager/Framework Runner/Report Artifact Service natively (`mvn spring-boot:
+  run` / `mvn exec:java`) against just a dockerized MySQL — and `application.yml`'s datasource
+  URL is hardcoded to `localhost:3306`. The port mismatch caused a recurring, confusing
+  `Connection refused` (with Maven still printing `BUILD SUCCESS`, since that reflects the
+  plugin's process exit, not whether the Spring context actually started). Fixed by changing
+  `docker-compose.yml`'s mapping to `3306:3306` and updating `application-dev.yml` (a profile
+  created earlier specifically to paper over this same mismatch by pointing at 13306) to match.
+  The full docker-compose stack's backend service is unaffected — it talks to MySQL via the
+  internal Docker network hostname (`automation-portal-mysql:3306`), never through the host port
+  mapping. If MySQL ever needs to run on a different host port again (e.g. a port clash with
+  another local project), override via a standalone `docker run -p <port>:3306` rather than
+  `docker compose`, and update `application.yml`/`application-dev.yml` to match.
+
+## 10. Session Update — 2026-07-04: Chrome-in-Docker, Session-Expiry Bugs, Stuck-RUNNING Fix
+
+Three substantial, independently-verified fixes landed this session, all still **uncommitted in
+the working tree** as of this writing — `git status` on the repo root shows the full file list.
+
+### 10.1 Chrome/Selenium now actually runs inside the Docker Framework Runner container
+
+Until this session, running an execution via the full `docker-compose` stack (as opposed to
+services run natively) failed every time with `SessionNotCreatedException` / "Chrome instance
+exited" — Selenium could never launch a real Chrome session inside the `automation-framework-
+runner` container. Root cause: MPHIDB's test code intentionally launches Chrome in normal
+(non-headless) mode — by design, so it keeps working unchanged on a native Windows desktop with a
+real display — and a container has no display at all. Per explicit user constraint, the fix had to
+be **entirely on the Docker/infra side, with zero changes to MPHIDB's framework code**. Five
+layered fixes were needed, each found and confirmed by actually running a container and watching
+it fail differently each time (not guessed in one shot):
+
+1. **`Xvfb`** (virtual framebuffer) gives Chrome a display to attach to at all — added to
+   `framework-runner/Dockerfile`'s `apt-get install` list and started in a new
+   `framework-runner/entrypoint.sh` (`Xvfb :99 -screen 0 1920x1080x24 &`, `export DISPLAY=:99`).
+2. **Non-root `chromeuser`** — Chrome refuses to run as root without `--no-sandbox`, which the
+   project didn't want to pass (would weaken the sandbox for no good reason). Added `useradd
+   --create-home --shell /bin/bash chromeuser` + `chown -R chromeuser:chromeuser /app` + `USER
+   chromeuser` to the Dockerfile. (Hit and fixed a build error here: `--uid 1000` collided with a
+   UID already used by the base `maven:3.9.9-eclipse-temurin-21` image; removed the explicit UID
+   and let `useradd` auto-assign.)
+3. **`cap_add: SYS_ADMIN`** on the `automation-framework-runner` service in `docker-compose.yml`
+   — even as non-root, Chrome's own internal sandbox needs to create a Linux namespace, which
+   Docker blocks by default ("Failed to move to new namespace... Operation not permitted").
+   Verified in isolation first via a throwaway `docker run --cap-add=SYS_ADMIN ...` that kept
+   Chrome alive for 5+ seconds before wiring it into compose.
+4. **`fluxbox`** (minimal window manager) — Xvfb alone has no window manager, so MPHIDB's
+   `driver.manage().window().maximize()` calls (used at the start of every suite, e.g.
+   `AuthorityLogin.java`) failed with "Runtime.evaluate wasn't found" since there's nothing to
+   respond to a maximize/resize request. Added to the Dockerfile and started in `entrypoint.sh`
+   alongside Xvfb.
+5. **`shm_size: '2gb'`** on the same compose service — Chrome's default `/dev/shm` allocation
+   inside a container is too small and caused `WebDriver tab crashed` mid-test under real load.
+
+Also hit and fixed along the way: a stale `target/` directory owned by `root` (from earlier
+root-run container builds, before the non-root user existed) blocked `mvn clean` with a
+permission error inside the new `chromeuser`-owned container — cleaned up via a one-off `docker
+run --rm -u root -v "D:/New folder/MPHIDB:/app/framework" ... rm -rf target test-output`.
+
+**Verified end-to-end**: a real execution run inside the full `docker-compose` stack (not native
+processes) reproduced the exact same real result pattern seen from native-Windows runs — `Tests
+run: 10, Failures: 5, Errors: 0, Skipped: 5` — with zero MPHIDB framework code changes, only
+`docker-compose.yml`, `framework-runner/Dockerfile`, and the new `framework-runner/entrypoint.sh`.
+
+### 10.2 False "Session Expired" bug — two independent real root causes, both fixed
+
+Users were being logged out with a "Your session has expired" error while still well within their
+token lifetime. Investigation initially proceeded against a native backend process, which produced
+fixes that *didn't* show up for the user — because the user was actually testing against the full
+Docker stack (`localhost:15173`), a separate running instance the native-backend fixes never
+reached. Re-targeted all testing at the user's actual Docker environment before concluding
+anything was fixed. Two real, independent bugs were found:
+
+1. **Frontend concurrent-refresh race** (`frontend/src/api.js`): when two API calls both got a 401
+   at roughly the same time, each independently called `/api/auth/refresh`. Because refresh tokens
+   are single-use/rotating (`RefreshTokenService.rotate()` revokes-and-reissues on every use), the
+   second call's refresh token was already revoked by the first call's rotation, so it failed —
+   triggering a false session-expired error even though the first refresh had actually succeeded.
+   Fixed by deduplicating concurrent refreshes behind a single shared in-flight promise
+   (`refreshSession()`), plus a safety check before declaring a real expiry: if another caller
+   already refreshed successfully (`authStore`'s refresh token no longer matches the one this call
+   started with), retry with the new token instead of logging out.
+2. **Backend lazy-loading-outside-session bug** (bigger, harder to spot): `ExecutionTestCase.tags`
+   is a `@ManyToMany(LAZY)` collection, and the backend runs with `open-in-view: false`. Several
+   endpoints (`getTestCases`, `getFailedTests`) returned entities fetched via a plain
+   `findByExecutionId(...)` query and let Jackson serialize them *after* the Hibernate session had
+   already closed. Serializing the lazy `tags` collection outside a session threw, but the
+   exception handling path turned this into an **empty-bodied 401-shaped response** that the
+   frontend's error handling misread as an expired session — a real backend bug masquerading as an
+   auth problem. Fixed by adding `findByExecutionIdWithTags(...)` and
+   `findByExecutionIdAndStatusWithTags(...)` to `ExecutionTestCaseRepository` (JPQL `LEFT JOIN
+   FETCH tc.tags` with `DISTINCT` to avoid proxy/N+1 issues) and switching `ExecutionService.
+   getTestCases()` and `ReportController.getFailedTests()` to use them.
+
+Both fixes verified against the live Docker environment, not just isolated native testing.
+
+### 10.3 Stuck-RUNNING execution permanently blocking the queue — fixed
+
+`ExecutionWorker.pollQueue()` enforces strict single-concurrency (at most one `RUNNING` execution
+at a time via `findByStatus(RUNNING)`). If a job failed *before* any TestNG listener code ever ran
+— e.g. `mvn clean` itself failing — no `SUITE_COMPLETED` event was ever pushed, so the execution
+sat on `RUNNING` forever and silently blocked every other queued execution behind it indefinitely.
+Immediate unblock at the time was a manual `UPDATE executions SET status='ERROR', ... WHERE
+id=13`; the systemic fix reuses the runner-exit signal that already existed for the
+`Framework Runner → Execution Manager` leg but wasn't propagated further:
+
+- `ExecutionManagerController.executionCompleted()` (`execution-manager/`) now also calls
+  `callbackClient.notifyJobFinished(job.getExecutionId())` — previously this callback fired only
+  for cancel/pause/resume state changes, never for normal completion.
+- New `PortalCallbackClient.notifyJobFinished()` POSTs to a new Portal Backend endpoint,
+  `POST /api/executions/{id}/job-finished` (`ExecutionController`), which calls
+  `ExecutionService.markStaleIfStillRunning(id)`.
+- `markStaleIfStillRunning()` is a no-op if the execution has already reached a terminal status
+  (i.e. MPHIDB's own `SUITE_COMPLETED` event got there first, the normal/expected path) — it only
+  actually does anything when the execution is *still* `RUNNING` at the point the runner process
+  itself has already exited, which can only mean the process died without ever reporting. In that
+  case it force-sets `ERROR` with an end time/duration and a system-authored `ExecutionLog`
+  explaining why, then broadcasts a synthetic `SUITE_COMPLETED` SSE event so the UI updates.
+
+Verified both directions: (a) a genuinely-stuck `RUNNING` execution correctly flips to `ERROR` when
+`/job-finished` is called; (b) calling `/job-finished` on an already-finalized execution (tested
+against a real `FAILED` execution with `totalTests=10`/`failedTests=5`) leaves it completely
+unchanged — confirmed the fix cannot clobber legitimate terminal results.
+
+### 10.4 Dashboard "missing data" — investigated, inconclusive
+
+Long-standing but vague complaint that the dashboard was "missing data." Took a live full-page
+screenshot of the real dashboard (`localhost:15173`, real data) and cross-checked the
+suspicious-looking `0.00%` pass-rate values directly against the database (`SELECT id,
+execution_code, status, total_tests, passed_tests, failed_tests, skipped_tests, pass_rate FROM
+executions ORDER BY id DESC LIMIT 10`). Conclusion: the numbers are genuinely accurate — they
+reflect real Selenium test failures against the live QA target, not a display/calculation bug.
+No code was changed for this item; it needs the project owner to point at the specific
+field/section that still looks wrong, since independent investigation found nothing objectively
+broken.
+
+### 10.5 Design-only deliverable: multi-framework / multi-project architecture
+
+A full design plan (no code) for onboarding (a) more TestNG modules — already fully supported
+today, no new work — (b) a genuinely different framework (Playwright/pytest/.NET) on the same
+project, and (c) multiple projects each with their own framework, was produced as a standalone
+planning document (mirrors and extends the `docs/version2.1.md` future-scope entry already
+referenced in §8/§9). Key shape: a `runnerType → command template` dispatch in `Framework
+RunnerService` for scenario (b); a new `Project` entity threaded through `modules`/`environments`/
+`execution_jobs`/`runner_registry`, one Framework Runner deployment per project, and two new Admin
+screens (Projects, Runners) for scenario (c). Explicitly not implemented — deferred until a real
+second framework/project actually needs onboarding, same standing decision as `docs/version2.1.md`.
+
+### 10.6 Uncommitted state as of this update
+
+All of the above (10.1–10.3) plus the earlier 2026-07-03 frontend cosmetics/MySQL-port fixes are
+present in the working tree but **not yet committed** — per established project pattern, commits/
+pushes are left to the project owner rather than done automatically. Run `git status`/`git diff`
+against this repo for the authoritative current list; don't assume this document's file lists stay
+in sync with the tree after this point.
+
+---
+
+## 11. How to Use This Document
 
 - Treat this as the **baseline mental model**. When you give new instructions, they add to or
   override specific sections here — they don't replace the whole architecture.

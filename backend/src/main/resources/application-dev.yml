@@ -1,7 +1,9 @@
-# Local dev profile — overrides application.yml for running backend outside Docker
-# MySQL is the Docker container exposed on port 13306
+# Local dev profile — overrides application.yml for running backend outside Docker.
+# MySQL's docker-compose mapping now matches application.yml's default (3306:3306), so this
+# profile is currently a no-op duplicate of the default. Kept as a seam in case local dev
+# datasource settings ever need to diverge from application.yml again.
 spring:
   datasource:
-    url: jdbc:mysql://localhost:13306/automation_portal?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/automation_portal?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: root
     password: root

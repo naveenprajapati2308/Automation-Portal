@@ -221,6 +221,8 @@ public class ExecutionManagerController {
             updateRunnerStatus(job.getAssignedRunner(), "IDLE");
         }
 
+        callbackClient.notifyJobFinished(job.getExecutionId());
+
         return ResponseEntity.ok().build();
     }
 
