@@ -58,6 +58,7 @@ public class GoogleOAuth2SuccessHandler implements AuthenticationSuccessHandler 
             created.setAuthProvider("GOOGLE");
             return userRepository.save(created);
         });
+        refreshTokenService.revokeActiveTokensFor(user);
         RefreshToken refreshToken = refreshTokenService.create(user, true);
         auditService.record(user, AuditAction.LOGIN, "Google OAuth2 login", request);
         String redirect = UriComponentsBuilder.fromUriString(frontendUrl)

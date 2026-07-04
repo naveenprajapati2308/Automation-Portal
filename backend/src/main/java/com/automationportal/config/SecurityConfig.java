@@ -59,7 +59,8 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/api/events/execution",
-                    "/api/executions/*/state"
+                    "/api/executions/*/state",
+                    "/error"
                 ).permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                 .anyRequest().authenticated()

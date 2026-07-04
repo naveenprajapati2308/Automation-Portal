@@ -1,25 +1,29 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  ChevronsLeft, 
-  ChevronsRight, 
-  ArrowUpDown, 
-  ArrowUp, 
-  ArrowDown, 
-  Eye, 
-  EyeOff, 
-  Download, 
-  Settings, 
-  Search 
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Eye,
+  EyeOff,
+  Download,
+  Settings,
+  Search,
+  FolderOpen
 } from 'lucide-react';
+import './datatable-dark.css';
 
-export function DataTable({ 
-  columns, 
-  data = [], 
-  loading = false, 
+export function DataTable({
+  columns,
+  data = [],
+  loading = false,
   searchPlaceholder = "Search...",
-  exportFilename = "export.csv"
+  exportFilename = "export.csv",
+  emptyMessage = "No records found.",
+  emptyHint = ""
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -57,7 +61,7 @@ export function DataTable({
     if (sortConfig.key === null || sortConfig.direction === 'none') {
       return filteredData;
     }
-    
+
     return [...filteredData].sort((a, b) => {
       let aVal = a[sortConfig.key];
       let bVal = b[sortConfig.key];
@@ -83,10 +87,10 @@ export function DataTable({
   // 4. Pagination calculations
   const totalRecords = sortedData.length;
   const totalPages = Math.ceil(totalRecords / pageSize);
-  
+
   // Adjust page if search changes total count
   const safeCurrentPage = Math.max(1, Math.min(currentPage, totalPages));
-  
+
   const paginatedData = useMemo(() => {
     const startIdx = (safeCurrentPage - 1) * pageSize;
     return sortedData.slice(startIdx, startIdx + pageSize);
@@ -112,10 +116,10 @@ export function DataTable({
   // CSV Export
   const exportToCSV = () => {
     const activeCols = columns.filter(col => visibleColumns[col.key]);
-    
+
     // Headers
     const headers = activeCols.map(col => `"${col.label.replace(/"/g, '""')}"`).join(',');
-    
+
     // Rows
     const rows = sortedData.map(row => {
       return activeCols.map(col => {
@@ -146,9 +150,9 @@ export function DataTable({
         {/* Search */}
         <div className="datatable-search-wrapper">
           <Search size={16} className="datatable-search-icon" />
-          <input 
-            type="text" 
-            placeholder={searchPlaceholder} 
+          <input
+            type="text"
+            placeholder={searchPlaceholder}
             value={searchQuery}
             onChange={handleSearchChange}
             className="datatable-search-input"
@@ -159,7 +163,7 @@ export function DataTable({
         <div className="datatable-toolbar">
           {/* Column selector toggler */}
           <div style={{ position: 'relative' }}>
-            <button 
+            <button
               onClick={() => setShowColumnToggle(!showColumnToggle)}
               className="btn btn-secondary btn-icon"
               title="Column Visibility"
@@ -172,9 +176,9 @@ export function DataTable({
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', borderBottom: '1px solid #eee', paddingBottom: '4px' }}>Toggle Columns</h4>
                 {columns.map(col => (
                   <label key={col.key} className="datatable-column-toggle-label">
-                    <input 
-                      type="checkbox" 
-                      checked={visibleColumns[col.key]} 
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns[col.key]}
                       onChange={() => toggleColumn(col.key)}
                       style={{ marginRight: '6px' }}
                     />
@@ -186,7 +190,7 @@ export function DataTable({
           </div>
 
           {/* CSV Export */}
-          <button 
+          <button
             onClick={exportToCSV}
             className="btn btn-secondary btn-icon"
             title="Export CSV"
@@ -207,9 +211,9 @@ export function DataTable({
                 if (!visibleColumns[col.key]) return null;
                 const isSorted = sortConfig.key === col.key;
                 return (
-                  <th 
-                    key={col.key} 
-                    onClick={() => requestSort(col.key)} 
+                  <th
+                    key={col.key}
+                    onClick={() => requestSort(col.key)}
                     style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -244,7 +248,11 @@ export function DataTable({
               // Empty State
               <tr>
                 <td colSpan={columns.filter(c => visibleColumns[c.key]).length} style={{ textAlign: 'center', padding: '40px 0' }}>
-                  <div className="datatable-empty-state">No matching records found.</div>
+                  <div className="datatable-empty-state">
+                    <FolderOpen size={42} className="datatable-empty-icon" />
+                    {emptyMessage}
+                    {emptyHint && <span style={{ fontSize: '12px', opacity: 0.75 }}>{emptyHint}</span>}
+                  </div>
                 </td>
               </tr>
             ) : (
@@ -272,13 +280,13 @@ export function DataTable({
         <div className="datatable-showing-label">
           Showing {startRecord} to {endRecord} of {totalRecords} records
         </div>
-        
+
         <div className="datatable-pagination-controls">
           {/* Page size drop-down */}
           <div className="datatable-pagesize-select-wrapper">
             <span style={{ fontSize: '12px', color: '#666' }}>Show:</span>
-            <select 
-              value={pageSize} 
+            <select
+              value={pageSize}
               onChange={(e) => {
                 setPageSize(Number(e.target.value));
                 setCurrentPage(1);
@@ -295,34 +303,34 @@ export function DataTable({
 
           {/* Nav buttons */}
           <div className="datatable-page-buttons">
-            <button 
-              onClick={() => setCurrentPage(1)} 
+            <button
+              onClick={() => setCurrentPage(1)}
               disabled={safeCurrentPage === 1}
               className="btn btn-secondary btn-icon-only"
             >
               <ChevronsLeft size={16} />
             </button>
-            <button 
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} 
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
               disabled={safeCurrentPage === 1}
               className="btn btn-secondary btn-icon-only"
             >
               <ChevronLeft size={16} />
             </button>
-            
+
             <span style={{ fontSize: '13px', fontWeight: 600, padding: '0 8px' }}>
               Page {safeCurrentPage} of {totalPages || 1}
             </span>
 
-            <button 
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} 
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
               disabled={safeCurrentPage === totalPages || totalPages === 0}
               className="btn btn-secondary btn-icon-only"
             >
               <ChevronRight size={16} />
             </button>
-            <button 
-              onClick={() => setCurrentPage(totalPages)} 
+            <button
+              onClick={() => setCurrentPage(totalPages)}
               disabled={safeCurrentPage === totalPages || totalPages === 0}
               className="btn btn-secondary btn-icon-only"
             >

@@ -30,10 +30,11 @@ import { PortalLayout, Sidebar, Topbar } from './components/layout/index.jsx';
 import { Profile } from './components/profile/Profile.jsx';
 import { ReportsCenter } from './components/reports/ReportsCenter.jsx';
 import { Placeholder, Modal } from './components/shared/index.jsx';
+import { FullScreenLoader } from './components/shared/Loader.jsx';
 import { LogsViewer } from './components/logs/LogsViewer.jsx';
 import { ScreenshotsGallery } from './components/screenshots/ScreenshotsGallery.jsx';
 import { ExecutionDetailPage } from './components/execution/ExecutionDetailPage.jsx';
-import { ADMIN_NAV, fallbackSummary, isSuperAdmin, USER_NAV } from './constants.js';
+import { ADMIN_NAV, ADMIN_WORKSPACE_NAV, fallbackSummary, isSuperAdmin, USER_NAV } from './constants.js';
 
 // Attach resolved icon components to nav items (done once at module level)
 const ICON_MAP = {
@@ -42,13 +43,35 @@ const ICON_MAP = {
 };
 [...USER_NAV, ...ADMIN_NAV].forEach((item) => { item._icon = ICON_MAP[item.icon]; });
 
+// ── Hash routing ──────────────────────────────────────────────────────────────
+// The active tab lives in the URL hash (#/reports, #/admin/user-management) so a
+// page refresh or back/forward keeps the user on the tab they were on.
+const USER_TAB_KEYS = new Set(USER_NAV.map((item) => item.key));
+const ADMIN_PAGE_KEYS = new Set(ADMIN_WORKSPACE_NAV.map((item) => item.key));
+
+const parseHashRoute = () => {
+  const [head, sub] = window.location.hash.replace(/^#\/?/, '').split('/');
+  if (head === 'admin') {
+    return {
+      workspace: 'admin',
+      active: 'dashboard',
+      adminPage: ADMIN_PAGE_KEYS.has(sub) ? sub : 'admin-dashboard'
+    };
+  }
+  return {
+    workspace: 'portal',
+    active: USER_TAB_KEYS.has(head) ? head : 'dashboard',
+    adminPage: 'admin-dashboard'
+  };
+};
+
 // ── Error Popup Content ───────────────────────────────────────────────────────
 function ErrorPopupContent({ error, onAction, onClose }) {
   const [showDiag, setShowDiag] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const status = error.status;
-  
+
   // Choose icon based on status
   let Icon = AlertTriangle;
   let statusClass = 'error-500';
@@ -79,20 +102,20 @@ function ErrorPopupContent({ error, onAction, onClose }) {
       </div>
       <h3 className="error-popup-title" style={{ margin: '0 0 8px 0' }}>{error.title}</h3>
       <p className="error-popup-message">{error.message}</p>
-      
+
       {error.detail && (
         <>
-          <button 
+          <button
             className={`error-popup-diag-btn ${showDiag ? 'active' : ''}`}
             onClick={() => setShowDiag(!showDiag)}
           >
             Diagnostics Details
             <ChevronDown size={14} />
           </button>
-          
+
           {showDiag && (
             <div style={{ position: 'relative', width: '100%' }}>
-              <button 
+              <button
                 onClick={handleCopy}
                 style={{
                   position: 'absolute',
@@ -120,7 +143,7 @@ function ErrorPopupContent({ error, onAction, onClose }) {
           )}
         </>
       )}
-      
+
       <div className="error-popup-actions">
         {status === 401 ? (
           <button className="error-popup-btn error-popup-btn-action" onClick={onAction}>
@@ -139,9 +162,11 @@ function ErrorPopupContent({ error, onAction, onClose }) {
 // ── Root App ──────────────────────────────────────────────────────────────────
 export function App() {
   const [session, setSession] = useState(auth.get());
-  const [active, setActive] = useState('dashboard');
+  const initialRoute = parseHashRoute();
+  const [active, setActive] = useState(initialRoute.active);
   // workspace: 'portal' | 'admin'
-  const [workspace, setWorkspace] = useState('portal');
+  const [workspace, setWorkspace] = useState(initialRoute.workspace);
+  const [adminPage, setAdminPage] = useState(initialRoute.adminPage);
 
   const [summary, setSummary] = useState(fallbackSummary);
   const [environments, setEnvironments] = useState([]);
@@ -162,6 +187,11 @@ export function App() {
     localStorage.setItem('sidebar-collapsed', String(nextVal));
   };
 
+  // Apply the saved theme before anything renders (toggle lives in Topbar)
+  useEffect(() => {
+    document.documentElement.dataset.theme = localStorage.getItem('portal-theme') || 'dark';
+  }, []);
+
   // Set favicon once
   useEffect(() => {
     let favicon = document.querySelector("link[rel='icon']");
@@ -177,10 +207,13 @@ export function App() {
 
   useEffect(() => {
     api.setErrorCallback((err) => {
+      // On the login screen AuthPage shows errors inline below the form —
+      // don't stack the global popup on top of it.
+      if (!session?.accessToken) return;
       setGlobalError(err);
     });
     return () => api.setErrorCallback(null);
-  }, []);
+  }, [session?.accessToken]);
 
   // `notice` is a toast, not a permanent header fixture — auto-dismiss it.
   useEffect(() => {
@@ -188,6 +221,26 @@ export function App() {
     const timer = setTimeout(() => setNotice(''), 3500);
     return () => clearTimeout(timer);
   }, [notice]);
+
+  // Keep the URL hash in sync with the active tab/workspace.
+  useEffect(() => {
+    const target = workspace === 'admin' ? `/admin/${adminPage}` : `/${active}`;
+    if (window.location.hash !== `#${target}`) {
+      window.location.hash = target;
+    }
+  }, [active, workspace, adminPage]);
+
+  // Browser back/forward (and manual hash edits) drive the tab state.
+  useEffect(() => {
+    const onHashChange = () => {
+      const route = parseHashRoute();
+      setActive(route.active);
+      setWorkspace(route.workspace);
+      setAdminPage(route.adminPage);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   const refresh = async () => {
     try {
@@ -210,8 +263,22 @@ export function App() {
     }
   };
 
+  // Full-screen boot loader: shown while the initial portal data loads after
+  // sign-in. Held for at least 1s so it reads as a deliberate branded moment,
+  // then fades out ('show' → 'exit' → unmounted).
+  const [bootLoader, setBootLoader] = useState(null);
+
   useEffect(() => {
-    if (session?.accessToken) refresh();
+    if (!session?.accessToken) return;
+    setBootLoader('show');
+    const startedAt = Date.now();
+    refresh().finally(() => {
+      const holdFor = Math.max(0, 1500 - (Date.now() - startedAt));
+      setTimeout(() => {
+        setBootLoader('exit');
+        setTimeout(() => setBootLoader(null), 400);
+      }, holdFor);
+    });
   }, [session?.accessToken]);
 
   const pageTitle = useMemo(
@@ -233,6 +300,7 @@ export function App() {
       setSession(null);
       setActive('dashboard');
       setWorkspace('portal');
+      setAdminPage('admin-dashboard');
     }
   };
 
@@ -276,12 +344,14 @@ export function App() {
   // ── Admin Workspace ─────────────────────────────────────────────────────────
   // ── Admin Workspace / Normal Portal content ───────────────────────────────
   let content;
-  if (workspace === 'admin') {
+  if (workspace === 'admin' && superAdmin) {
     content = (
       <AdminWorkspace
         superAdmin={superAdmin}
         logout={logout}
         onBack={() => setWorkspace('portal')}
+        activePage={adminPage}
+        setActivePage={setAdminPage}
       />
     );
   } else {
@@ -347,6 +417,8 @@ export function App() {
     <>
       {content}
 
+      {bootLoader && <FullScreenLoader exiting={bootLoader === 'exit'} />}
+
       {notice && (
         <div
           role="status"
@@ -403,8 +475,8 @@ export function App() {
       )}
 
       {globalError && (
-        <Modal 
-          title="" 
+        <Modal
+          title=""
           onClose={() => {
             if (globalError.status === 401) {
               logout();
@@ -412,8 +484,8 @@ export function App() {
             setGlobalError(null);
           }}
         >
-          <ErrorPopupContent 
-            error={globalError} 
+          <ErrorPopupContent
+            error={globalError}
             onClose={() => {
               if (globalError.status === 401) {
                 logout();

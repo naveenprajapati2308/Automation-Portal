@@ -1,13 +1,51 @@
 import { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api.js';
-import { Panel, DataTable } from '../shared/index.jsx';
-import { Search, Eye, X, Image as ImageIcon, RefreshCw, LayoutGrid, List } from 'lucide-react';
+import { DataTable, Modal } from '../shared/index.jsx';
+import { Loader } from '../shared/Loader.jsx';
+import {
+  Search,
+  X,
+  Image as ImageIcon,
+  RefreshCw,
+  LayoutGrid,
+  List,
+  Filter,
+  Calendar,
+  Clock,
+  Trash2,
+  Camera,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight
+} from 'lucide-react';
+import './screenshots.css';
+
+function fmtTime(raw) {
+  if (!raw) return '—';
+  const d = new Date(raw);
+  if (isNaN(d)) return '—';
+  return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
 
 export function ScreenshotsGallery({ onSelectExecution }) {
   const [screenshots, setScreenshots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchExecutionCode, setSearchExecutionCode] = useState('');
+  const [keyword, setKeyword] = useState('');
+  const [moduleFilter, setModuleFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState('latest');
   const [activeImage, setActiveImage] = useState(null);
+  const [viewMode, setViewMode] = useState('gallery');
+
+  // Delete flow
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Gallery pagination
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(8);
 
   const fetchScreenshots = async () => {
     setLoading(true);
@@ -25,23 +63,64 @@ export function ScreenshotsGallery({ onSelectExecution }) {
     fetchScreenshots();
   }, []);
 
-  const [viewMode, setViewMode] = useState('gallery');
+  // Modules present in the loaded data drive the filter options
+  const moduleOptions = useMemo(() => {
+    const set = new Set(screenshots.map((s) => s.moduleCode).filter(Boolean));
+    return [...set].sort();
+  }, [screenshots]);
 
   const filteredScreenshots = useMemo(() => {
-    return screenshots.filter(s => {
-      if (!searchExecutionCode) return true;
-      return (s.executionCode || '').toLowerCase().includes(searchExecutionCode.toLowerCase());
+    const kw = keyword.trim().toLowerCase();
+    const code = searchExecutionCode.trim().toLowerCase();
+    const list = screenshots.filter(s => {
+      if (code && !(s.executionCode || '').toLowerCase().includes(code)) return false;
+      if (moduleFilter && s.moduleCode !== moduleFilter) return false;
+      if (kw) {
+        const haystack = `${s.testName || ''} ${s.methodName || ''} ${s.failureReason || ''}`.toLowerCase();
+        if (!haystack.includes(kw)) return false;
+      }
+      return true;
     });
-  }, [screenshots, searchExecutionCode]);
+    return [...list].sort((a, b) => {
+      const ta = new Date(a.createdAt || 0).getTime();
+      const tb = new Date(b.createdAt || 0).getTime();
+      return sortOrder === 'latest' ? tb - ta : ta - tb;
+    });
+  }, [screenshots, searchExecutionCode, keyword, moduleFilter, sortOrder]);
+
+  // Reset to first page whenever filters change the result set
+  useEffect(() => { setPage(1); }, [searchExecutionCode, keyword, moduleFilter, sortOrder, pageSize]);
+
+  const totalRecords = filteredScreenshots.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pagedScreenshots = filteredScreenshots.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const startRecord = totalRecords === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const endRecord = Math.min(safePage * pageSize, totalRecords);
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    try {
+      await api.deleteScreenshot(confirmDelete.testCaseId);
+      setScreenshots((prev) => prev.filter((s) => s.testCaseId !== confirmDelete.testCaseId));
+      if (activeImage?.testCaseId === confirmDelete.testCaseId) setActiveImage(null);
+      setConfirmDelete(null);
+    } catch (e) {
+      alert("Failed to delete screenshot: " + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const columns = useMemo(() => [
     {
       key: 'screenshotPath',
       label: 'Image',
       render: (val, shot) => (
-        <img 
-          src={`/uploads/${val}`} 
-          alt={shot.methodName} 
+        <img
+          src={`/uploads/${val}`}
+          alt={shot.methodName}
           style={{ width: '60px', height: '40px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer' }}
           onClick={() => setActiveImage(shot)}
         />
@@ -51,10 +130,7 @@ export function ScreenshotsGallery({ onSelectExecution }) {
       key: 'executionCode',
       label: 'Execution',
       render: (val, shot) => (
-        <button 
-          onClick={() => onSelectExecution(shot.executionId)}
-          style={{ border: 0, background: 'transparent', padding: 0, color: '#176b87', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
-        >
+        <button onClick={() => onSelectExecution(shot.executionId)} className="sg-code-link" style={{ fontSize: '13px' }}>
           {val}
         </button>
       )
@@ -62,7 +138,7 @@ export function ScreenshotsGallery({ onSelectExecution }) {
     {
       key: 'moduleCode',
       label: 'Module',
-      render: (val) => <span className="status failed">{val}</span>
+      render: (val) => <span className="sg-module-chip">{val}</span>
     },
     {
       key: 'testName',
@@ -84,195 +160,219 @@ export function ScreenshotsGallery({ onSelectExecution }) {
   ], [onSelectExecution]);
 
   return (
-    <section className="screenshots-gallery-page" style={{ display: 'grid', gap: '20px' }}>
-      
+    <section className="sg-page">
+
       {/* Filters */}
-      <Panel title="Filter Screenshots">
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <div style={{ flex: 1, display: 'flex', border: '1px solid #cfdae6', borderRadius: '8px', overflow: 'hidden', background: '#fff', alignItems: 'center', padding: '0 12px' }}>
-            <Search size={16} style={{ color: '#8a9bb0' }} />
-            <input 
-              type="text" 
-              placeholder="Search by execution code (e.g. AUTO-...)" 
+      <div className="sg-card">
+        <h3 className="sg-card-title sg-title-violet"><Filter size={17} /> Filter Screenshots</h3>
+        <div className="sg-filter-row">
+          <div className="sg-search-wrap">
+            <Search size={15} />
+            <input
+              type="text"
+              className="sg-input"
+              placeholder="Search by execution code (e.g. AUTO-2026-05-21-001)"
               value={searchExecutionCode}
               onChange={(e) => setSearchExecutionCode(e.target.value)}
-              style={{ width: '100%', height: '38px', border: 0, outline: 0, paddingLeft: '8px', fontSize: '13px' }}
             />
           </div>
-          
-          <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '1px solid #cfdae6' }}>
+
+          <input
+            type="text"
+            className="sg-input sg-keyword"
+            placeholder="Keyword (test, method, failure reason...)"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+
+          <select
+            className="sg-select sg-module"
+            value={moduleFilter}
+            onChange={(e) => setModuleFilter(e.target.value)}
+          >
+            <option value="">All Modules</option>
+            {moduleOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+
+          <div className="sg-view-toggle">
             <button
+              className={`sg-view-btn${viewMode === 'gallery' ? ' active' : ''}`}
               onClick={() => setViewMode('gallery')}
-              style={{ padding: '6px 10px', border: 0, cursor: 'pointer', borderRadius: '6px', background: viewMode === 'gallery' ? '#fff' : 'transparent', color: viewMode === 'gallery' ? '#0f172a' : '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}
               title="Gallery View"
             >
-              <LayoutGrid size={15} />
+              <LayoutGrid size={16} />
             </button>
             <button
+              className={`sg-view-btn${viewMode === 'table' ? ' active' : ''}`}
               onClick={() => setViewMode('table')}
-              style={{ padding: '6px 10px', border: 0, cursor: 'pointer', borderRadius: '6px', background: viewMode === 'table' ? '#fff' : 'transparent', color: viewMode === 'table' ? '#0f172a' : '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}
               title="Table View"
             >
-              <List size={15} />
+              <List size={16} />
             </button>
           </div>
 
-          <button 
-            onClick={fetchScreenshots} 
-            className="secondary-action"
-            style={{ height: '40px', display: 'flex', gap: '6px', alignItems: 'center' }}
-          >
+          <button className="sg-refresh-btn" onClick={fetchScreenshots}>
             <RefreshCw size={14} /> Refresh
           </button>
         </div>
-      </Panel>
+      </div>
 
       {/* Grid / Table content */}
-      <Panel title={viewMode === 'gallery' ? "Failure Screenshots Gallery" : "Failure Screenshots List"}>
+      <div className="sg-card">
+        <div className="sg-gallery-head">
+          <h3 className="sg-card-title sg-title-pink" style={{ margin: 0 }}>
+            <ImageIcon size={17} /> {viewMode === 'gallery' ? 'Failure Screenshots Gallery' : 'Failure Screenshots List'}
+          </h3>
+          {viewMode === 'gallery' && (
+            <label className="sg-sort">
+              Sort By:
+              <select className="sg-select" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+                <option value="latest">Latest First</option>
+                <option value="oldest">Oldest First</option>
+              </select>
+            </label>
+          )}
+        </div>
+
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <RefreshCw className="animate-spin" style={{ color: '#176b87' }} />
-            <p style={{ marginTop: '10px' }}>Loading screenshots...</p>
+          <div style={{ display: 'grid', placeItems: 'center', padding: '48px 0' }}>
+            <Loader size={44} label="Loading screenshots..." />
           </div>
         ) : filteredScreenshots.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: '#8a9bb0' }}>
-            <ImageIcon size={32} style={{ display: 'block', margin: '0 auto 10px', opacity: 0.5 }} />
-            <p>No failure screenshots found.</p>
+          <div className="sg-empty">
+            <Camera size={44} />
+            <strong>No screenshots found</strong>
+            <span>Failure screenshots from your test runs will appear here.</span>
           </div>
         ) : viewMode === 'gallery' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '18px' }}>
-            {filteredScreenshots.map((shot) => (
-              <div 
-                key={shot.testCaseId} 
-                style={{ 
-                  border: '1px solid #e2eaf3', 
-                  borderRadius: '10px', 
-                  overflow: 'hidden', 
-                  background: '#fff', 
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                  transition: 'transform 0.15s',
-                  cursor: 'default'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                <div style={{ position: 'relative', height: '160px', background: '#f5f8fb', overflow: 'hidden' }}>
-                  <img 
-                    src={`/uploads/${shot.screenshotPath}`} 
-                    alt={shot.methodName}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }}
-                    onClick={() => setActiveImage(shot)}
-                  />
-                  <span 
-                    className="status failed"
-                    style={{ position: 'absolute', top: '10px', right: '10px', fontSize: '10px', minHeight: 'unset', padding: '2px 8px' }}
-                  >
-                    {shot.moduleCode}
-                  </span>
-                </div>
-                
-                <div style={{ padding: '14px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                    <strong style={{ fontSize: '14px', color: '#2c3e50', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '70%' }}>
-                      {shot.methodName}
-                    </strong>
-                    <button 
-                      onClick={() => onSelectExecution(shot.executionId)}
-                      style={{ border: 0, background: 'transparent', padding: 0, color: '#176b87', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
+          <>
+            <div className="sg-grid">
+              {pagedScreenshots.map((shot) => (
+                <div key={shot.testCaseId} className="sg-shot-card">
+                  <div className="sg-thumb">
+                    <img
+                      src={`/uploads/${shot.screenshotPath}`}
+                      alt={shot.methodName}
+                      onClick={() => setActiveImage(shot)}
+                    />
+                    <button
+                      className="sg-delete-btn"
+                      title="Delete screenshot"
+                      onClick={() => setConfirmDelete(shot)}
                     >
-                      {shot.executionCode}
+                      <Trash2 size={14} />
                     </button>
                   </div>
-                  <span style={{ fontSize: '11px', color: '#8a9bb0', display: 'block', marginBottom: '8px' }}>
-                    {shot.testName}
-                  </span>
-                  <p 
-                    style={{ 
-                      fontSize: '12px', 
-                      color: '#c0392b', 
-                      margin: 0, 
-                      background: '#fff3f3', 
-                      padding: '8px 10px', 
-                      borderRadius: '6px', 
-                      maxHeight: '52px', 
-                      overflow: 'hidden', 
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical'
-                    }}
-                    title={shot.failureReason}
-                  >
-                    {shot.failureReason}
-                  </p>
+
+                  <div className="sg-shot-body">
+                    <strong className="sg-shot-title" title={shot.methodName}>{shot.methodName}</strong>
+                    <div className="sg-shot-meta">
+                      <span className="sg-meta-item">
+                        <Calendar size={13} />
+                        <button className="sg-code-link" onClick={() => onSelectExecution(shot.executionId)}>
+                          {shot.executionCode}
+                        </button>
+                      </span>
+                      <span className="sg-meta-item">
+                        <Clock size={13} /> {fmtTime(shot.createdAt)}
+                      </span>
+                    </div>
+                    <span className="sg-module-chip">{shot.moduleCode || 'All Modules'}</span>
+                    {shot.failureReason && (
+                      <p className="sg-fail-reason" title={shot.failureReason}>{shot.failureReason}</p>
+                    )}
+                  </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Pagination footer */}
+            <div className="sg-footer">
+              <span>Showing {startRecord} to {endRecord} of {totalRecords} screenshots</span>
+              <div className="sg-pager">
+                <span>Show:</span>
+                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+                  <option value={8}>8</option>
+                  <option value={12}>12</option>
+                  <option value={24}>24</option>
+                  <option value={48}>48</option>
+                </select>
+                <button className="sg-page-btn" disabled={safePage === 1} onClick={() => setPage(1)}>
+                  <ChevronsLeft size={15} />
+                </button>
+                <button className="sg-page-btn" disabled={safePage === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                  <ChevronLeft size={15} />
+                </button>
+                <span className="sg-page-label">Page {safePage} of {totalPages}</span>
+                <button className="sg-page-btn" disabled={safePage === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                  <ChevronRight size={15} />
+                </button>
+                <button className="sg-page-btn" disabled={safePage === totalPages} onClick={() => setPage(totalPages)}>
+                  <ChevronsRight size={15} />
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          </>
         ) : (
-          <DataTable 
-            columns={columns} 
-            data={filteredScreenshots} 
+          <DataTable
+            columns={columns}
+            data={filteredScreenshots}
             searchPlaceholder="Filter screenshots..."
             exportFilename="failure_screenshots.csv"
           />
         )}
-      </Panel>
+      </div>
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <Modal title="Delete Screenshot" onClose={() => setConfirmDelete(null)}>
+          <div className="sg-confirm-body">
+            <AlertTriangle size={38} />
+            <p className="sg-confirm-text">
+              Are you sure you want to delete this screenshot?<br />
+              <code>{confirmDelete.methodName}</code> — {confirmDelete.executionCode}<br />
+              This will permanently remove the image file.
+            </p>
+            <div className="sg-confirm-actions">
+              <button className="sg-btn-cancel" onClick={() => setConfirmDelete(null)} disabled={deleting}>
+                Cancel
+              </button>
+              <button className="sg-btn-delete" onClick={handleDelete} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Lightbox Modal */}
       {activeImage && (
-        <div 
-          style={{ 
-            position: 'fixed', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            background: 'rgba(15,25,35,0.9)', 
-            zIndex: 2000, 
-            display: 'grid', 
-            placeItems: 'center', 
-            padding: '24px' 
-          }}
-          onClick={() => setActiveImage(null)}
-        >
-          <div 
-            style={{ 
-              position: 'relative', 
-              maxWidth: '90%', 
-              maxHeight: '90%', 
-              background: '#fff', 
-              borderRadius: '8px', 
-              overflow: 'hidden',
-              boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img 
-              src={`/uploads/${activeImage.screenshotPath}`} 
+        <div className="sg-lightbox" onClick={() => setActiveImage(null)}>
+          <div className="sg-lightbox-card" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={`/uploads/${activeImage.screenshotPath}`}
               alt={activeImage.methodName}
-              style={{ maxWidth: '100%', maxHeight: '75vh', display: 'block', objectFit: 'contain' }}
             />
-            <button 
-              onClick={() => setActiveImage(null)} 
-              style={{ position: 'absolute', top: '10px', right: '10px', border: 0, background: 'rgba(0,0,0,0.5)', color: '#fff', cursor: 'pointer', padding: '6px', borderRadius: '50%' }}
-            >
+            <button className="sg-lightbox-close" onClick={() => setActiveImage(null)}>
               <X size={20} />
             </button>
-            <div style={{ padding: '16px 20px', borderTop: '1px solid #edf2f7' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <strong style={{ fontSize: '15px' }}>{activeImage.methodName}</strong>
-                <button 
+            <div className="sg-lightbox-foot">
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
+                <strong style={{ fontSize: '15px', color: '#eef5fc' }}>{activeImage.methodName}</strong>
+                <button
+                  className="sg-code-link"
+                  style={{ fontSize: '12.5px' }}
                   onClick={() => {
                     setActiveImage(null);
                     onSelectExecution(activeImage.executionId);
                   }}
-                  style={{ border: 0, background: 'transparent', padding: 0, color: '#176b87', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
                 >
                   Go to Execution {activeImage.executionCode}
                 </button>
               </div>
-              <p style={{ margin: 0, color: '#c0392b', fontSize: '13px', fontWeight: 600 }}>{activeImage.failureReason}</p>
+              {activeImage.failureReason && (
+                <p className="sg-fail-reason">{activeImage.failureReason}</p>
+              )}
             </div>
           </div>
         </div>

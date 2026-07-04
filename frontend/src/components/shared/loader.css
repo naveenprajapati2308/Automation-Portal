@@ -1,0 +1,168 @@
+/* ── TESTRIX Loader ─────────────────────────────────────────────────────────
+   Self-contained styles for Loader.jsx — deliberately kept out of styles.css. */
+
+.tx-loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(1200px 800px at 50% 35%, #101c33 0%, #0a1120 55%, #070c16 100%);
+  animation: txFadeIn 0.35s ease both;
+}
+.tx-loader-overlay.tx-exit {
+  animation: txFadeOut 0.4s ease both;
+}
+
+.tx-loader-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+/* Orbital rings */
+.tx-orbit {
+  position: relative;
+  width: 46px;
+  height: 46px;
+}
+.tx-orbit-lg {
+  width: 132px;
+  height: 132px;
+}
+
+.tx-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+}
+.tx-ring-a {
+  border-top-color: #2dd4bf;
+  border-right-color: rgba(45, 212, 191, 0.25);
+  animation: txSpin 1.1s linear infinite;
+}
+.tx-ring-b {
+  inset: 10px;
+  border-bottom-color: #e0a64a;
+  border-left-color: rgba(224, 166, 74, 0.25);
+  animation: txSpinRev 1.6s linear infinite;
+}
+.tx-ring-c {
+  inset: 21px;
+  border-top-color: #60a5fa;
+  animation: txSpin 2.2s linear infinite;
+}
+
+.tx-loader-logo {
+  position: absolute;
+  inset: 34px;
+  width: calc(100% - 68px);
+  height: calc(100% - 68px);
+  object-fit: contain;
+  animation: txPulse 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 18px rgba(45, 212, 191, 0.35));
+}
+
+/* Small inline loader core (used when there is no logo) */
+.tx-core {
+  position: absolute;
+  inset: 32%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(45, 212, 191, 0.9), rgba(45, 212, 191, 0.08) 72%);
+  animation: txPulse 1.4s ease-in-out infinite;
+}
+
+/* Shimmering brand title */
+.tx-loader-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+  text-indent: 0.35em;
+  background: linear-gradient(90deg, #2dd4bf, #60a5fa, #e0a64a, #2dd4bf);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: txShimmer 2.6s linear infinite;
+}
+
+.tx-loader-subtitle {
+  color: #8a9bb0;
+  font-size: 13px;
+  display: flex;
+}
+.tx-dots span {
+  animation: txBlink 1.2s infinite;
+}
+.tx-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.tx-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Indeterminate progress bar */
+.tx-progressbar {
+  width: 220px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(138, 155, 176, 0.18);
+  overflow: hidden;
+}
+.tx-progressbar span {
+  display: block;
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2dd4bf, #60a5fa);
+  animation: txSlide 1.15s ease-in-out infinite;
+}
+
+/* Inline variant */
+.tx-loader-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #8a9bb0;
+  font-size: 13px;
+}
+
+@keyframes txSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes txSpinRev {
+  to { transform: rotate(-360deg); }
+}
+@keyframes txPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.92); opacity: 0.75; }
+}
+@keyframes txFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes txFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes txShimmer {
+  to { background-position: -300% 0; }
+}
+@keyframes txBlink {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+@keyframes txSlide {
+  0% { transform: translateX(-260%); }
+  100% { transform: translateX(650%); }
+}
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  .tx-ring, .tx-loader-logo, .tx-core, .tx-loader-title,
+  .tx-dots span, .tx-progressbar span {
+    animation-duration: 4s;
+  }
+}

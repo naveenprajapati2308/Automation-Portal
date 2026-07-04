@@ -3,9 +3,11 @@ package com.automationportal.auth;
 import com.automationportal.users.User;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -46,5 +48,18 @@ public class RefreshTokenService {
             token.setRevoked(true);
             repository.save(token);
         });
+    }
+
+    @Transactional
+    public void revokeActiveTokensFor(User user) {
+        List<RefreshToken> active = repository.findByUserAndRevokedFalse(user);
+        active.forEach(token -> token.setRevoked(true));
+        repository.saveAll(active);
+    }
+
+    @Scheduled(cron = "0 0 3 * * *")
+    @Transactional
+    public void purgeStaleTokens() {
+        repository.purgeStale(Instant.now());
     }
 }

@@ -1,0 +1,105 @@
+/* ── DataTable dark navy theme ───────────────────────────────────────────────
+   Overrides the light datatable styles from styles.css for ALL tables.
+   Scoped under .datatable-container so specificity always wins. */
+
+/* Search box */
+.datatable-container .datatable-search-input {
+  width: 100%;
+  background: #101d31;
+  border: 1px solid #223650;
+  color: #e2ecf6;
+}
+.datatable-container .datatable-search-input::placeholder {
+  color: #5d7292;
+}
+.datatable-container .datatable-search-input:focus {
+  border-color: #4f6ef7;
+}
+.datatable-container .datatable-search-icon {
+  color: #5d7292;
+}
+
+/* Toolbar buttons (Columns / Export / pagination arrows) */
+.datatable-container .btn-secondary {
+  background: #101d31;
+  border: 1px solid #223650;
+  color: #c7d6e6;
+}
+.datatable-container .btn-secondary:hover:not(:disabled) {
+  background: #16273f;
+  border-color: #34517a;
+}
+
+/* Column visibility popup */
+.datatable-container .datatable-column-toggle-popup {
+  background: #0f1c30;
+  border: 1px solid #223650;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.datatable-container .datatable-column-toggle-popup h4 {
+  color: #8fa2b8;
+  border-bottom-color: #223650 !important;
+}
+.datatable-container .datatable-column-toggle-label {
+  color: #c7d6e6;
+}
+.datatable-container .datatable-column-toggle-label:hover {
+  background: #16273f;
+}
+
+/* Table */
+.datatable-container .datatable-table-wrapper {
+  background: #0b1422;
+  border: 1px solid #1c2b40;
+  border-radius: 10px;
+}
+.datatable-container .datatable-table th {
+  background: #0a1220;
+  color: #8fa2b8;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #1c2b40;
+}
+.datatable-container .datatable-table td {
+  color: #dbe4ee;
+  border-bottom: 1px solid #16243a;
+}
+.datatable-container .datatable-table tbody tr:hover td {
+  background: #101d31;
+}
+.datatable-container .datatable-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #8fa2b8;
+  font-style: normal;
+}
+.datatable-container .datatable-empty-icon {
+  color: #7c3aed;
+  filter: drop-shadow(0 0 14px rgba(124, 58, 237, 0.7));
+}
+
+/* Footer / pagination */
+.datatable-container .datatable-footer {
+  color: #8fa2b8;
+}
+.datatable-container .datatable-pagesize-select-wrapper span {
+  color: #8fa2b8 !important;
+}
+.datatable-container .datatable-pagesize-select {
+  background: #101d31;
+  border: 1px solid #223650;
+  color: #e2ecf6;
+}
+.datatable-container .datatable-page-buttons span {
+  color: #c7d6e6;
+}
+
+/* Loading skeleton shimmer */
+.datatable-container .skeleton {
+  background: linear-gradient(90deg, #121f33 25%, #1a2c47 50%, #121f33 75%);
+  background-size: 200% 100%;
+}

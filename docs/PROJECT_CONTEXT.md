@@ -23,6 +23,15 @@
 > execution bug that could block the entire queue indefinitely was fixed with an event-driven
 > (not timeout-based) unstick mechanism. See §10 for full detail. All changes are currently
 > uncommitted in the working tree.
+>
+> **2026-07-04/05 update (second session):** full database cleanup to a blank slate (only
+> superadmin + config remain), single-session refresh-token policy + token purge job, profile
+> image upload fixed (two real backend bugs incl. a systemic "/error → fake 401" fix), URL hash
+> routing (tab survives refresh), branded boot loader, login/profile form validation, a
+> portal-wide dark "target theme" UI overhaul of Dashboard / Execution Center / Reports /
+> Historical Compare / Screenshots / Test Logs / Profile / Topbar (admin workspace deliberately
+> deferred), screenshot delete API + confirm flow, and a dark/bright theme toggle. See §11.
+> Everything remains uncommitted.
 
 ---
 
@@ -703,7 +712,141 @@ in sync with the tree after this point.
 
 ---
 
-## 11. How to Use This Document
+## 11. Session Update — 2026-07-04/05: DB Reset, Auth Hardening, Portal-wide UI Overhaul
+
+A long UI-focused session (project owner's words: "aaj ka poora time UI me nikal gaya") plus
+several real backend fixes. Everything below is uncommitted in the working tree.
+
+### 11.1 Database reset to a blank slate
+
+All dummy/historical data was deleted on the owner's instruction (full `mysqldump` backup was
+taken first, stored in the session scratchpad — temporary, don't rely on it long-term):
+- **Users**: only `superadmin@gmail.com` (id=1) remains; `testuser1` and `neerubhai` deleted.
+- **Executions**: ALL deleted (initially "keep the last one", then explicitly "delete everything")
+  — `executions`, `execution_test_cases`, `test_steps`, `execution_artifacts`, `execution_logs`,
+  `execution_queue`, `execution_jobs`, `tags` are all empty.
+- **audit_logs**: wiped (380 rows, mostly test noise; 254 had NULL user_id — that's by design for
+  failed logins with unknown username, not a bug).
+- **Artifacts volume** (`automation_portal_artifacts`): all execution folders deleted (182 MB → 0).
+- Kept: environments (QA/UAT/PreProd/Prod), modules (config data, not dummy).
+- Table naming was audited on request: names are already clean (`users`, `executions`, …). The
+  `V1__`/`V2__` files the owner asked about are Flyway migration *scripts* (mandatory naming),
+  not tables — explained, nothing renamed, `tbl_` suffixes rejected as outdated.
+
+### 11.2 Refresh-token hygiene → single-session policy
+
+470 refresh tokens had accumulated (every login minted a new token, old ones never revoked).
+Fixes in `backend/.../auth/`:
+- `RefreshTokenService.revokeActiveTokensFor(user)` — called on login (`AuthController`) and
+  Google OAuth login (`GoogleOAuth2SuccessHandler`). **Net effect: single active session per
+  user** — a new login logs out other sessions. Owner accepted this tradeoff.
+- `purgeStaleTokens()` — `@Scheduled` daily 3 AM delete of revoked/expired tokens
+  (`RefreshTokenRepository.purgeStale`).
+- Verified live: login revokes prior active token; owner's session restored untouched.
+
+### 11.3 Profile image upload — two real bugs fixed (upload never worked at all)
+
+- **Bug 1 (root cause)**: `MultipartFile.transferTo()` resolves *relative* paths against
+  Tomcat's temp work dir, not the app working dir → `FileNotFoundException` on every upload.
+  Fixed in `ProfileController`: absolute path + `Files.copy()`.
+- **Bug 2 (systemic, same class as §10.2)**: `/error` was not in SecurityConfig's permitAll, and
+  the JWT filter doesn't run on ERROR dispatch → **every unhandled backend exception surfaced as
+  an empty 401** → frontend showed "session expired" and logged the user out. Fixed by adding
+  `"/error"` to permitAll. This protects every endpoint from fake-401s, permanently.
+- Also: multipart limits set (10MB file / 12MB request — default was 1MB),
+  `MaxUploadSizeExceededException` → proper 413 with friendly message.
+- Verified live end-to-end with a temp user (2MB→200 + file served, 12MB→413, non-image→400).
+
+### 11.4 Frontend platform fixes
+
+- **URL hash routing** (`App.jsx`): active tab lives in the hash (`#/reports`,
+  `#/admin/user-management`). Refresh keeps you on the same tab (was resetting to Dashboard),
+  browser back/forward works, `AdminWorkspace`'s internal page state was lifted into App.
+- **Boot loader**: `shared/Loader.jsx` + `loader.css` — full-screen TESTRIX branded loader
+  (orbital rings + logo) after login, min 1.5 s, fade-out; inline `Loader` reusable. Sign-In
+  button got a spinner/disabled state ("Signing In…").
+- **Login validation** (`AuthPage.jsx`): email format (strict @ + .), password min 8, field-level
+  red errors below inputs; server errors below the button *without* status code text; server
+  down/5xx shows "500 Internal Server Error"; global error popup suppressed on the auth page.
+- **Edit Profile validation**: all 4 fields required, mobile must be 10 digits starting 6-9.
+- One-off: the Vite dev server process froze (served nothing, logins hung "pending") — killed
+  and restarted; not a code bug. If it recurs, just restart `npm run dev`.
+
+### 11.5 Portal-wide "target theme" UI overhaul (admin workspace deliberately deferred)
+
+The owner supplied target-design screenshots; each page was rebuilt visually with **zero
+functional/structural changes** (no columns/fields added or removed — one attempt to add table
+columns was explicitly reverted). Pattern: per-page scoped CSS file next to the component
+(`styles.css` mostly untouched since the owner edits it in parallel). Shared palette:
+cards `#0d1727`, borders `#1c2b40`, inputs `#101d31`, violet accents `#7c3aed/#a78bfa`,
+blue→violet gradient action buttons, icon'd card titles, `margin-top: 15px` on all cards
+(owner's convention, also added to global `.panel`).
+
+Per page:
+- **Profile** (`profile/profile.css`): hero card (avatar upload, verified badge, chips, Active
+  pill, Edit Profile button top-right), Account Information rows, Quick Actions (Change
+  Password/Email real; Manage Sessions removed — no backing capability), Activity Summary tiles
+  computed from audit logs, Activity Log table hidden behind a Show More toggle, Edit modal
+  ("Save & Close").
+- **Execution Center** (`execution/execution.css`): controls card with decorative illustration
+  (`frontend/public/execution-art.png`, blended via `mix-blend-mode: screen` + radial mask so it
+  reads as part of the card), controls constrained to 55% width, gradient Launch button,
+  left-aligned Advanced XML toggle. **Live layout fixed**: Live Monitor + Live Logs/Screenshots
+  now render side-by-side in a row *between* the controls card and the queue table, so nothing
+  shifts when a run starts. Queue table columns/renders untouched (original 4 columns).
+- **Reports Center** (`reports/reports.css`): filter card (violet-accent inputs, dark date
+  pickers), gradient Apply Filters/Compare Runs, dark comparison-result KPIs/lists.
+- **Historical Compare** (`execution/compare.css`): hero card with `execution-art2.png`
+  (blended), calendar-chip selects (violet/cyan), circular arrow, Tip bar — all target text
+  copied verbatim. Result section redesigned (KPI tiles, fail/fixed cards side-by-side, dark
+  detail table); the old `gridColumn: span 2` inline styles that broke the single-column layout
+  after clicking Compare were removed.
+- **Screenshots Gallery** (`screenshots/screenshots.css`): filter card + **new keyword filter**
+  (test/method/failure-reason) + **new module filter**, grid/list toggle, Sort By, card grid with
+  meta, client-side pagination, glowing camera empty state, dark lightbox. **New delete
+  feature**: trash button per card → "Are you sure" modal → `DELETE /api/screenshots/{testCaseId}`
+  (new endpoint: deletes the file inside the artifacts root with a path-traversal guard, removes
+  the matching `execution_artifacts` row, nulls `screenshot_path`; the test-case row survives).
+  `createdAt` added to the screenshots DTO.
+- **Test Logs** (`logs/logs.css`): header card (execution picker, status pill, "N tests" chip,
+  Refresh), colored status filter chips with counts, module + search filters, dark table cells,
+  dark drawer. `DataTable` gained optional `emptyMessage`/`emptyHint` props.
+- **Dashboard** (`dashboard/dashboard.css`): converted from its own palette (`#0c1020`/indigo)
+  to the shared system — same cards/tables/selects, icon'd titles, gradient Run All button,
+  `xc-status` pills in Recent Executions, TESTRIX loader. **A full pre-change backup of
+  `components/dashboard/` sits in the session scratchpad** (`dashboard-backup/`) because the
+  owner asked to be revert-ready. Charts (TrendChart/EnvDistribution) untouched.
+- **Shared**: `shared/datatable-dark.css` — all DataTables now navy (uppercase headers, dark
+  search/buttons/popup/pagination/skeleton; also fixed a `width:120%` search-input overflow bug).
+  Glowing-folder empty state added to DataTable. **Topbar unified** via global `tb-*` classes in
+  `styles.css` (one 40px/10px-radius recipe: QA Environment cyan, search with working Ctrl+K
+  focus, bell as rounded square with count badge, Super Admin amber with Crown, Admin Panel
+  blue). Sidebar active tab: violet gradient + left accent (global `nav button.active`).
+
+### 11.6 Theme toggle (dark ↔ bright)
+
+- Sun/Moon `tb-icon-btn` in the Topbar (fixed spot: right of the bell, left of Super Admin).
+- Choice persists in `localStorage('portal-theme')`; applied as `<html data-theme="light">`.
+- `src/theme-light.css` (imported after `styles.css` in `main.jsx`) overrides surfaces/text for
+  every page family (`pf-/xc-/rc-/sg-/cp-/tl-/db-/tb-/datatable`). Dark remains the default.
+- Deliberately still dark in light mode: boot loader (branded splash), live-log terminal, test
+  log drawer. **Known gap: admin workspace pages are not yet light-themed** (admin UI redesign
+  is deferred anyway).
+
+### 11.7 State / next session
+
+- **Everything uncommitted** (backend auth/upload/screenshot changes + the entire frontend
+  overhaul). Commit remains the owner's call, per standing convention.
+- DB is empty of run data — dashboards/tables will show real values only after the next
+  execution. **Next session's main job: run a real execution end-to-end and validate the whole
+  pipeline against the new UI** (this was explicitly parked today: "kal ka din main kaam ke liye").
+- Admin workspace UI redesign: deferred, owner will schedule.
+- Frontend runs natively (`npm run dev`, :5173); backend/EM/runner/artifact-service run natively;
+  only MySQL is in Docker (:3306) — the day-to-day dev setup from §9's port note still holds.
+
+---
+
+## 12. How to Use This Document
 
 - Treat this as the **baseline mental model**. When you give new instructions, they add to or
   override specific sections here — they don't replace the whole architecture.

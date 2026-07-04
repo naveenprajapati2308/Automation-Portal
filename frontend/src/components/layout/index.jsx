@@ -11,7 +11,8 @@ import {
   Moon,
   User,
   Settings,
-  Globe2
+  Globe2,
+  Crown
 } from 'lucide-react';
 import appLogo from '../../assets/MPHIDB_Logo2.png';
 import { USER_NAV } from '../../constants.js';
@@ -145,6 +146,27 @@ export function PortalLayout({ sidebar, topbar, children, shellClassName = '', m
 export function Topbar({ pageTitle, superAdmin, onOpenAdmin }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [theme, setTheme] = useState(() => localStorage.getItem('portal-theme') || 'dark');
+  const searchRef = React.useRef(null);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('portal-theme', next);
+    document.documentElement.dataset.theme = next;
+  };
+
+  // Ctrl+K focuses the global search (the shortcut shown on the input)
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const notifications = [
     { id: 1, title: 'Execution Completed', message: 'Suite run EXE_20260626 completed successfully.', time: '5m ago', unread: true },
@@ -164,32 +186,33 @@ export function Topbar({ pageTitle, superAdmin, onOpenAdmin }) {
 
       <div className="topbar-right">
         {/* Environment status pill */}
-        <div className="brief-meta" style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(96, 179, 224, 0.15)', color: '#60b3e0', border: '1px solid rgba(96, 179, 224, 0.25)', borderRadius: '20px' }}>
-          <Globe2 size={13} style={{ marginRight: '6px' }} />
+        <div className="tb-chip tb-chip-cyan">
+          <Globe2 size={14} />
           QA Environment
         </div>
 
         {/* Global Search Bar */}
-        <div className="search" style={{ background: '#0d1527', border: '1px solid #14253f' }}>
-          <Search size={18} style={{ color: '#7a9cb8' }} />
-          <input 
-            placeholder="Global search..." 
+        <div className="tb-search">
+          <Search size={15} />
+          <input
+            ref={searchRef}
+            placeholder="Global search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ background: 'transparent', color: '#fff' }}
           />
+          <span className="tb-kbd">Ctrl + K</span>
         </div>
 
         {/* Notifications Center */}
         <div style={{ position: 'relative' }}>
-          <button 
+          <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="secondary-action btn-icon-only"
-            style={{ width: '38px', height: '38px', padding: 0, borderRadius: '50%', position: 'relative', background: '#0d1527', border: '1px solid #14253f', color: '#7a9cb8' }}
+            className="tb-icon-btn"
+            title="Notifications"
           >
-            <Bell size={16} />
+            <Bell size={17} />
             {unreadCount > 0 && (
-              <span style={{ position: 'absolute', top: '10px', right: '10px', width: '8px', height: '8px', background: '#ef4444', borderRadius: '50%', boxShadow: '0 0 0 2px #0d1527' }}></span>
+              <span className="tb-count-badge">{unreadCount}</span>
             )}
           </button>
           
@@ -227,13 +250,22 @@ export function Topbar({ pageTitle, superAdmin, onOpenAdmin }) {
           )}
         </div>
 
+        {/* Theme toggle — always in the same spot, left of the Super Admin chip */}
+        <button
+          className="tb-icon-btn"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to bright theme' : 'Switch to dark theme'}
+        >
+          {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+        </button>
+
         {superAdmin && (
           <>
-            <div className="admin-badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
-              <Shield size={14} />
+            <div className="tb-chip tb-chip-amber">
+              <Crown size={14} />
               Super Admin
             </div>
-            <button className="admin-workspace-btn" onClick={onOpenAdmin} title="Open Administration Workspace" style={{ height: '36px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'linear-gradient(135deg, #1e3d5a, #0e2030)', border: '1px solid #2a4c72', color: '#60b3e0', borderRadius: '8px', padding: '0 12px', fontWeight: 600, cursor: 'pointer' }}>
+            <button className="tb-chip tb-chip-blue" onClick={onOpenAdmin} title="Open Administration Workspace">
               <LayoutDashboard size={15} />
               Admin Panel
             </button>

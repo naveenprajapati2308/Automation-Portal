@@ -227,6 +227,7 @@ export const api = {
     const qs = new URLSearchParams(params).toString();
     return request('/api/screenshots' + (qs ? '?' + qs : ''));
   },
+  deleteScreenshot: (testCaseId) => request(`/api/screenshots/${testCaseId}`, { method: 'DELETE' }),
 
   compareExecutions: (baseId, targetId) => request(`/api/compare/executions?baseExecutionId=${baseId}&targetExecutionId=${targetId}`),
   compareLatest: (module) => request(`/api/compare/latest?module=${module}`),

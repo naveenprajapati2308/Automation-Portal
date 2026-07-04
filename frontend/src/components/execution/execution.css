@@ -1,0 +1,505 @@
+/* ── Execution Center (dark target theme) ────────────────────────────────────
+   Self-contained styles for ExecutionCenter.jsx — kept out of styles.css. */
+
+.xc-page {
+  display: grid;
+  gap: 20px;
+}
+
+.xc-card {
+  background: #0d1727;
+  border: 1px solid #1c2b40;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 15px;
+
+}
+
+/* Controls card with decorative illustration on the right */
+.xc-controls-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.xc-controls-art {
+  position: absolute;
+  top: 50%;
+  right: 2%;
+  transform: translateY(-50%);
+  width: 400px;
+  max-width: 40%;
+  height: auto;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  /* Blend into the card: the artwork's near-black background disappears with
+     `screen`, and the radial mask fades the hard rectangular edges away so it
+     reads as part of the card, not a pasted image. */
+  mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(75% 75% at 50% 50%, #000 55%, transparent 82%);
+  mask-image: radial-gradient(75% 75% at 50% 50%, #000 55%, transparent 82%);
+}
+
+@media (max-width: 1100px) {
+  .xc-controls-art {
+    display: none;
+  }
+}
+
+/* Keep the form controls clear of the artwork on wide screens */
+@media (min-width: 1101px) {
+
+  .xc-controls-card .xc-select,
+  .xc-controls-card .xc-label,
+  .xc-controls-card .xc-advanced-row,
+  .xc-controls-card .xc-launch {
+    max-width: 55%;
+  }
+}
+
+.xc-card-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 16px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #dbe7f3;
+}
+
+.xc-card-title svg {
+  color: #7c8ffa;
+}
+
+.xc-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8fa2b8;
+  margin-bottom: 7px;
+}
+
+.xc-select {
+  width: 100%;
+  height: 42px;
+  border-radius: 9px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #e2ecf6;
+  padding: 0 12px;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.xc-select:focus {
+  border-color: #4f6ef7;
+}
+
+.xc-select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.xc-select option {
+  background: #101d31;
+  color: #e2ecf6;
+}
+
+/* Primary run picker gets the violet accent border like the target design */
+.xc-select-primary {
+  border-color: rgba(124, 58, 237, 0.55);
+}
+
+.xc-select-primary:focus {
+  border-color: #a78bfa;
+}
+
+.xc-advanced-toggle {
+  /* Block-level flex so it always drops to its own line under the run picker
+     instead of flowing inline beside it. */
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 10px 0 2px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #a78bfa;
+}
+
+.xc-advanced-toggle:hover {
+  color: #c4b5fd;
+}
+
+.xc-advanced-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.xc-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #8fa2b8;
+  cursor: pointer;
+}
+
+.xc-icon-btn:hover {
+  border-color: #34517a;
+  color: #c7d6e6;
+}
+
+.xc-launch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: 100%;
+  height: 46px;
+  margin-top: 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #f2f6ff;
+  cursor: pointer;
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  transition: filter 0.15s;
+}
+
+.xc-launch:hover {
+  filter: brightness(1.12);
+}
+
+.xc-launch:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* ── Status pills ──────────────────────────────────────────────────────────── */
+.xc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.xc-status .xc-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.xc-status-passed {
+  color: #2ecc71;
+  border-color: rgba(46, 204, 113, 0.35);
+  background: rgba(46, 204, 113, 0.08);
+}
+
+.xc-status-failed,
+.xc-status-error {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.xc-status-running {
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.xc-status-running .xc-dot {
+  animation: xcBlink 1.1s ease-in-out infinite;
+}
+
+.xc-status-queued,
+.xc-status-partial {
+  color: #e0a64a;
+  border-color: rgba(224, 166, 74, 0.4);
+  background: rgba(224, 166, 74, 0.08);
+}
+
+.xc-status-cancelled {
+  color: #8fa2b8;
+  border-color: rgba(143, 162, 184, 0.35);
+  background: rgba(143, 162, 184, 0.08);
+}
+
+@keyframes xcBlink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* ── Metrics cell ──────────────────────────────────────────────────────────── */
+.xc-metrics {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.xc-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.xc-metric-pass {
+  color: #2ecc71;
+}
+
+.xc-metric-fail {
+  color: #f87171;
+}
+
+.xc-metric-skip {
+  color: #e0a64a;
+}
+
+.xc-metrics-idle {
+  color: #4a5f78;
+  letter-spacing: 3px;
+}
+
+.xc-runcode {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 600;
+  font-size: 13px;
+  color: #7c8ffa;
+}
+
+.xc-runcode:hover {
+  color: #a5b4fc;
+  text-decoration: underline;
+}
+
+.xc-eye-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #7c8ffa;
+  cursor: pointer;
+}
+
+.xc-eye-btn:hover {
+  border-color: #4f6ef7;
+  color: #a5b4fc;
+}
+
+/* ── Live monitor ──────────────────────────────────────────────────────────── */
+/* Monitor + logs side by side between the controls card and the queue table */
+.xc-live-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+@media (max-width: 1100px) {
+  .xc-live-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.xc-live-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.xc-live-suite {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #eef5fc;
+}
+
+.xc-live-started {
+  font-size: 12px;
+  color: #8fa2b8;
+}
+
+.xc-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #16243a;
+  overflow: hidden;
+  margin-top: 14px;
+}
+
+.xc-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  transition: width 0.3s ease-out;
+}
+
+.xc-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #8fa2b8;
+  margin-top: 6px;
+}
+
+.xc-counters {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  text-align: center;
+  margin-top: 14px;
+}
+
+.xc-counter {
+  border-radius: 10px;
+  border: 1px solid;
+  padding: 10px;
+}
+
+.xc-counter span {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 2px;
+}
+
+.xc-counter strong {
+  font-size: 20px;
+}
+
+.xc-counter-pass {
+  color: #2ecc71;
+  border-color: rgba(46, 204, 113, 0.3);
+  background: rgba(46, 204, 113, 0.07);
+}
+
+.xc-counter-fail {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.07);
+}
+
+.xc-counter-skip {
+  color: #e0a64a;
+  border-color: rgba(224, 166, 74, 0.3);
+  background: rgba(224, 166, 74, 0.07);
+}
+
+.xc-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  margin-top: 14px;
+  border-radius: 9px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.07);
+  color: #f87171;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.xc-cancel-btn:hover {
+  background: rgba(239, 68, 68, 0.14);
+}
+
+/* Live logs / screenshots tabs */
+.xc-tabs-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 380px;
+  background: #0d1727;
+  border: 1px solid #1c2b40;
+  border-radius: 14px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.xc-tabs-bar {
+  display: flex;
+  border-bottom: 1px solid #1c2b40;
+  background: #0a1220;
+}
+
+.xc-tab {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8fa2b8;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+}
+
+.xc-tab.active {
+  color: #dbe7f3;
+  font-weight: 700;
+  border-bottom-color: #7c3aed;
+}
+
+.xc-tab-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.xc-shot-card {
+  border: 1px solid #1c2b40;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #101d31;
+}
+
+.xc-shot-card .xc-shot-name {
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c7d6e6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

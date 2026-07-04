@@ -29,8 +29,9 @@ const WS_ICON_MAP = { Shield, Users, UserCog, KeyRound, BookOpen, TerminalSquare
 ADMIN_WORKSPACE_NAV.forEach((item) => { item._icon = WS_ICON_MAP[item.icon]; });
 
 // ── Admin Workspace ───────────────────────────────────────────────────────────
-export function AdminWorkspace({ superAdmin, logout, onBack }) {
-  const [activePage, setActivePage] = useState('admin-dashboard');
+// activePage/setActivePage live in App so the current admin page survives a
+// browser refresh via the URL hash (#/admin/<page>).
+export function AdminWorkspace({ superAdmin, logout, onBack, activePage, setActivePage }) {
   const [notice, setNotice] = useState('Administration workspace — Super Admin only.');
 
   if (!superAdmin) {

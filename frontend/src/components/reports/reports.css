@@ -1,0 +1,314 @@
+/* ── Reports Center (dark target theme) ──────────────────────────────────────
+   Self-contained styles for ReportsCenter.jsx — kept out of styles.css. */
+
+.rc-page {
+  display: grid;
+  gap: 20px;
+}
+
+.rc-card {
+  background: #0d1727;
+  border: 1px solid #1c2b40;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 15px;
+}
+
+.rc-card-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 16px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #dbe7f3;
+}
+
+.rc-title-cyan svg {
+  color: #2dd4bf;
+}
+
+.rc-title-blue {
+  color: #60a5fa;
+}
+
+.rc-title-blue svg {
+  color: #60a5fa;
+}
+
+.rc-title-violet {
+  color: #a78bfa;
+}
+
+.rc-title-violet svg {
+  color: #a78bfa;
+}
+
+/* ── Filters ───────────────────────────────────────────────────────────────── */
+.rc-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.rc-label {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #8fa2b8;
+  margin-bottom: 6px;
+}
+
+.rc-input,
+.rc-select {
+  width: 100%;
+  height: 40px;
+  border-radius: 9px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #e2ecf6;
+  padding: 0 10px;
+  font-size: 13px;
+  outline: none;
+  color-scheme: dark;
+  /* native date-picker icon renders light-on-dark */
+}
+
+.rc-input:focus,
+.rc-select:focus {
+  border-color: #4f6ef7;
+}
+
+.rc-input::placeholder {
+  color: #5d7292;
+}
+
+.rc-select option {
+  background: #101d31;
+  color: #e2ecf6;
+}
+
+/* Search / module / status get the violet accent border like the target */
+.rc-accent {
+  border-color: rgba(124, 58, 237, 0.5);
+}
+
+.rc-accent:focus {
+  border-color: #a78bfa;
+}
+
+.rc-search-wrap {
+  position: relative;
+}
+
+.rc-search-wrap svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #5d7292;
+  pointer-events: none;
+}
+
+.rc-search-wrap .rc-input {
+  padding-left: 32px;
+}
+
+/* Gradient action buttons (Apply Filters / Compare Runs) */
+.rc-gradient-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 22px;
+  border: none;
+  border-radius: 9px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #f2f6ff;
+  cursor: pointer;
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  transition: filter 0.15s;
+  white-space: nowrap;
+}
+
+.rc-gradient-btn:hover {
+  filter: brightness(1.12);
+}
+
+.rc-gradient-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
+
+/* ── Table cell helpers ────────────────────────────────────────────────────── */
+.rc-code-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  color: #7c8ffa;
+}
+
+.rc-code-link:hover {
+  color: #a5b4fc;
+  text-decoration: underline;
+}
+
+.rc-act-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #8fa2b8;
+  cursor: pointer;
+}
+
+.rc-act-btn:hover {
+  border-color: #4f6ef7;
+  color: #a5b4fc;
+}
+
+/* ── Comparison result ─────────────────────────────────────────────────────── */
+.rc-cmp-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+.rc-cmp-result {
+  background: #0b1422;
+  border: 1px solid #1c2b40;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 14px;
+}
+
+.rc-cmp-result-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #1c2b40;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+
+.rc-cmp-result-head h3 {
+  margin: 0;
+  font-size: 14.5px;
+  color: #dbe7f3;
+}
+
+.rc-cmp-result-head code {
+  color: #7c8ffa;
+}
+
+.rc-clear-btn {
+  background: transparent;
+  border: none;
+  color: #f87171;
+  font-weight: 700;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.rc-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.rc-kpi {
+  background: #101d31;
+  border: 1px solid #223650;
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.rc-kpi span {
+  display: block;
+  font-size: 11px;
+  color: #8fa2b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.rc-kpi strong {
+  font-size: 22px;
+}
+
+.rc-list-card {
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid;
+}
+
+.rc-list-card h4 {
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+}
+
+.rc-list-fail {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.rc-list-fail h4 {
+  color: #f87171;
+}
+
+.rc-list-fixed {
+  background: rgba(46, 204, 113, 0.05);
+  border-color: rgba(46, 204, 113, 0.25);
+}
+
+.rc-list-fixed h4 {
+  color: #2ecc71;
+}
+
+.rc-fail-item {
+  padding: 8px 10px;
+  background: rgba(239, 68, 68, 0.06);
+  border-radius: 6px;
+  border-left: 3px solid #f87171;
+  font-size: 12px;
+  color: #dbe4ee;
+}
+
+.rc-fail-item p {
+  margin: 4px 0 0;
+  color: #f0918d;
+  font-style: italic;
+}
+
+.rc-fixed-item {
+  padding: 6px 10px;
+  background: rgba(46, 204, 113, 0.06);
+  border-radius: 6px;
+  border-left: 3px solid #2ecc71;
+  font-size: 12px;
+  color: #dbe4ee;
+}
+
+.rc-muted-note {
+  color: #8fa2b8;
+  font-size: 13px;
+  text-align: center;
+  padding: 10px 0;
+}

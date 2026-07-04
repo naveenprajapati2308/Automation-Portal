@@ -36,11 +36,11 @@ public class ExecutionEventService {
     private String executionManagerUrl;
 
     public ExecutionEventService(ExecutionRepository executionRepository,
-                                 ExecutionTestCaseRepository testCaseRepository,
-                                 ExecutionArtifactRepository artifactRepository,
-                                 ExecutionLogRepository logRepository,
-                                 LiveBroadcastService broadcastService,
-                                 @org.springframework.context.annotation.Lazy ExecutionWorker executionWorker) {
+            ExecutionTestCaseRepository testCaseRepository,
+            ExecutionArtifactRepository artifactRepository,
+            ExecutionLogRepository logRepository,
+            LiveBroadcastService broadcastService,
+            @org.springframework.context.annotation.Lazy ExecutionWorker executionWorker) {
         this.executionRepository = executionRepository;
         this.testCaseRepository = testCaseRepository;
         this.artifactRepository = artifactRepository;
@@ -99,7 +99,8 @@ public class ExecutionEventService {
                     if (data.containsKey("totalExpectedTests")) {
                         try {
                             execution.setTotalTests(((Number) data.get("totalExpectedTests")).intValue());
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     }
                 }
                 executionRepository.save(execution);
@@ -117,11 +118,11 @@ public class ExecutionEventService {
                     String testName = (String) data.get("testName");
                     String className = (String) data.get("className");
                     String methodName = (String) data.get("methodName");
-                    
+
                     Optional<ExecutionTestCase> existing = testCaseRepository
                             .findFirstByExecutionIdAndTestNameAndClassNameAndMethodName(
                                     execution.getId(), testName, className, methodName);
-                    
+
                     ExecutionTestCase tc;
                     if (existing.isPresent()) {
                         tc = existing.get();
@@ -134,16 +135,16 @@ public class ExecutionEventService {
                         tc.setMethodName(methodName);
                         tc.setRetries(0);
                     }
-                    
+
                     tc.setDisplayName((String) data.get("displayName"));
                     tc.setModuleCode((String) data.get("moduleName"));
                     tc.setStatus("RUNNING");
                     tc.setStartTime(Instant.now());
-                    
+
                     if (data.containsKey("isConfigMethod")) {
                         tc.setConfigMethod(Boolean.TRUE.equals(data.get("isConfigMethod")));
                     }
-                    
+
                     testCaseRepository.save(tc);
                 }
                 break;
@@ -262,21 +263,25 @@ public class ExecutionEventService {
         }
 
         testCaseRepository.save(tc);
-        logToDb(executionId, "FAIL".equals(status) ? "ERROR" : "INFO", 
-               "Test Case " + status + ": " + testName + " in class " + className, "SYSTEM");
+        logToDb(executionId, "FAIL".equals(status) ? "ERROR" : "INFO",
+                "Test Case " + status + ": " + testName + " in class " + className, "SYSTEM");
     }
 
     private void finalizeExecution(Execution execution, Map<String, Object> data) {
-        // First pass: settle status/counts immediately from whatever the live event stream has
+        // First pass: settle status/counts immediately from whatever the live event
+        // stream has
         // captured, so the UI reflects completion without delay.
         recomputeExecutionTotals(execution, data);
         logToDb(execution.getId(), "INFO", "Suite execution completed. Status: " + execution.getStatus(), "SYSTEM");
 
-        // Copy artifacts and re-parse testng-results.xml, which can correct test cases the live
-        // stream left in a stale state (e.g. a SKIPPED test whose terminal event never arrived).
+        // Copy artifacts and re-parse testng-results.xml, which can correct test cases
+        // the live
+        // stream left in a stale state (e.g. a SKIPPED test whose terminal event never
+        // arrived).
         executionWorker.copyExecutionArtifacts(execution);
 
-        // Second pass: recompute from the now-corrected test case rows so the execution-level
+        // Second pass: recompute from the now-corrected test case rows so the
+        // execution-level
         // summary (dashboard, reports) matches what's actually in execution_test_cases.
         recomputeExecutionTotals(execution, data);
 
@@ -296,9 +301,12 @@ public class ExecutionEventService {
             }
             if (!tc.isConfigMethod()) {
                 total++;
-                if ("PASS".equalsIgnoreCase(tc.getStatus())) passed++;
-                else if ("FAIL".equalsIgnoreCase(tc.getStatus())) failed++;
-                else if ("SKIP".equalsIgnoreCase(tc.getStatus())) skipped++;
+                if ("PASS".equalsIgnoreCase(tc.getStatus()))
+                    passed++;
+                else if ("FAIL".equalsIgnoreCase(tc.getStatus()))
+                    failed++;
+                else if ("SKIP".equalsIgnoreCase(tc.getStatus()))
+                    skipped++;
             }
         }
 
@@ -312,7 +320,8 @@ public class ExecutionEventService {
         if (data != null && data.get("durationSeconds") != null) {
             execution.setDurationSeconds(Long.valueOf(data.get("durationSeconds").toString()));
         } else if (execution.getStartTime() != null) {
-            execution.setDurationSeconds(Duration.between(execution.getStartTime(), execution.getEndTime()).toSeconds());
+            execution
+                    .setDurationSeconds(Duration.between(execution.getStartTime(), execution.getEndTime()).toSeconds());
         } else {
             execution.setDurationSeconds(totalDurationMs / 1000);
         }
@@ -359,7 +368,8 @@ public class ExecutionEventService {
                     .build();
 
             httpClient.sendAsync(request, HttpResponse.BodyHandlers.discarding())
-                    .thenAccept(res -> log.info("Notified Execution Manager of completion for job: {}. Status code: {}", executionCode, res.statusCode()))
+                    .thenAccept(res -> log.info("Notified Execution Manager of completion for job: {}. Status code: {}",
+                            executionCode, res.statusCode()))
                     .exceptionally(ex -> {
                         log.error("Failed to notify Execution Manager for execution: {}", executionCode, ex);
                         return null;

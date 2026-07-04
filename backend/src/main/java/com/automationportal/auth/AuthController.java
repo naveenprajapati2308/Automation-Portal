@@ -47,6 +47,7 @@ public class AuthController {
         }
         user.setLastLogin(Instant.now());
         userRepository.save(user);
+        refreshTokenService.revokeActiveTokensFor(user);
         RefreshToken refreshToken = refreshTokenService.create(user, request.rememberMe());
         auditService.record(user, AuditAction.LOGIN, "User logged in", servletRequest);
         return ApiResponse.ok(new LoginResponse(jwtService.createAccessToken(user), refreshToken.getToken(), UserProfileDto.from(user)));

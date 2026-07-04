@@ -1,9 +1,18 @@
 package com.automationportal.screenshots;
 
 import com.automationportal.common.ApiResponse;
+import com.automationportal.config.PortalAutomationProperties;
 import com.automationportal.executions.*;
+import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,13 +21,21 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/screenshots")
 public class ScreenshotController {
+    private static final Logger log = LoggerFactory.getLogger(ScreenshotController.class);
+
     private final ExecutionTestCaseRepository testCaseRepository;
     private final ExecutionRepository executionRepository;
+    private final ExecutionArtifactRepository artifactRepository;
+    private final PortalAutomationProperties automationProperties;
 
     public ScreenshotController(ExecutionTestCaseRepository testCaseRepository,
-                                ExecutionRepository executionRepository) {
+                                ExecutionRepository executionRepository,
+                                ExecutionArtifactRepository artifactRepository,
+                                PortalAutomationProperties automationProperties) {
         this.testCaseRepository = testCaseRepository;
         this.executionRepository = executionRepository;
+        this.artifactRepository = artifactRepository;
+        this.automationProperties = automationProperties;
     }
 
     public record ScreenshotDto(
@@ -29,13 +46,14 @@ public class ScreenshotController {
         String testName,
         String methodName,
         String screenshotPath,
-        String failureReason
+        String failureReason,
+        Instant createdAt
     ) {}
 
     @GetMapping
     public ApiResponse<List<ScreenshotDto>> list(
             @RequestParam(required = false) Long executionId) {
-        
+
         List<ExecutionTestCase> cases = testCaseRepository.findAll().stream()
                 .filter(tc -> tc.getScreenshotPath() != null && !tc.getScreenshotPath().trim().isEmpty())
                 .filter(tc -> executionId == null || tc.getExecutionId().equals(executionId))
@@ -57,10 +75,46 @@ public class ScreenshotController {
                 tc.getTestName(),
                 tc.getMethodName(),
                 tc.getScreenshotPath(),
-                tc.getFailureReason()
+                tc.getFailureReason(),
+                tc.getCreatedAt()
             ));
         }
 
         return ApiResponse.ok(dtos);
+    }
+
+    /**
+     * Deletes the screenshot image belonging to a test case: removes the file from
+     * the artifacts folder, the matching execution_artifacts row, and clears the
+     * test case's screenshot_path. The test case row itself is kept.
+     */
+    @DeleteMapping("/{testCaseId}")
+    @Transactional
+    public ApiResponse<String> delete(@PathVariable Long testCaseId) throws IOException {
+        ExecutionTestCase tc = testCaseRepository.findById(testCaseId)
+                .orElseThrow(() -> new IllegalArgumentException("Screenshot not found for test case: " + testCaseId));
+
+        String screenshotPath = tc.getScreenshotPath();
+        if (screenshotPath == null || screenshotPath.trim().isEmpty()) {
+            throw new IllegalArgumentException("This test case has no screenshot to delete");
+        }
+
+        // Resolve inside the artifacts root only — reject any traversal outside it.
+        Path root = Paths.get(automationProperties.getArtifactsRoot()).toAbsolutePath().normalize();
+        Path file = root.resolve(screenshotPath).normalize();
+        if (!file.startsWith(root)) {
+            throw new IllegalArgumentException("Invalid screenshot path");
+        }
+
+        boolean fileDeleted = Files.deleteIfExists(file);
+        if (!fileDeleted) {
+            log.warn("Screenshot file already missing on disk: {}", file);
+        }
+
+        artifactRepository.deleteByExecutionIdAndFilePath(tc.getExecutionId(), screenshotPath);
+        tc.setScreenshotPath(null);
+        testCaseRepository.save(tc);
+
+        return ApiResponse.ok("Screenshot deleted successfully");
     }
 }

@@ -1,0 +1,483 @@
+/* ── Screenshots Gallery (dark target theme) ─────────────────────────────────
+   Self-contained styles for ScreenshotsGallery.jsx — kept out of styles.css. */
+
+.sg-page {
+  display: grid;
+  gap: 20px;
+}
+
+.sg-card {
+  background: #0d1727;
+  border: 1px solid #1c2b40;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 15px;
+
+}
+
+.sg-card-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 16px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #dbe7f3;
+}
+
+.sg-title-violet svg {
+  color: #a78bfa;
+}
+
+.sg-title-pink svg {
+  color: #f472b6;
+}
+
+/* ── Filter bar ────────────────────────────────────────────────────────────── */
+.sg-filter-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sg-search-wrap {
+  position: relative;
+  flex: 2;
+  min-width: 220px;
+}
+
+.sg-search-wrap svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #5d7292;
+  pointer-events: none;
+}
+
+.sg-input,
+.sg-select {
+  width: 100%;
+  height: 42px;
+  border-radius: 9px;
+  border: 1px solid rgba(124, 58, 237, 0.5);
+  background: #101d31;
+  color: #e2ecf6;
+  padding: 0 12px;
+  font-size: 13px;
+  outline: none;
+}
+
+.sg-search-wrap .sg-input {
+  padding-left: 34px;
+}
+
+.sg-input:focus,
+.sg-select:focus {
+  border-color: #a78bfa;
+}
+
+.sg-input::placeholder {
+  color: #5d7292;
+}
+
+.sg-select option {
+  background: #101d31;
+  color: #e2ecf6;
+}
+
+.sg-keyword {
+  flex: 1.4;
+  min-width: 170px;
+}
+
+.sg-module {
+  flex: 1;
+  min-width: 150px;
+}
+
+/* Grid / list toggle */
+.sg-view-toggle {
+  display: flex;
+  gap: 5px;
+}
+
+.sg-view-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #8fa2b8;
+  cursor: pointer;
+}
+
+.sg-view-btn.active {
+  background: rgba(124, 58, 237, 0.25);
+  border-color: rgba(124, 58, 237, 0.6);
+  color: #c4b5fd;
+}
+
+.sg-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 9px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #c7d6e6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sg-refresh-btn:hover {
+  border-color: #34517a;
+}
+
+/* ── Gallery header (sort) ─────────────────────────────────────────────────── */
+.sg-gallery-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sg-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #8fa2b8;
+  font-size: 13px;
+}
+
+.sg-sort select {
+  width: auto;
+  height: 36px;
+}
+
+/* ── Cards grid ────────────────────────────────────────────────────────────── */
+.sg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.sg-shot-card {
+  border: 1px solid #223650;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #0b1422;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.sg-shot-card:hover {
+  transform: translateY(-3px);
+  border-color: #34517a;
+}
+
+.sg-thumb {
+  position: relative;
+  height: 150px;
+  background: #0a1220;
+  overflow: hidden;
+  border-bottom: 1px solid #16243a;
+  padding: 10px;
+}
+
+.sg-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sg-delete-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  background: rgba(20, 8, 12, 0.8);
+  color: #f87171;
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+}
+
+.sg-delete-btn:hover {
+  transform: scale(1.1);
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.sg-shot-body {
+  padding: 14px;
+}
+
+.sg-shot-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #eef5fc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 9px;
+}
+
+.sg-shot-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.sg-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #8fa2b8;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.sg-meta-item svg {
+  flex-shrink: 0;
+  color: #5d7292;
+}
+
+.sg-code-link {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #7c8ffa;
+}
+
+.sg-code-link:hover {
+  text-decoration: underline;
+}
+
+.sg-module-chip {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #22d3ee;
+  background: rgba(34, 211, 238, 0.1);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+}
+
+.sg-fail-reason {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: #f0918d;
+  background: rgba(239, 68, 68, 0.06);
+  border-radius: 6px;
+  padding: 7px 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ── Empty state ───────────────────────────────────────────────────────────── */
+.sg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 56px 0;
+  color: #8fa2b8;
+  font-size: 13.5px;
+}
+
+.sg-empty svg {
+  color: #7c3aed;
+  filter: drop-shadow(0 0 16px rgba(124, 58, 237, 0.7));
+}
+
+.sg-empty strong {
+  color: #c7d6e6;
+  font-size: 15px;
+}
+
+/* ── Pagination footer ─────────────────────────────────────────────────────── */
+.sg-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+  color: #8fa2b8;
+  font-size: 12px;
+}
+
+.sg-pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sg-pager select {
+  height: 30px;
+  border: 1px solid #223650;
+  border-radius: 6px;
+  background: #101d31;
+  color: #e2ecf6;
+  font-size: 12px;
+  outline: none;
+  padding: 0 4px;
+}
+
+.sg-page-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #c7d6e6;
+  cursor: pointer;
+}
+
+.sg-page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sg-page-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #c7d6e6;
+  padding: 0 6px;
+}
+
+/* ── Delete confirm modal body ─────────────────────────────────────────────── */
+.sg-confirm-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 6px 4px;
+}
+
+.sg-confirm-body svg {
+  color: #f87171;
+}
+
+.sg-confirm-text {
+  color: #c7d6e6;
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.sg-confirm-text code {
+  color: #7c8ffa;
+}
+
+.sg-confirm-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.sg-btn-cancel {
+  height: 38px;
+  padding: 0 22px;
+  border-radius: 9px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #c7d6e6;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sg-btn-delete {
+  height: 38px;
+  padding: 0 22px;
+  border-radius: 9px;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sg-btn-delete:hover {
+  background: rgba(239, 68, 68, 0.28);
+}
+
+/* ── Lightbox ──────────────────────────────────────────────────────────────── */
+.sg-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 9, 16, 0.9);
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.sg-lightbox-card {
+  position: relative;
+  max-width: 90%;
+  max-height: 90%;
+  background: #0d1727;
+  border: 1px solid #223650;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.sg-lightbox-card img {
+  max-width: 100%;
+  max-height: 72vh;
+  display: block;
+  object-fit: contain;
+}
+
+.sg-lightbox-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  padding: 7px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.sg-lightbox-foot {
+  padding: 14px 18px;
+  border-top: 1px solid #1c2b40;
+}
+
+.sg-lightbox-foot .sg-fail-reason {
+  -webkit-line-clamp: 3;
+}

@@ -1,22 +1,24 @@
 import { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api.js';
-import { Panel, DataTable } from '../shared/index.jsx';
-import { 
-  FileText, 
-  Download, 
-  ExternalLink, 
-  GitCompare, 
-  Search, 
+import { DataTable } from '../shared/index.jsx';
+import {
+  FileText,
+  Download,
+  ExternalLink,
+  GitCompare,
+  Search,
   Eye,
-  RefreshCw,
+  Filter,
+  History,
   CheckCircle2,
   XCircle
 } from 'lucide-react';
+import './reports.css';
 
 export function ReportsCenter({ onSelectExecution }) {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Filters state
   const [status, setStatus] = useState('');
   const [module, setModule] = useState('');
@@ -37,7 +39,7 @@ export function ReportsCenter({ onSelectExecution }) {
       if (status) params.status = status;
       if (module) params.module = module;
       if (search) params.search = search;
-      
+
       if (fromDate) {
         params.from = new Date(fromDate).toISOString();
       }
@@ -97,10 +99,7 @@ export function ReportsCenter({ onSelectExecution }) {
       key: 'executionCode',
       label: 'Code',
       render: (val, report) => (
-        <button 
-          onClick={() => onSelectExecution(report.id)}
-          style={{ border: 0, background: 'transparent', padding: 0, color: '#176b87', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline', font: 'inherit' }}
-        >
+        <button onClick={() => onSelectExecution(report.id)} className="rc-code-link">
           {val}
         </button>
       )
@@ -108,7 +107,7 @@ export function ReportsCenter({ onSelectExecution }) {
     {
       key: 'suiteName',
       label: 'Suite Name',
-      render: (val) => <span style={{ fontSize: '12px', color: '#2c3e50', fontWeight: 600 }}>{val ?? 'Master Automation'}</span>
+      render: (val) => <span style={{ fontSize: '12px', color: '#c7d6e6', fontWeight: 600 }}>{val ?? 'Master Automation'}</span>
     },
     {
       key: 'moduleCode',
@@ -125,7 +124,7 @@ export function ReportsCenter({ onSelectExecution }) {
       label: 'Tests (P / F / S)',
       render: (_, report) => (
         <span style={{ fontSize: '12px', fontWeight: 600 }}>
-          <span style={{ color: '#2f9c5d' }}>{report.passedTests}</span> / <span style={{ color: '#e57373' }}>{report.failedTests}</span> / <span style={{ color: '#e0a64a' }}>{report.skippedTests}</span>
+          <span style={{ color: '#2ecc71' }}>{report.passedTests}</span> / <span style={{ color: '#f87171' }}>{report.failedTests}</span> / <span style={{ color: '#e0a64a' }}>{report.skippedTests}</span>
         </span>
       )
     },
@@ -142,7 +141,7 @@ export function ReportsCenter({ onSelectExecution }) {
     {
       key: 'createdAt',
       label: 'Started At',
-      render: (val) => <span style={{ fontSize: '11px', color: '#6a7886' }}>{formatDate(val)}</span>
+      render: (val) => <span style={{ fontSize: '11px', color: '#8fa2b8' }}>{formatDate(val)}</span>
     },
     {
       key: 'actions',
@@ -151,75 +150,68 @@ export function ReportsCenter({ onSelectExecution }) {
         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
           {report.finalReportPath && (
             <>
-              <a 
-                href={`/api/reports/${report.id}/view`} 
-                target="_blank" 
+              <a
+                href={`/api/reports/${report.id}/view`}
+                target="_blank"
                 rel="noreferrer"
-                className="secondary-action" 
+                className="rc-act-btn"
                 title="Open Extent Report"
-                style={{ display: 'inline-flex', padding: '6px 8px', minHeight: 'unset' }}
-               >
-                 <ExternalLink size={14} />
-               </a>
-               <a 
-                 href={`/api/reports/${report.id}/download`} 
-                 className="secondary-action" 
-                 title="Download HTML"
-                 style={{ display: 'inline-flex', padding: '6px 8px', minHeight: 'unset' }}
-               >
-                 <Download size={14} />
-               </a>
-             </>
-           )}
-           <a 
-             href={`/api/reports/${report.id}/testng-results`} 
-             className="secondary-action" 
-             title="Download TestNG XML"
-             style={{ display: 'inline-flex', padding: '6px 8px', minHeight: 'unset', color: '#176b87' }}
-           >
-             <FileText size={14} />
-           </a>
-           <button 
-             onClick={() => onSelectExecution(report.id)}
-             className="secondary-action" 
-             title="View Details"
-             style={{ display: 'inline-flex', padding: '6px 8px', minHeight: 'unset' }}
-           >
-             <Eye size={14} />
-           </button>
-         </div>
-       )
-     }
+              >
+                <ExternalLink size={14} />
+              </a>
+              <a
+                href={`/api/reports/${report.id}/download`}
+                className="rc-act-btn"
+                title="Download HTML"
+              >
+                <Download size={14} />
+              </a>
+            </>
+          )}
+          <a
+            href={`/api/reports/${report.id}/testng-results`}
+            className="rc-act-btn"
+            title="Download TestNG XML"
+          >
+            <FileText size={14} />
+          </a>
+          <button
+            onClick={() => onSelectExecution(report.id)}
+            className="rc-act-btn"
+            title="View Details"
+          >
+            <Eye size={14} />
+          </button>
+        </div>
+      )
+    }
   ], [onSelectExecution]);
 
   return (
-    <section className="reports-page" style={{ display: 'grid', gap: '20px' }}>
-      
+    <section className="rc-page">
+
       {/* Search and Filters */}
-      <Panel title="Filter Reports">
-        <form onSubmit={handleSearchSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', alignItems: 'end' }}>
-          
-          <div className="form-row" style={{ marginBottom: 0 }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Search Execution Code</label>
-            <div style={{ display: 'flex', border: '1px solid #cfdae6', borderRadius: '8px', overflow: 'hidden', background: '#fff', alignItems: 'center', padding: '0 8px' }}>
-              <Search size={15} style={{ color: '#8a9bb0' }} />
-              <input 
-                type="text" 
-                placeholder="e.g. AUTO-2026..." 
-                value={search} 
+      <div className="rc-card">
+        <h3 className="rc-card-title rc-title-cyan"><Filter size={17} /> Filter Reports</h3>
+        <form onSubmit={handleSearchSubmit} className="rc-filter-grid">
+
+          <div>
+            <label className="rc-label">Search Execution Code</label>
+            <div className="rc-search-wrap">
+              <Search size={15} />
+              <input
+                type="text"
+                className="rc-input rc-accent"
+                placeholder="e.g. AUTO-2026..."
+                value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                style={{ width: '100%', height: '36px', border: 0, outline: 0, paddingLeft: '6px', fontSize: '13px' }}
               />
             </div>
           </div>
 
-          <div className="form-row" style={{ marginBottom: 0 }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Module</label>
-            <select 
-              value={module} 
-              onChange={(e) => setModule(e.target.value)}
-              style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '8px', background: '#fff', padding: '0 8px', fontSize: '13px' }}
-            >
+          <div>
+            <label className="rc-label">Module</label>
+            <select className="rc-select rc-accent" value={module} onChange={(e) => setModule(e.target.value)}>
               <option value="">All Modules</option>
               <option value="LAND">Land Management</option>
               <option value="ARCHITECT">Architect Empanelment</option>
@@ -228,13 +220,9 @@ export function ReportsCenter({ onSelectExecution }) {
             </select>
           </div>
 
-          <div className="form-row" style={{ marginBottom: 0 }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>Status</label>
-            <select 
-              value={status} 
-              onChange={(e) => setStatus(e.target.value)}
-              style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '8px', background: '#fff', padding: '0 8px', fontSize: '13px' }}
-            >
+          <div>
+            <label className="rc-label">Status</label>
+            <select className="rc-select rc-accent" value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">All Statuses</option>
               <option value="PASSED">Passed</option>
               <option value="FAILED">Failed</option>
@@ -243,59 +231,43 @@ export function ReportsCenter({ onSelectExecution }) {
             </select>
           </div>
 
-          <div className="form-row" style={{ marginBottom: 0 }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>From Date</label>
-            <input 
-              type="date" 
-              value={fromDate} 
-              onChange={(e) => setFromDate(e.target.value)}
-              style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '8px', background: '#fff', padding: '0 8px', fontSize: '13px' }}
-            />
+          <div>
+            <label className="rc-label">From Date</label>
+            <input type="date" className="rc-input" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           </div>
 
-          <div className="form-row" style={{ marginBottom: 0 }}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>To Date</label>
-            <input 
-              type="date" 
-              value={toDate} 
-              onChange={(e) => setToDate(e.target.value)}
-              style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '8px', background: '#fff', padding: '0 8px', fontSize: '13px' }}
-            />
+          <div>
+            <label className="rc-label">To Date</label>
+            <input type="date" className="rc-input" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           </div>
 
-          <button 
-            type="submit" 
-            className="primary-action"
-            style={{ height: '38px', width: '100%', borderRadius: '8px' }}
-          >
+          <button type="submit" className="rc-gradient-btn">
             Apply Filters
           </button>
         </form>
-      </Panel>
+      </div>
 
       {/* Historical Report List */}
-      <Panel title="Historical Execution Reports">
-        <DataTable 
-          columns={columns} 
-          data={reports} 
-          loading={loading} 
+      <div className="rc-card">
+        <h3 className="rc-card-title rc-title-blue"><History size={17} /> Historical Execution Reports</h3>
+        <DataTable
+          columns={columns}
+          data={reports}
+          loading={loading}
           searchPlaceholder="Search reports..."
           exportFilename="historical_reports.csv"
         />
-      </Panel>
+      </div>
 
       {/* Comparison Engine UI */}
-      <Panel title="Compare Execution Run Metrics">
+      <div className="rc-card">
+        <h3 className="rc-card-title rc-title-violet"><GitCompare size={17} /> Compare Execution Run Metrics</h3>
         <div style={{ display: 'grid', gap: '16px' }}>
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'end' }}>
-            
+          <div className="rc-cmp-row">
+
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Base Execution (Older Run)</label>
-              <select 
-                value={baseId} 
-                onChange={(e) => setBaseId(e.target.value)}
-                style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '8px', background: '#fff', padding: '0 8px', fontSize: '13px' }}
-              >
+              <label className="rc-label">Base Execution</label>
+              <select className="rc-select" value={baseId} onChange={(e) => setBaseId(e.target.value)}>
                 <option value="">Select Base Execution</option>
                 {reports.map((r) => (
                   <option key={r.id} value={r.id}>{r.executionCode} ({r.moduleCode} - {r.passRate}% Pass)</option>
@@ -304,12 +276,8 @@ export function ReportsCenter({ onSelectExecution }) {
             </div>
 
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Target Execution (Newer Run)</label>
-              <select 
-                value={targetId} 
-                onChange={(e) => setTargetId(e.target.value)}
-                style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '8px', background: '#fff', padding: '0 8px', fontSize: '13px' }}
-              >
+              <label className="rc-label">Target Execution </label>
+              <select className="rc-select" value={targetId} onChange={(e) => setTargetId(e.target.value)}>
                 <option value="">Select Target Execution</option>
                 {reports.map((r) => (
                   <option key={r.id} value={r.id}>{r.executionCode} ({r.moduleCode} - {r.passRate}% Pass)</option>
@@ -317,55 +285,47 @@ export function ReportsCenter({ onSelectExecution }) {
               </select>
             </div>
 
-            <button 
-              onClick={handleCompare}
-              className="primary-action"
-              style={{ height: '38px', padding: '0 24px', width: 'auto', display: 'flex', gap: '8px', borderRadius: '8px' }}
-              disabled={isComparing}
-            >
+            <button className="rc-gradient-btn" onClick={handleCompare} disabled={isComparing}>
               <GitCompare size={16} /> {isComparing ? 'Comparing...' : 'Compare Runs'}
             </button>
           </div>
 
           {/* Comparison Results Card */}
           {comparisonResult && (
-            <div style={{ background: '#f5f8fb', border: '1px solid #dce5ef', borderRadius: '10px', padding: '20px', marginTop: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2eaf3', paddingBottom: '12px', marginBottom: '16px' }}>
+            <div className="rc-cmp-result">
+              <div className="rc-cmp-result-head">
                 <h3>Comparison Result: <code>{comparisonResult.base.executionCode}</code> vs <code>{comparisonResult.target.executionCode}</code></h3>
-                <button 
-                  onClick={() => setComparisonResult(null)}
-                  style={{ background: 'transparent', border: 0, color: '#e57373', fontWeight: 'bold', cursor: 'pointer' }}
-                >
+                <button className="rc-clear-btn" onClick={() => setComparisonResult(null)}>
                   Clear Comparison
                 </button>
               </div>
 
               {/* Delta KPI Dashboard */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '20px' }}>
-                <div style={{ background: '#fff', padding: '14px', borderRadius: '8px', border: '1px solid #e2eaf3' }}>
-                  <span style={{ fontSize: '11px', color: '#8a9bb0', textTransform: 'uppercase', display: 'block' }}>Pass Rate Change</span>
-                  <strong style={{ fontSize: '22px', color: comparisonResult.delta.passRateChange >= 0 ? '#2f9c5d' : '#e57373' }}>
+              <div className="rc-kpi-grid">
+                <div className="rc-kpi">
+                  <span>Pass Rate Change</span>
+                  <strong style={{ color: comparisonResult.delta.passRateChange >= 0 ? '#2ecc71' : '#f87171' }}>
                     {comparisonResult.delta.passRateChange >= 0 ? '+' : ''}{comparisonResult.delta.passRateChange}%
                   </strong>
                 </div>
 
-                <div style={{ background: '#fff', padding: '14px', borderRadius: '8px', border: '1px solid #e2eaf3' }}>
-                  <span style={{ fontSize: '11px', color: '#8a9bb0', textTransform: 'uppercase', display: 'block' }}>New Failures</span>
-                  <strong style={{ fontSize: '22px', color: comparisonResult.delta.newFailures > 0 ? '#e57373' : '#2f9c5d' }}>
+                <div className="rc-kpi">
+                  <span>New Failures</span>
+                  <strong style={{ color: comparisonResult.delta.newFailures > 0 ? '#f87171' : '#2ecc71' }}>
                     {comparisonResult.delta.newFailures} tests
                   </strong>
                 </div>
 
-                <div style={{ background: '#fff', padding: '14px', borderRadius: '8px', border: '1px solid #e2eaf3' }}>
-                  <span style={{ fontSize: '11px', color: '#8a9bb0', textTransform: 'uppercase', display: 'block' }}>Fixed Failures</span>
-                  <strong style={{ fontSize: '22px', color: '#2f9c5d' }}>
+                <div className="rc-kpi">
+                  <span>Fixed Failures</span>
+                  <strong style={{ color: '#2ecc71' }}>
                     {comparisonResult.delta.fixedFailures} tests
                   </strong>
                 </div>
 
-                <div style={{ background: '#fff', padding: '14px', borderRadius: '8px', border: '1px solid #e2eaf3' }}>
-                  <span style={{ fontSize: '11px', color: '#8a9bb0', textTransform: 'uppercase', display: 'block' }}>Still Failing</span>
-                  <strong style={{ fontSize: '22px', color: '#e0a64a' }}>
+                <div className="rc-kpi">
+                  <span>Still Failing</span>
+                  <strong style={{ color: '#e0a64a' }}>
                     {comparisonResult.delta.stillFailing} tests
                   </strong>
                 </div>
@@ -373,15 +333,13 @@ export function ReportsCenter({ onSelectExecution }) {
 
               {/* Newly Failed Tests list */}
               {comparisonResult.newFailures.length > 0 && (
-                <div style={{ background: '#fff', border: '1px solid #fdd8d8', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-                  <h4 style={{ color: '#c0392b', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <XCircle size={16} /> New Regression Failures ({comparisonResult.newFailures.length})
-                  </h4>
+                <div className="rc-list-card rc-list-fail">
+                  <h4><XCircle size={16} /> New Regression Failures ({comparisonResult.newFailures.length})</h4>
                   <div style={{ display: 'grid', gap: '8px' }}>
                     {comparisonResult.newFailures.map((item, idx) => (
-                      <div key={idx} style={{ padding: '8px', background: '#fff8f8', borderRadius: '4px', borderLeft: '3px solid #e57373', fontSize: '12px' }}>
-                        <strong>{item.methodName}</strong> <span style={{ color: '#8a9bb0' }}>({item.className})</span>
-                        <p style={{ margin: '4px 0 0', color: '#c0392b', fontStyle: 'italic' }}>{item.failureReason ?? 'No message'}</p>
+                      <div key={idx} className="rc-fail-item">
+                        <strong>{item.methodName}</strong> <span style={{ color: '#8fa2b8' }}>({item.className})</span>
+                        <p>{item.failureReason ?? 'No message'}</p>
                       </div>
                     ))}
                   </div>
@@ -390,14 +348,12 @@ export function ReportsCenter({ onSelectExecution }) {
 
               {/* Fixed Tests list */}
               {comparisonResult.fixedTests.length > 0 && (
-                <div style={{ background: '#fff', border: '1px solid #dff6e7', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
-                  <h4 style={{ color: '#136b36', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <CheckCircle2 size={16} /> Fixed Failures ({comparisonResult.fixedTests.length})
-                  </h4>
+                <div className="rc-list-card rc-list-fixed">
+                  <h4><CheckCircle2 size={16} /> Fixed Failures ({comparisonResult.fixedTests.length})</h4>
                   <div style={{ display: 'grid', gap: '6px' }}>
                     {comparisonResult.fixedTests.map((item, idx) => (
-                      <div key={idx} style={{ padding: '6px 8px', background: '#f5fcf7', borderRadius: '4px', borderLeft: '3px solid #2f9c5d', fontSize: '12px' }}>
-                        <strong>{item.methodName}</strong> <span style={{ color: '#8a9bb0' }}>({item.className})</span>
+                      <div key={idx} className="rc-fixed-item">
+                        <strong>{item.methodName}</strong> <span style={{ color: '#8fa2b8' }}>({item.className})</span>
                       </div>
                     ))}
                   </div>
@@ -406,12 +362,12 @@ export function ReportsCenter({ onSelectExecution }) {
 
               {/* General status changes */}
               {comparisonResult.statusChangedTests.length === 0 && (
-                <p style={{ color: '#5d6b7a', fontSize: '13px', textAlign: 'center', padding: '10px 0' }}>All matched tests have identical status in both executions.</p>
+                <p className="rc-muted-note">All matched tests have identical status in both executions.</p>
               )}
             </div>
           )}
         </div>
-      </Panel>
+      </div>
     </section>
   );
 }

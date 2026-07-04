@@ -1,21 +1,25 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   Play,
-  CheckCircle2,
-  XCircle,
   Clock3,
   FileText,
   Hourglass,
-  Target,
   Layers,
   Monitor,
-  HelpCircle
+  HelpCircle,
+  TrendingUp,
+  PieChart,
+  Globe2,
+  History,
+  Timer
 } from 'lucide-react';
 import { api } from '../../api.js';
+import { Loader } from '../shared/Loader.jsx';
 
 // Import child components
 import { TrendChart } from './TrendChart.jsx';
 import { EnvDistribution } from './EnvDistribution.jsx';
+import './dashboard.css';
 
 // Helper for formatting duration into hh:mm:ss
 const formatDurationHMS = (seconds) => {
@@ -71,14 +75,14 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
 
       if (summaryData) setSummary(summaryData);
       if (recentData) setRecentExecutions(recentData);
-      
+
       if (envData) {
         setEnvironments(envData);
         if (envData.length > 0 && !selectedEnvId) {
           setSelectedEnvId(envData[0].id);
         }
       }
-      
+
       if (healthData) setModulesHealthData(healthData);
       if (envDistData) setEnvDistribution(envDistData);
       if (trendsData) setTrends(trendsData);
@@ -106,10 +110,10 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
     try {
       const dateObj = new Date(isoString);
       if (isNaN(dateObj.getTime())) return { date: 'N/A', time: 'N/A' };
-      
+
       const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
       const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
-      
+
       return {
         date: dateObj.toLocaleDateString('en-US', dateOptions),
         time: dateObj.toLocaleTimeString('en-US', timeOptions)
@@ -190,54 +194,31 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   const mixCirc = 2 * Math.PI * 36;
   const mixOffset = mixCirc - (mixPassRate / 100) * mixCirc;
 
+  const accuracyColor = (pct) => (pct >= 80 ? '#2ecc71' : pct >= 50 ? '#e0a64a' : '#f87171');
+
   if (loading && !summary) {
     return (
-      <div style={{ minHeight: '80vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: '#6366f1', background: '#060913' }}>
-        <div style={{ width: '40px', height: '40px', border: '4px solid rgba(99, 102, 241, 0.1)', borderTop: '4px solid #6366f1', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <span style={{ marginTop: '16px', fontWeight: 600, fontSize: '15px' }}>Loading quality analytics...</span>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
+      <div style={{ minHeight: '70vh', display: 'grid', placeItems: 'center' }}>
+        <Loader size={48} label="Loading quality analytics..." />
       </div>
     );
   }
 
   return (
-    <section style={{ background: '#060913', color: '#f8fafc', padding: '20px', minHeight: '100vh', fontFamily: 'Inter, sans-serif', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <section className="db-page">
 
-      {/* Subheader (Portal Info & Range Filter) — the page title, sign-in notice, search,
-          Super Admin badge and Admin Panel button are all already provided once by the
-          global Topbar (components/layout/index.jsx), so this page only owns what's unique
-          to it. */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+      {/* Subheader (Portal Info & Range Filter) — the page title, search, Super Admin
+          badge and Admin Panel button are all already provided once by the global
+          Topbar, so this page only owns what's unique to it. */}
+      <div className="db-subhead">
         <div>
-          <span style={{ fontSize: '10px', fontWeight: 800, color: '#6366f1', letterSpacing: '0.15em', textTransform: 'uppercase' }}>Quality Analytics Portal</span>
-          <h3 style={{ margin: '2px 0 0 0', fontSize: '20px', fontWeight: 800, color: '#fff' }}>Analytics Dashboard</h3>
+          <span className="db-eyebrow">Quality Analytics Portal</span>
+          <h3>Analytics Dashboard</h3>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 600 }}>Filter Range:</span>
-          <select
-            value={range}
-            onChange={(e) => setRange(e.target.value)}
-            style={{
-              background: '#0c1020',
-              border: '1px solid #192038',
-              color: '#fff',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              outline: 'none',
-              cursor: 'pointer',
-              transition: 'border-color 0.2s'
-            }}
-            onFocus={(e) => e.target.style.borderColor = '#6366f1'}
-            onBlur={(e) => e.target.style.borderColor = '#192038'}
-          >
+        <div className="db-range">
+          Filter Range:
+          <select className="db-select" value={range} onChange={(e) => setRange(e.target.value)}>
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
             <option value="90d">Last 90 Days</option>
@@ -245,105 +226,100 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         </div>
       </div>
 
-      {/* 3. Row 1: 5 Premium Metrics Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        
+      {/* Row 1: 5 KPI Cards */}
+      <div className="db-kpi-row">
+
         {/* Card 1: Last Test Summary */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '16px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>LAST TEST SUMMARY</span>
-            <FileText size={16} style={{ color: '#3b82f6' }} />
+        <div className="db-card">
+          <div className="db-kpi-head">
+            <span className="db-kpi-label">Last Test Summary</span>
+            <FileText size={16} style={{ color: '#60a5fa' }} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginTop: '14px', fontSize: '13px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginTop: 14, fontSize: 13 }}>
             <div>
-              <div style={{ color: '#64748b', fontSize: '11px' }}>Total Tests</div>
-              <strong style={{ color: '#fff', fontSize: '18px' }}>{lastRun?.totalTests ?? 0}</strong>
+              <div style={{ color: '#5d7292', fontSize: 11 }}>Total Tests</div>
+              <strong style={{ color: '#eef5fc', fontSize: 18 }}>{lastRun?.totalTests ?? 0}</strong>
             </div>
             <div>
-              <div style={{ color: '#10b981', fontSize: '11px' }}>Passed</div>
-              <strong style={{ color: '#10b981', fontSize: '18px' }}>{lastRun?.passedTests ?? 0}</strong>
+              <div style={{ color: '#2ecc71', fontSize: 11 }}>Passed</div>
+              <strong style={{ color: '#2ecc71', fontSize: 18 }}>{lastRun?.passedTests ?? 0}</strong>
             </div>
             <div>
-              <div style={{ color: '#f43f5e', fontSize: '11px' }}>Failed</div>
-              <strong style={{ color: '#f43f5e', fontSize: '18px' }}>{lastRun?.failedTests ?? 0}</strong>
+              <div style={{ color: '#f87171', fontSize: 11 }}>Failed</div>
+              <strong style={{ color: '#f87171', fontSize: 18 }}>{lastRun?.failedTests ?? 0}</strong>
             </div>
             <div>
-              <div style={{ color: '#fbbf24', fontSize: '11px' }}>Skipped</div>
-              <strong style={{ color: '#fbbf24', fontSize: '18px' }}>{lastRun?.skippedTests ?? 0}</strong>
+              <div style={{ color: '#e0a64a', fontSize: 11 }}>Skipped</div>
+              <strong style={{ color: '#e0a64a', fontSize: 18 }}>{lastRun?.skippedTests ?? 0}</strong>
             </div>
           </div>
         </div>
 
         {/* Card 2: Last Execution Started */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '16px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>LAST EXECUTION STARTED</span>
-            <Clock3 size={16} style={{ color: '#6366f1' }} />
+        <div className="db-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div className="db-kpi-head">
+            <span className="db-kpi-label">Last Execution Started</span>
+            <Clock3 size={16} style={{ color: '#a78bfa' }} />
           </div>
-          <div style={{ marginTop: '16px' }}>
-            <strong style={{ display: 'block', fontSize: '18px', color: '#fff' }}>{startTimes.date}</strong>
-            <span style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginTop: '4px' }}>{startTimes.time}</span>
+          <div style={{ marginTop: 16 }}>
+            <strong className="db-kpi-value" style={{ fontSize: 18 }}>{startTimes.date}</strong>
+            <span className="db-kpi-sub" style={{ fontSize: 13 }}>{startTimes.time}</span>
           </div>
         </div>
 
         {/* Card 3: Last Execution Ended */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '16px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>LAST EXECUTION ENDED</span>
-            <Hourglass size={16} style={{ color: '#f43f5e' }} />
+        <div className="db-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div className="db-kpi-head">
+            <span className="db-kpi-label">Last Execution Ended</span>
+            <Hourglass size={16} style={{ color: '#f87171' }} />
           </div>
-          <div style={{ marginTop: '16px' }}>
-            <strong style={{ display: 'block', fontSize: '18px', color: '#fff' }}>{endTimes.date}</strong>
-            <span style={{ display: 'block', fontSize: '13px', color: '#94a3b8', marginTop: '4px' }}>{endTimes.time}</span>
+          <div style={{ marginTop: 16 }}>
+            <strong className="db-kpi-value" style={{ fontSize: 18 }}>{endTimes.date}</strong>
+            <span className="db-kpi-sub" style={{ fontSize: 13 }}>{endTimes.time}</span>
           </div>
         </div>
 
         {/* Card 4: Last Duration */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '16px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>LAST DURATION</span>
-            <Clock3 size={16} style={{ color: '#06b6d4' }} />
+        <div className="db-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div className="db-kpi-head">
+            <span className="db-kpi-label">Last Duration</span>
+            <Timer size={16} style={{ color: '#2dd4bf' }} />
           </div>
-          <div style={{ marginTop: '12px' }}>
-            <span style={{ color: '#64748b', fontSize: '11px', display: 'block' }}>Total Runtime</span>
-            <strong style={{ display: 'block', fontSize: '22px', color: '#fff', fontFamily: 'monospace', marginTop: '2px' }}>
+          <div style={{ marginTop: 12 }}>
+            <span className="db-kpi-sub">Total Runtime</span>
+            <strong className="db-kpi-value db-mono" style={{ fontSize: 22, marginTop: 2 }}>
               {lastRun ? formatDurationHMS(lastRun.durationSeconds) : '00:00:00'}
             </strong>
-            <span style={{ display: 'block', fontSize: '10px', fontWeight: 800, color: '#64748b', marginTop: '2px' }}>HOUR</span>
+            <span className="db-kpi-sub" style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hour</span>
           </div>
         </div>
 
         {/* Card 5: Last Total Accuracy */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '16px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="db-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.05em' }}>LAST TOTAL ACCURACY</span>
-            </div>
-            <strong style={{ display: 'block', fontSize: '22px', color: '#fff', marginTop: '10px' }}>
+            <span className="db-kpi-label">Last Total Accuracy</span>
+            <strong className="db-kpi-value" style={{ fontSize: 22, marginTop: 10 }}>
               {accuracyPercent.toFixed(2)}%
             </strong>
-            <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+            <span className="db-kpi-sub">
               ({lastRun ? lastRun.passedTests : 0}/{lastRun ? lastRun.totalTests : 0} Passed)
             </span>
           </div>
 
-          <div style={{ position: 'relative', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'relative', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="44" height="44" viewBox="0 0 44 44">
-              <circle cx="22" cy="22" r={radius} fill="transparent" stroke="#192038" strokeWidth="3.5" />
+              <circle cx="22" cy="22" r={radius} fill="transparent" stroke="#16243a" strokeWidth="3.5" />
               <circle
                 cx="22" cy="22" r={radius} fill="transparent"
-                stroke={accuracyPercent >= 80 ? '#10b981' : accuracyPercent >= 50 ? '#fbbf24' : '#f43f5e'}
+                stroke={accuracyColor(accuracyPercent)}
                 strokeWidth="3.5"
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
-                style={{
-                  transform: 'rotate(-90deg)',
-                  transformOrigin: '50% 50%'
-                }}
+                style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
               />
             </svg>
-            <div style={{ position: 'absolute', fontSize: '9px', fontWeight: 'bold', color: '#fff' }}>
+            <div style={{ position: 'absolute', fontSize: 9, fontWeight: 'bold', color: '#eef5fc' }}>
               {Math.round(accuracyPercent)}%
             </div>
           </div>
@@ -351,60 +327,57 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
 
       </div>
 
-      {/* 4. Row 2: Charts and Mix */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: '20px', flexWrap: 'wrap' }}>
-        
+      {/* Row 2: Charts and Mix */}
+      <div className="db-charts-row">
+
         {/* Pass Rate Trend */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 800, color: '#fff' }}>Pass Rate Trend</h3>
+        <div className="db-card">
+          <h3 className="db-card-title"><TrendingUp size={16} /> Pass Rate Trend</h3>
           <TrendChart data={trends} loading={loading} />
         </div>
 
         {/* Execution Mix */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)', display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 800, color: '#fff' }}>Execution Mix</h3>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flex: 1, gap: '12px' }}>
-            <div style={{ position: 'relative', width: '92px', height: '92px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="db-card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <h3 className="db-card-title"><PieChart size={16} /> Execution Mix</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flex: 1, gap: 12 }}>
+            <div style={{ position: 'relative', width: 92, height: 92, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="92" height="92" viewBox="0 0 92 92">
-                <circle cx="46" cy="46" r="36" fill="transparent" stroke="#192038" strokeWidth="7" />
+                <circle cx="46" cy="46" r="36" fill="transparent" stroke="#16243a" strokeWidth="7" />
                 <circle
                   cx="46" cy="46" r="36" fill="transparent"
-                  stroke="#10b981"
+                  stroke="#2ecc71"
                   strokeWidth="7"
                   strokeDasharray={mixCirc}
                   strokeDashoffset={mixOffset}
                   strokeLinecap="round"
-                  style={{
-                    transform: 'rotate(-90deg)',
-                    transformOrigin: '50% 50%'
-                  }}
+                  style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
                 />
               </svg>
               <div style={{ position: 'absolute', textAlign: 'center' }}>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff' }}>{mixPassRate.toFixed(1)}%</div>
-                <div style={{ fontSize: '8px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginTop: '2px' }}>Pass Rate</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#eef5fc' }}>{mixPassRate.toFixed(1)}%</div>
+                <div style={{ fontSize: 8, color: '#5d7292', fontWeight: 700, textTransform: 'uppercase', marginTop: 2 }}>Pass Rate</div>
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, maxWidth: '120px' }}>
-              <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.15)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#a7f3d0', fontWeight: 600 }}>Passed</span>
-                <strong style={{ color: '#10b981' }}>{mixPassed}</strong>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, maxWidth: 120 }}>
+              <div className="db-mix-row db-mix-pass">
+                <span>Passed</span>
+                <strong>{mixPassed}</strong>
               </div>
-              <div style={{ background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.15)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#fecdd3', fontWeight: 600 }}>Failed</span>
-                <strong style={{ color: '#f43f5e' }}>{mixFailed}</strong>
+              <div className="db-mix-row db-mix-fail">
+                <span>Failed</span>
+                <strong>{mixFailed}</strong>
               </div>
-              <div style={{ background: 'rgba(251, 191, 36, 0.1)', border: '1px solid rgba(251, 191, 36, 0.15)', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#fef3c7', fontWeight: 600 }}>Skipped</span>
-                <strong style={{ color: '#fbbf24' }}>{mixSkipped}</strong>
+              <div className="db-mix-row db-mix-skip">
+                <span>Skipped</span>
+                <strong>{mixSkipped}</strong>
               </div>
             </div>
           </div>
         </div>
 
         {/* Environment Distribution */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)', display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 800, color: '#fff' }}>Environment Distribution</h3>
+        <div className="db-card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <h3 className="db-card-title"><Globe2 size={16} /> Environment Distribution</h3>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
             <EnvDistribution data={envDistribution} environments={environments} loading={loading} />
           </div>
@@ -412,122 +385,59 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
 
       </div>
 
-      {/* 5. Row 3: Module Analytics */}
-      <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#fff' }}>Module Analytics</h3>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <select
-              value={selectedEnvId}
-              onChange={(e) => setSelectedEnvId(e.target.value)}
-              style={{
-                background: '#060913',
-                border: '1px solid #192038',
-                color: '#fff',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer',
-                transition: 'border-color 0.2s'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#6366f1'}
-              onBlur={(e) => e.target.style.borderColor = '#192038'}
-            >
+      {/* Row 3: Module Analytics */}
+      <div className="db-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+          <h3 className="db-card-title" style={{ margin: 0 }}><Layers size={16} /> Module Analytics</h3>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <select className="db-select" value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
               {environments.map(env => (
                 <option key={env.id} value={env.id}>{env.name}</option>
               ))}
             </select>
 
-            <button
-              onClick={() => handleRunModule('ALL')}
-              style={{
-                background: '#10b981',
-                color: '#fff',
-                border: 0,
-                padding: '8px 16px',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                transition: 'background-color 0.2s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
-            >
-              <Play size={14} fill="#fff" />
+            <button className="db-run-all-btn" onClick={() => handleRunModule('ALL')}>
+              <Play size={14} />
               Run All Modules
             </button>
           </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <table className="db-table">
             <thead>
-              <tr style={{ borderBottom: '1px solid #192038' }}>
-                <th style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Module</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Passed</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Failed</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Skipped</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Accuracy</th>
-                <th style={{ padding: '12px 16px', fontSize: '11px', color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Run</th>
+              <tr>
+                <th>Module</th>
+                <th>Total</th>
+                <th>Passed</th>
+                <th>Failed</th>
+                <th>Skipped</th>
+                <th>Accuracy</th>
+                <th style={{ textAlign: 'right' }}>Run</th>
               </tr>
             </thead>
             <tbody>
               {moduleRows.map((row) => (
-                <tr key={row.code} style={{ borderBottom: '1px solid rgba(25, 32, 56, 0.4)', transition: 'background-color 0.15s' }}>
-                  <td style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, color: '#fff' }}>{row.name}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#cbd5e1' }}>{row.total}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#10b981', fontWeight: 600 }}>{row.passed}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#f43f5e', fontWeight: 600 }}>{row.failed}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '13px', color: '#fbbf24', fontWeight: 600 }}>{row.skipped}</td>
-                  <td style={{ padding: '14px 16px', fontSize: '13px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontWeight: 800, color: row.accuracy >= 80 ? '#10b981' : row.accuracy >= 50 ? '#fbbf24' : '#f43f5e', minWidth: '40px' }}>
+                <tr key={row.code}>
+                  <td className="db-cell-strong">{row.name}</td>
+                  <td>{row.total}</td>
+                  <td style={{ color: '#2ecc71', fontWeight: 600 }}>{row.passed}</td>
+                  <td style={{ color: '#f87171', fontWeight: 600 }}>{row.failed}</td>
+                  <td style={{ color: '#e0a64a', fontWeight: 600 }}>{row.skipped}</td>
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontWeight: 800, color: accuracyColor(row.accuracy), minWidth: 40 }}>
                         {row.accuracy}%
                       </span>
-                      <div style={{ width: '80px', height: '6px', background: '#192038', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%',
-                          background: row.accuracy >= 80 ? '#10b981' : row.accuracy >= 50 ? '#fbbf24' : '#f43f5e',
-                          width: `${row.accuracy}%`
-                        }} />
+                      <div className="db-bar-track">
+                        <div className="db-bar-fill" style={{ background: accuracyColor(row.accuracy), width: `${row.accuracy}%` }} />
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                    <button
-                      onClick={() => handleRunModule(row.code)}
-                      style={{
-                        background: 'rgba(99, 102, 241, 0.1)',
-                        border: '1px solid rgba(99, 102, 241, 0.3)',
-                        color: '#a5b4fc',
-                        padding: '5px 12px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(99, 102, 241, 0.2)';
-                        e.currentTarget.style.borderColor = '#6366f1';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(99, 102, 241, 0.1)';
-                        e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.3)';
-                      }}
-                    >
-                      <Play size={12} fill="#a5b4fc" />
+                  <td style={{ textAlign: 'right' }}>
+                    <button className="db-run-btn" onClick={() => handleRunModule(row.code)}>
+                      <Play size={12} />
                       Run Module
                     </button>
                   </td>
@@ -538,49 +448,39 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         </div>
       </div>
 
-      {/* 6. Row 4: Slowest Test Cases & Flaky Tests */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', flexWrap: 'wrap' }}>
-        
+      {/* Row 4: Slowest Test Cases & Flaky Tests */}
+      <div className="db-two-col">
+
         {/* Slowest Test Cases */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 800, color: '#fff' }}>Slowest Test Cases</h3>
-          <div style={{ overflowY: 'auto', maxHeight: '250px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+        <div className="db-card">
+          <h3 className="db-card-title"><Clock3 size={16} /> Slowest Test Cases</h3>
+          <div style={{ overflowY: 'auto', maxHeight: 250 }}>
+            <table className="db-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid #192038' }}>
-                  <th style={{ padding: '8px 4px', fontSize: '11px', color: '#94a3b8', fontWeight: 800 }}>Test Case</th>
-                  <th style={{ padding: '8px 4px', fontSize: '11px', color: '#94a3b8', fontWeight: 800 }}>Module</th>
-                  <th style={{ padding: '8px 4px', fontSize: '11px', color: '#94a3b8', fontWeight: 800, textAlign: 'right' }}>Duration</th>
+                <tr>
+                  <th>Test Case</th>
+                  <th>Module</th>
+                  <th style={{ textAlign: 'right' }}>Duration</th>
                 </tr>
               </thead>
               <tbody>
                 {slowTests.slice(0, 10).map((tc, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid rgba(25, 32, 56, 0.2)' }}>
-                    <td style={{ padding: '10px 4px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff' }}>{tc.methodName}</div>
-                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{tc.className}</div>
+                  <tr key={idx}>
+                    <td>
+                      <div className="db-cell-strong">{tc.methodName}</div>
+                      <div className="db-cell-sub">{tc.className}</div>
                     </td>
-                    <td style={{ padding: '10px 4px' }}>
-                      <span style={{
-                        background: 'rgba(99, 102, 241, 0.15)',
-                        color: '#a5b4fc',
-                        border: '1px solid rgba(99, 102, 241, 0.2)',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        fontWeight: 800
-                      }}>
-                        {tc.module || 'ALL'}
-                      </span>
+                    <td>
+                      <span className="db-chip">{tc.module || 'ALL'}</span>
                     </td>
-                    <td style={{ padding: '10px 4px', textAlign: 'right', fontSize: '13px', fontWeight: 700, color: '#fbbf24' }}>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#e0a64a' }}>
                       {Number(tc.duration).toFixed(2)}s
                     </td>
                   </tr>
                 ))}
                 {slowTests.length === 0 && (
                   <tr>
-                    <td colSpan="3" style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontSize: '12px' }}>
+                    <td colSpan="3" style={{ padding: 20, textAlign: 'center', color: '#5d7292', fontSize: 12 }}>
                       No slow test data found.
                     </td>
                   </tr>
@@ -591,142 +491,91 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         </div>
 
         {/* Flaky Tests (Stability Analysis) */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)', display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 800, color: '#fff' }}>Flaky Tests (Stability Analysis)</h3>
-          
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-            <HelpCircle size={36} style={{ color: '#64748b', marginBottom: '12px' }} />
-            <span style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', fontWeight: 500 }}>
-              All tests are stable. No flakiness detected in this range.
-            </span>
+        <div className="db-card" style={{ display: 'flex', flexDirection: 'column' }}>
+          <h3 className="db-card-title"><HelpCircle size={16} /> Flaky Tests (Stability Analysis)</h3>
+
+          <div className="db-empty-note">
+            <HelpCircle size={36} />
+            All tests are stable. No flakiness detected in this range.
           </div>
         </div>
 
       </div>
 
-      {/* 7. Row 5: System Information & Recent Executions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: '20px', flexWrap: 'wrap' }}>
-        
+      {/* Row 5: System Information & Recent Executions */}
+      <div className="db-info-row">
+
         {/* System & Run Information */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className="db-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
-            <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 800, color: '#fff' }}>System & Run Information</h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <div style={{ background: '#080b18', border: '1px solid #192038', borderRadius: '8px', padding: '12px' }}>
-                <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Host Machine</span>
-                <strong style={{ display: 'block', fontSize: '13px', color: '#fff', marginTop: '4px' }}>
-                  {lastRun?.machineName || 'localhost'}
-                </strong>
-              </div>
-              
-              <div style={{ background: '#080b18', border: '1px solid #192038', borderRadius: '8px', padding: '12px' }}>
-                <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>OS System</span>
-                <strong style={{ display: 'block', fontSize: '13px', color: '#fff', marginTop: '4px' }}>
-                  {lastRun?.osName || 'Windows/Linux'}
-                </strong>
+            <h3 className="db-card-title"><Monitor size={16} /> System &amp; Run Information</h3>
+
+            <div className="db-sys-grid">
+              <div className="db-sys-tile">
+                <span>Host Machine</span>
+                <strong>{lastRun?.machineName || 'localhost'}</strong>
               </div>
 
-              <div style={{ background: '#080b18', border: '1px solid #192038', borderRadius: '8px', padding: '12px' }}>
-                <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Java Version</span>
-                <strong style={{ display: 'block', fontSize: '13px', color: '#fff', marginTop: '4px' }}>
-                  {lastRun?.javaVersion || 'Java 21'}
-                </strong>
+              <div className="db-sys-tile">
+                <span>OS System</span>
+                <strong>{lastRun?.osName || 'Windows/Linux'}</strong>
               </div>
 
-              <div style={{ background: '#080b18', border: '1px solid #192038', borderRadius: '8px', padding: '12px' }}>
-                <span style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Automation Browser</span>
-                <strong style={{ display: 'block', fontSize: '13px', color: '#fff', marginTop: '4px' }}>
-                  {lastRun ? `${lastRun.browserName || 'Chrome'} / Selenium` : 'Chrome / Selenium'}
-                </strong>
+              <div className="db-sys-tile">
+                <span>Java Version</span>
+                <strong>{lastRun?.javaVersion || 'Java 21'}</strong>
+              </div>
+
+              <div className="db-sys-tile">
+                <span>Automation Browser</span>
+                <strong>{lastRun ? `${lastRun.browserName || 'Chrome'} / Selenium` : 'Chrome / Selenium'}</strong>
               </div>
             </div>
           </div>
 
-          <div style={{ color: '#64748b', fontSize: '11px', marginTop: '16px', borderTop: '1px solid #192038', paddingTop: '12px' }}>
-            System environment information matches the latest execution run <strong style={{ color: '#a5b4fc' }}>{lastRun?.executionCode || 'AUTO-N/A'}</strong>
+          <div className="db-sys-foot">
+            System environment information matches the latest execution run <strong>{lastRun?.executionCode || 'AUTO-N/A'}</strong>
           </div>
         </div>
 
         {/* Recent Executions */}
-        <div style={{ background: '#0c1020', border: '1px solid #192038', borderRadius: '12px', padding: '18px', boxShadow: '0 4px 20px 0 rgba(0, 0, 0, 0.2)' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 800, color: '#fff' }}>Recent Executions</h3>
-          
+        <div className="db-card">
+          <h3 className="db-card-title"><History size={16} /> Recent Executions</h3>
+
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table className="db-table">
               <thead>
-                <tr style={{ borderBottom: '1px solid #192038' }}>
-                  <th style={{ padding: '8px 4px', fontSize: '11px', color: '#94a3b8', fontWeight: 800 }}>Code</th>
-                  <th style={{ padding: '8px 4px', fontSize: '11px', color: '#94a3b8', fontWeight: 800 }}>Type</th>
-                  <th style={{ padding: '8px 4px', fontSize: '11px', color: '#94a3b8', fontWeight: 800 }}>Status</th>
-                  <th style={{ padding: '8px 4px', fontSize: '11px', color: '#94a3b8', fontWeight: 800 }}>Module</th>
-                  <th style={{ padding: '8px 4px', fontSize: '11px', color: '#94a3b8', fontWeight: 800, textAlign: 'right' }}>Pass Rate</th>
+                <tr>
+                  <th>Code</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Module</th>
+                  <th style={{ textAlign: 'right' }}>Pass Rate</th>
                 </tr>
               </thead>
               <tbody>
-                {recentExecutions.slice(0, 6).map((exec) => {
-                  let statusBg = 'rgba(148, 163, 184, 0.1)';
-                  let statusColor = '#94a3b8';
-                  
-                  if (exec.status === 'PASSED') {
-                    statusBg = 'rgba(16, 185, 129, 0.1)';
-                    statusColor = '#10b981';
-                  } else if (exec.status === 'FAILED' || exec.status === 'ERROR') {
-                    statusBg = 'rgba(244, 63, 94, 0.1)';
-                    statusColor = '#f43f5e';
-                  } else if (exec.status === 'RUNNING') {
-                    statusBg = 'rgba(6, 182, 212, 0.1)';
-                    statusColor = '#06b6d4';
-                  } else if (exec.status === 'QUEUED') {
-                    statusBg = 'rgba(251, 191, 36, 0.1)';
-                    statusColor = '#fbbf24';
-                  } else if (exec.status === 'PARTIAL') {
-                    statusBg = 'rgba(249, 115, 22, 0.1)';
-                    statusColor = '#f97316';
-                  }
-
-                  return (
-                    <tr key={exec.id} style={{ borderBottom: '1px solid rgba(25, 32, 56, 0.2)', transition: 'background-color 0.15s' }}>
-                      <td style={{ padding: '10px 4px' }}>
-                        <span
-                          onClick={() => onSelectExecution(exec.id)}
-                          style={{
-                            color: '#a5b4fc',
-                            textDecoration: 'underline',
-                            cursor: 'pointer',
-                            fontWeight: 700,
-                            fontSize: '12px',
-                            fontFamily: 'monospace'
-                          }}
-                        >
-                          {exec.executionCode}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 4px', fontSize: '12px', color: '#cbd5e1' }}>
-                        {exec.executionType === 'ALL_MODULES' ? 'ALL_MODULES' : exec.executionType}
-                      </td>
-                      <td style={{ padding: '10px 4px' }}>
-                        <span style={{
-                          background: statusBg,
-                          color: statusColor,
-                          border: `1px solid ${statusColor}30`,
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: 800
-                        }}>
-                          {exec.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 4px', fontSize: '12px', color: '#cbd5e1' }}>
-                        {exec.moduleCode || 'ALL'}
-                      </td>
-                      <td style={{ padding: '10px 4px', textAlign: 'right', fontSize: '12px', fontWeight: 700, color: '#fff' }}>
-                        {Number(exec.passRate ?? 0).toFixed(2)}%
-                      </td>
-                    </tr>
-                  );
-                })}
+                {recentExecutions.slice(0, 6).map((exec) => (
+                  <tr key={exec.id}>
+                    <td>
+                      <span className="db-code-link" onClick={() => onSelectExecution(exec.id)}>
+                        {exec.executionCode}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 12 }}>
+                      {exec.executionType === 'ALL_MODULES' ? 'ALL_MODULES' : exec.executionType}
+                    </td>
+                    <td>
+                      <span className={`xc-status xc-status-${(exec.status || '').toLowerCase()}`}>
+                        <span className="xc-dot" />
+                        {exec.status}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 12 }}>{exec.moduleCode || 'ALL'}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#eef5fc' }}>
+                      {Number(exec.passRate ?? 0).toFixed(2)}%
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

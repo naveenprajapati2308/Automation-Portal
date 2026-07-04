@@ -70,10 +70,12 @@ public class ProfileController {
             : ".jpg";
         String filename = UUID.randomUUID() + extension;
 
-        Path dir = Paths.get(profilesDir);
+        // Resolve to an absolute path: MultipartFile.transferTo() resolves relative paths
+        // against Tomcat's temp work directory, not the application working directory.
+        Path dir = Paths.get(profilesDir).toAbsolutePath();
         Files.createDirectories(dir);
         Path target = dir.resolve(filename);
-        file.transferTo(target.toFile());
+        Files.copy(file.getInputStream(), target);
 
         String urlPath = "/uploads/profiles/" + filename;
 

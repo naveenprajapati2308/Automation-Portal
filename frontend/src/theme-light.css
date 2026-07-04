@@ -1,0 +1,400 @@
+/* ── Bright (light) theme ─────────────────────────────────────────────────────
+   Activated by <html data-theme="light">, toggled from the topbar sun/moon
+   button. The dark palette in styles.css / component CSS stays the default;
+   this file only overrides surfaces and text for the light look. */
+
+/* ── Base shell ────────────────────────────────────────────────────────────── */
+:root[data-theme="light"] body {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+:root[data-theme="light"] .sidebar {
+  background: #ffffff;
+  color: #1e293b;
+  border-right: 1px solid #e2e8f0;
+}
+:root[data-theme="light"] .sidebar .brand strong {
+  color: #0f172a;
+}
+:root[data-theme="light"] .nav-section-label {
+  color: #94a3b8;
+}
+:root[data-theme="light"] nav button {
+  color: #475569;
+}
+:root[data-theme="light"] nav button:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+:root[data-theme="light"] nav button.active {
+  background: linear-gradient(90deg, rgba(79, 70, 229, 0.14), rgba(124, 58, 237, 0.05));
+  color: #4f46e5;
+  box-shadow: inset 3px 0 0 #7c3aed;
+}
+:root[data-theme="light"] nav button.active svg {
+  color: #7c3aed;
+}
+:root[data-theme="light"] .sidebar-footer p {
+  color: #94a3b8;
+}
+
+:root[data-theme="light"] .topbar {
+  background: #f1f5f9;
+  border-bottom-color: #e2e8f0 !important;
+}
+:root[data-theme="light"] .topbar h1 {
+  color: #0f172a !important;
+}
+
+/* ── Topbar chips ──────────────────────────────────────────────────────────── */
+:root[data-theme="light"] .tb-chip {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+:root[data-theme="light"] .tb-chip-cyan {
+  color: #0284c7;
+  background: rgba(2, 132, 199, 0.07);
+  border-color: rgba(2, 132, 199, 0.25);
+}
+:root[data-theme="light"] .tb-chip-amber {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+:root[data-theme="light"] .tb-chip-blue {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.07);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+:root[data-theme="light"] .tb-search {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .tb-search input {
+  color: #0f172a;
+}
+:root[data-theme="light"] .tb-search input::placeholder,
+:root[data-theme="light"] .tb-kbd {
+  color: #94a3b8;
+}
+:root[data-theme="light"] .tb-kbd {
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .tb-icon-btn {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #64748b;
+}
+:root[data-theme="light"] .tb-icon-btn:hover {
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+:root[data-theme="light"] .tb-count-badge {
+  box-shadow: 0 0 0 2px #f1f5f9;
+}
+
+/* ── Cards (all feature pages share these class families) ─────────────────── */
+:root[data-theme="light"] .pf-card,
+:root[data-theme="light"] .xc-card,
+:root[data-theme="light"] .rc-card,
+:root[data-theme="light"] .sg-card,
+:root[data-theme="light"] .cp-card,
+:root[data-theme="light"] .xc-tabs-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .pf-hero,
+:root[data-theme="light"] .cp-hero {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+:root[data-theme="light"] .pf-card-title,
+:root[data-theme="light"] .xc-card-title,
+:root[data-theme="light"] .rc-card-title,
+:root[data-theme="light"] .sg-card-title,
+:root[data-theme="light"] .cp-select-title,
+:root[data-theme="light"] .cp-hero-title,
+:root[data-theme="light"] .pf-hero-name,
+:root[data-theme="light"] .xc-live-suite,
+:root[data-theme="light"] .rc-cmp-result-head h3,
+:root[data-theme="light"] .sg-shot-title {
+  color: #0f172a;
+}
+
+:root[data-theme="light"] .xc-label,
+:root[data-theme="light"] .rc-label,
+:root[data-theme="light"] .cp-pick-label,
+:root[data-theme="light"] .cp-hero-sub,
+:root[data-theme="light"] .cp-select-sub,
+:root[data-theme="light"] .pf-info-label,
+:root[data-theme="light"] .pf-stat-label,
+:root[data-theme="light"] .pf-chip span,
+:root[data-theme="light"] .xc-live-started,
+:root[data-theme="light"] .xc-progress-meta,
+:root[data-theme="light"] .sg-sort,
+:root[data-theme="light"] .sg-meta-item,
+:root[data-theme="light"] .sg-footer,
+:root[data-theme="light"] .rc-kpi span,
+:root[data-theme="light"] .rc-muted-note,
+:root[data-theme="light"] .cp-tip {
+  color: #64748b;
+}
+
+:root[data-theme="light"] .pf-info-value,
+:root[data-theme="light"] .pf-stat-value,
+:root[data-theme="light"] .pf-chip strong,
+:root[data-theme="light"] .sg-page-label {
+  color: #0f172a;
+}
+
+/* Sub-tiles inside cards */
+:root[data-theme="light"] .pf-chip,
+:root[data-theme="light"] .pf-stat-tile,
+:root[data-theme="light"] .rc-kpi,
+:root[data-theme="light"] .sg-shot-card,
+:root[data-theme="light"] .rc-cmp-result,
+:root[data-theme="light"] .cp-tip,
+:root[data-theme="light"] .cp-arrow {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .sg-thumb {
+  background: #f1f5f9;
+  border-bottom-color: #e2e8f0;
+}
+:root[data-theme="light"] .pf-info-row {
+  border-bottom-color: #eef2f7;
+}
+:root[data-theme="light"] .pf-avatar-inner {
+  background: #e2e8f0;
+  color: #64748b;
+}
+
+/* ── Inputs & selects ──────────────────────────────────────────────────────── */
+:root[data-theme="light"] .xc-select,
+:root[data-theme="light"] .rc-input,
+:root[data-theme="light"] .rc-select,
+:root[data-theme="light"] .sg-input,
+:root[data-theme="light"] .sg-select,
+:root[data-theme="light"] .cp-select {
+  background: #ffffff;
+  color: #0f172a;
+  color-scheme: light;
+}
+:root[data-theme="light"] .xc-select option,
+:root[data-theme="light"] .rc-select option,
+:root[data-theme="light"] .sg-select option,
+:root[data-theme="light"] .cp-select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+:root[data-theme="light"] .xc-select,
+:root[data-theme="light"] .rc-input,
+:root[data-theme="light"] .rc-select {
+  border-color: #cbd5e1;
+}
+:root[data-theme="light"] .xc-select-primary,
+:root[data-theme="light"] .rc-accent,
+:root[data-theme="light"] .sg-input,
+:root[data-theme="light"] .sg-select {
+  border-color: rgba(124, 58, 237, 0.45);
+}
+
+/* Small utility buttons */
+:root[data-theme="light"] .xc-icon-btn,
+:root[data-theme="light"] .rc-act-btn,
+:root[data-theme="light"] .sg-view-btn,
+:root[data-theme="light"] .sg-refresh-btn,
+:root[data-theme="light"] .sg-page-btn,
+:root[data-theme="light"] .xc-eye-btn,
+:root[data-theme="light"] .sg-btn-cancel {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+:root[data-theme="light"] .sg-pager select {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+:root[data-theme="light"] .pf-log-toggle {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+/* ── DataTable ─────────────────────────────────────────────────────────────── */
+:root[data-theme="light"] .datatable-container .datatable-table-wrapper {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .datatable-container .datatable-table th {
+  background: #f8fafc;
+  color: #64748b;
+  border-bottom-color: #e2e8f0;
+}
+:root[data-theme="light"] .datatable-container .datatable-table td {
+  color: #334155;
+  border-bottom-color: #eef2f7;
+}
+:root[data-theme="light"] .datatable-container .datatable-table tbody tr:hover td {
+  background: #f8fafc;
+}
+:root[data-theme="light"] .datatable-container .datatable-search-input {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+:root[data-theme="light"] .datatable-container .btn-secondary {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+:root[data-theme="light"] .datatable-container .btn-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+:root[data-theme="light"] .datatable-container .datatable-column-toggle-popup {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+}
+:root[data-theme="light"] .datatable-container .datatable-column-toggle-label {
+  color: #334155;
+}
+:root[data-theme="light"] .datatable-container .datatable-column-toggle-label:hover {
+  background: #f1f5f9;
+}
+:root[data-theme="light"] .datatable-container .datatable-footer,
+:root[data-theme="light"] .datatable-container .datatable-pagesize-select-wrapper span,
+:root[data-theme="light"] .datatable-container .datatable-empty-state {
+  color: #64748b !important;
+}
+:root[data-theme="light"] .datatable-container .datatable-pagesize-select {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+:root[data-theme="light"] .datatable-container .datatable-page-buttons span {
+  color: #334155;
+}
+:root[data-theme="light"] .datatable-container .skeleton {
+  background: linear-gradient(90deg, #eef2f7 25%, #e2e8f0 50%, #eef2f7 75%);
+  background-size: 200% 100%;
+}
+
+/* ── Modal ─────────────────────────────────────────────────────────────────── */
+:root[data-theme="light"] .modal {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #334155;
+}
+:root[data-theme="light"] .modal-header h2 {
+  color: #0f172a;
+}
+:root[data-theme="light"] .sg-confirm-text {
+  color: #475569;
+}
+
+/* ── Test Logs page ────────────────────────────────────────────────────────── */
+:root[data-theme="light"] .tl-card {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .tl-head-title,
+:root[data-theme="light"] .tl-tc-name {
+  color: #0f172a;
+}
+:root[data-theme="light"] .tl-exec-select {
+  background: #ffffff;
+  color: #0f172a;
+  color-scheme: light;
+}
+:root[data-theme="light"] .tl-exec-select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+:root[data-theme="light"] .tl-tab,
+:root[data-theme="light"] .tl-refresh-btn,
+:root[data-theme="light"] .tl-module-wrap,
+:root[data-theme="light"] .tl-search-wrap,
+:root[data-theme="light"] .tl-view-btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+:root[data-theme="light"] .tl-tab {
+  color: #64748b;
+}
+:root[data-theme="light"] .tl-module-wrap select,
+:root[data-theme="light"] .tl-search-wrap input {
+  color: #0f172a;
+}
+:root[data-theme="light"] .tl-module-wrap select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+:root[data-theme="light"] .tl-tc-class,
+:root[data-theme="light"] .tl-shown-count,
+:root[data-theme="light"] .tl-no-exec {
+  color: #64748b;
+}
+
+/* ── Dashboard ─────────────────────────────────────────────────────────────── */
+:root[data-theme="light"] .db-page {
+  color: #334155;
+}
+:root[data-theme="light"] .db-card,
+:root[data-theme="light"] .db-select {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .db-select {
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+:root[data-theme="light"] .db-select option {
+  background: #ffffff;
+  color: #0f172a;
+}
+:root[data-theme="light"] .db-card-title,
+:root[data-theme="light"] .db-subhead h3,
+:root[data-theme="light"] .db-kpi-value,
+:root[data-theme="light"] .db-cell-strong {
+  color: #0f172a;
+}
+:root[data-theme="light"] .db-kpi-label,
+:root[data-theme="light"] .db-range,
+:root[data-theme="light"] .db-kpi-sub,
+:root[data-theme="light"] .db-cell-sub,
+:root[data-theme="light"] .db-sys-foot,
+:root[data-theme="light"] .db-empty-note {
+  color: #64748b;
+}
+:root[data-theme="light"] .db-table th {
+  color: #64748b;
+  border-bottom-color: #e2e8f0;
+}
+:root[data-theme="light"] .db-table td {
+  color: #334155;
+  border-bottom-color: #eef2f7;
+}
+:root[data-theme="light"] .db-table tbody tr:hover td {
+  background: #f8fafc;
+}
+:root[data-theme="light"] .db-sys-tile {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+:root[data-theme="light"] .db-sys-tile strong {
+  color: #0f172a;
+}
+:root[data-theme="light"] .db-bar-track {
+  background: #e2e8f0;
+}
+
+/* Note: the full-screen boot loader, the live-log terminal, and the test-log
+   drawer intentionally stay dark in both themes — splash branding and
+   terminal-style log output read better dark. */

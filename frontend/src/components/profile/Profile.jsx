@@ -1,11 +1,36 @@
-import { ChevronLeft, ChevronRight, Clock, KeyRound, Upload, UserCircle } from 'lucide-react';
+import {
+  Activity,
+  BadgeCheck,
+  Briefcase,
+  Building2,
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Clock,
+  KeyRound,
+  LogIn,
+  Mail,
+  MonitorSmartphone,
+  Pencil,
+  Phone,
+  Shield,
+  ShieldCheck,
+  Trash2,
+  Upload,
+  UserCircle,
+  UserRound,
+  UserRoundPen,
+  Zap
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api.js';
 import { Field } from '../shared/Field.jsx';
-import { Panel } from '../shared/Panel.jsx';
-import { Placeholder } from '../shared/index.jsx';
+import { Modal, Placeholder } from '../shared/index.jsx';
 import { ChangeEmailForm } from './ChangeEmailForm.jsx';
 import { ChangePasswordForm } from './ChangePasswordForm.jsx';
+import './profile.css';
 
 // ── Time helpers ───────────────────────────────────────────────────────────────
 function formatDateTime(raw) {
@@ -18,7 +43,6 @@ function formatDateTime(raw) {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
     hour12: true,
   });
 }
@@ -43,6 +67,9 @@ export function Profile({ setNotice }) {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChangeEmail, setShowChangeEmail] = useState(false);
   const [emailOtp, setEmailOtp] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [editErrors, setEditErrors] = useState({});
+  const [showLogs, setShowLogs] = useState(false);
   const fileRef = useRef();
 
   // Audit log state
@@ -66,11 +93,31 @@ export function Profile({ setNotice }) {
 
   useEffect(() => { load().catch((err) => setNotice(err.message)); }, []);
 
+  const updateEditField = (field, value) => {
+    setForm((c) => ({ ...c, [field]: value }));
+    // Typing again clears that field's validation message.
+    setEditErrors((c) => (c[field] ? { ...c, [field]: undefined } : c));
+  };
+
+  const validateEdit = () => {
+    const next = {};
+    if (!(form.fullName || '').trim()) next.fullName = 'Full name is required.';
+    const mobile = (form.mobileNumber || '').trim();
+    if (!mobile) next.mobileNumber = 'Mobile number is required.';
+    else if (!/^[6-9]\d{9}$/.test(mobile)) next.mobileNumber = 'Enter a valid 10-digit mobile number starting with 6-9.';
+    if (!(form.designation || '').trim()) next.designation = 'Designation is required.';
+    if (!(form.organization || '').trim()) next.organization = 'Organization is required.';
+    setEditErrors(next);
+    return Object.keys(next).every((key) => !next[key]);
+  };
+
   const save = async () => {
+    if (!validateEdit()) return;
     try {
       const updated = await api.updateProfile(form);
       setProfile(updated);
       setNotice('Profile updated.');
+      setEditing(false);
       await load();
     } catch (error) {
       setNotice(error.message);
@@ -113,161 +160,259 @@ export function Profile({ setNotice }) {
   // Reset page when filter changes
   useEffect(() => { setLogPage(1); }, [actionFilter]);
 
-  // Most-recent entry (unfiltered)
-  const lastEntry = logs.length > 0
-    ? logs.reduce((a, b) => new Date(a.createdAt) > new Date(b.createdAt) ? a : b)
-    : null;
+  // Activity summary counts (from the recent audit trail)
+  const stats = useMemo(() => {
+    const count = (...actions) => logs.filter((l) => actions.includes(l.action)).length;
+    return {
+      logins: count('LOGIN'),
+      profileUpdates: count('PROFILE_UPDATE'),
+      passwordChanges: count('PASSWORD_CHANGE', 'PASSWORD_RESET'),
+    };
+  }, [logs]);
 
   if (!profile) return <Placeholder title="Profile" lines={['Loading account information…']} />;
 
+  const isActive = profile.status === 'ACTIVE';
+
+  const infoRows = [
+    { icon: UserRound, label: 'Full Name', value: profile.displayName || '—' },
+    { icon: Mail, label: 'Email Address', value: profile.email },
+    { icon: Phone, label: 'Mobile Number', value: profile.mobileNumber || '—' },
+    { icon: Briefcase, label: 'Designation', value: profile.designation || '—' },
+    { icon: Building2, label: 'Organization', value: profile.organization || '—' },
+    { icon: Shield, label: 'Role', value: <span className="pf-badge pf-badge-role">{profile.role}</span> },
+    { icon: Activity, label: 'Status', value: <span className="pf-badge pf-badge-status">{profile.status}</span> },
+    { icon: Calendar, label: 'Member Since', value: formatDateTime(profile.createdAt) },
+    { icon: Clock, label: 'Last Login', value: formatDateTime(profile.lastLogin) }
+  ];
+
   return (
-    <section className="split">
-      {/* ── Account Information ─────────────────────────────────────────── */}
-      <Panel title="Account Information">
-        <div className="profile-image-section">
-          <div className="profile-avatar" onClick={() => fileRef.current.click()} title="Click to change photo">
+    <section className="pf-page">
+      {/* ── Hero ─────────────────────────────────────────────────────────── */}
+      <div className="pf-hero">
+        <div className="pf-hero-avatar" onClick={() => fileRef.current.click()} title="Click to change photo">
+          <div className="pf-avatar-inner">
             {previewUrl
               ? <img src={previewUrl} alt="Profile" />
-              : <UserCircle size={64} strokeWidth={1.2} />}
-            <div className="avatar-overlay">
-              <Upload size={18} /> {uploading ? 'Uploading…' : 'Change Photo'}
+              : <UserCircle size={62} strokeWidth={1.2} />}
+          </div>
+          <div className="pf-avatar-overlay">
+            <span><Upload size={16} /></span>
+            {uploading ? 'Uploading…' : 'Change Photo'}
+          </div>
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+
+        <div className="pf-hero-main">
+          <h2 className="pf-hero-name">
+            {profile.displayName || profile.username}
+            <BadgeCheck size={22} />
+          </h2>
+          <div className="pf-chips">
+            <div className="pf-chip">
+              <strong>{profile.designation || '—'}</strong>
+              <span>Designation</span>
+            </div>
+            <div className="pf-chip">
+              <strong>{profile.organization || '—'}</strong>
+              <span>Organization</span>
+            </div>
+            <div className="pf-chip pf-chip-role">
+              <strong>{profile.role}</strong>
+              <span>Role</span>
             </div>
           </div>
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
         </div>
 
-        <div className="profile-form">
-          <Field label="Full Name" value={form.fullName} onChange={(v) => setForm({ ...form, fullName: v })} />
-          <Field label="Mobile Number" value={form.mobileNumber} onChange={(v) => setForm({ ...form, mobileNumber: v })} />
-          <Field label="Designation" value={form.designation} onChange={(v) => setForm({ ...form, designation: v })} />
-          <Field label="Organization" value={form.organization} onChange={(v) => setForm({ ...form, organization: v })} />
-          <button className="primary-action" onClick={save}>Save Profile</button>
-        </div>
-
-        <div className="account-meta">
-          <p><strong>Username:</strong> {profile.username}</p>
-          <p><strong>Email:</strong> {profile.email}</p>
-          <p><strong>Role:</strong> {profile.role}</p>
-          <p><strong>Status:</strong> {profile.status}</p>
-          <p><strong>Created:</strong> {formatDateTime(profile.createdAt)}</p>
-          <p><strong>Last Login:</strong> {formatDateTime(profile.lastLogin)}</p>
-        </div>
-
-        <div className="profile-actions">
-          <button className="secondary-action" onClick={() => setShowChangePassword(!showChangePassword)}>
-            <KeyRound size={15} /> Change Password
+        <div className="pf-hero-actions">
+          <button className="pf-edit-btn" onClick={() => { setEditErrors({}); setEditing(true); }}>
+            <Pencil size={14} />
+            Edit Profile
           </button>
-          <button className="secondary-action" onClick={() => setShowChangeEmail(!showChangeEmail)}>
-            Change Email
-          </button>
+          <span className={`pf-status-pill${isActive ? '' : ' pf-status-off'}`}>
+            <span className="pf-dot" />
+            {isActive ? 'Active' : profile.status}
+          </span>
+        </div>
+      </div>
+
+      {/* ── Info + Actions grid ───────────────────────────────────────────── */}
+      <div className="pf-grid">
+        <div className="pf-card">
+          <h3 className="pf-card-title"><UserRoundPen size={17} /> Account Information</h3>
+          {infoRows.map(({ icon: Icon, label, value }) => (
+            <div className="pf-info-row" key={label}>
+              <span className="pf-info-label"><Icon size={15} /> {label}</span>
+              <span className="pf-info-value">{value}</span>
+            </div>
+          ))}
         </div>
 
-        {showChangePassword && (
+        <div className="pf-right">
+          <div className="pf-card">
+            <h3 className="pf-card-title"><Zap size={17} /> Quick Actions</h3>
+            <div className="pf-actions-grid">
+              <button className="pf-action-tile pf-action-violet" onClick={() => setShowChangePassword(true)}>
+                <KeyRound size={22} />
+                Change Password
+              </button>
+              <button className="pf-action-tile pf-action-blue" onClick={() => setShowChangeEmail(true)}>
+                <Mail size={22} />
+                Change Email
+              </button>
+              <button
+                className="pf-action-tile pf-action-red"
+                onClick={() => setNotice('Account deletion is not available for this account.')}
+              >
+                <Trash2 size={22} />
+                Delete Account
+              </button>
+            </div>
+          </div>
+
+          <div className="pf-card">
+            <h3 className="pf-card-title"><ShieldCheck size={17} /> Activity Summary</h3>
+            <div className="pf-stats-grid">
+              <div className="pf-stat-tile">
+                <span className="pf-stat-icon pf-stat-blue"><LogIn size={17} /></span>
+                <div className="pf-stat-value">{stats.logins}</div>
+                <div className="pf-stat-label">Total Logins</div>
+              </div>
+              <div className="pf-stat-tile">
+                <span className="pf-stat-icon pf-stat-green"><UserRoundPen size={17} /></span>
+                <div className="pf-stat-value">{stats.profileUpdates}</div>
+                <div className="pf-stat-label">Profile Updates</div>
+              </div>
+              <div className="pf-stat-tile">
+                <span className="pf-stat-icon pf-stat-amber"><KeyRound size={17} /></span>
+                <div className="pf-stat-value">{stats.passwordChanges}</div>
+                <div className="pf-stat-label">Password Changes</div>
+              </div>
+              <div className="pf-stat-tile">
+                <span className="pf-stat-icon pf-stat-purple"><MonitorSmartphone size={17} /></span>
+                <div className="pf-stat-value">1</div>
+                <div className="pf-stat-label">Active Sessions</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Edit Profile modal ────────────────────────────────────────────── */}
+      {editing && (
+        <Modal title="Edit Profile" onClose={() => { setEditing(false); setEditErrors({}); }}>
+          <Field label="Full Name" required value={form.fullName} onChange={(v) => updateEditField('fullName', v)} error={editErrors.fullName} />
+          <Field label="Mobile Number" required value={form.mobileNumber} onChange={(v) => updateEditField('mobileNumber', v)} error={editErrors.mobileNumber} />
+          <Field label="Designation" required value={form.designation} onChange={(v) => updateEditField('designation', v)} error={editErrors.designation} />
+          <Field label="Organization" required value={form.organization} onChange={(v) => updateEditField('organization', v)} error={editErrors.organization} />
+          <button className="primary-action" onClick={save} style={{ marginTop: 12 }}>Save &amp; Close</button>
+        </Modal>
+      )}
+
+      {showChangePassword && (
+        <div className="pf-card">
           <ChangePasswordForm setNotice={setNotice} onClose={() => setShowChangePassword(false)} />
-        )}
-        {showChangeEmail && (
+        </div>
+      )}
+      {showChangeEmail && (
+        <div className="pf-card">
           <ChangeEmailForm
             setNotice={setNotice}
             onClose={() => setShowChangeEmail(false)}
             emailOtp={emailOtp}
             setEmailOtp={setEmailOtp}
           />
-        )}
-      </Panel>
+        </div>
+      )}
 
-      {/* ── Activity / Audit Logs ─────────────────────────────────────────── */}
-      <Panel title="Activity Logs">
+      {/* ── Activity Log (hidden behind Show More) ────────────────────────── */}
+      <div className="pf-card">
+        <div className="pf-log-header">
+          <h3 className="pf-card-title" style={{ margin: 0 }}><Activity size={17} /> Activity Logs</h3>
+          <button className="pf-log-toggle" onClick={() => setShowLogs((v) => !v)}>
+            {showLogs ? <>Show Less <ChevronUp size={14} /></> : <>Show More <ChevronDown size={14} /></>}
+          </button>
+        </div>
 
-        {/* Last Activity banner */}
-        {lastEntry && (
-          <div className="audit-last-activity">
-            <Clock size={15} />
-            <div className="audit-last-activity-body">
-              <span className="audit-last-label">Last Activity</span>
-              <span className="audit-last-action">{lastEntry.action}</span>
-              <span className="audit-last-time">
-                {formatDateTime(lastEntry.createdAt)}
-                <span className="audit-last-ago">{timeAgo(lastEntry.createdAt)}</span>
+        {showLogs && (
+          <div className="pf-log-body">
+            {/* Filter toolbar */}
+            <div className="audit-toolbar">
+              <select
+                className="um-filter-select"
+                value={actionFilter}
+                onChange={(e) => setActionFilter(e.target.value)}
+              >
+                <option value="">All Actions</option>
+                {actionTypes.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <span className="um-count">
+                {filteredLogs.length} event{filteredLogs.length !== 1 ? 's' : ''}
               </span>
+              {actionFilter && (
+                <button className="um-clear-btn" onClick={() => setActionFilter('')}>Clear</button>
+              )}
             </div>
+
+            {/* Table */}
+            <div className="um-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Action</th>
+                    <th>Details</th>
+                    <th>Date &amp; Time</th>
+                    <th>When</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pagedLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'center', color: '#8a9bb0', padding: '32px' }}>
+                        No activity logs found
+                      </td>
+                    </tr>
+                  ) : pagedLogs.map((log, idx) => (
+                    <tr key={log.id ?? idx}>
+                      <td style={{ color: '#8a9bb0', width: 32 }}>
+                        {(logPage - 1) * LOG_PAGE_SIZE + idx + 1}
+                      </td>
+                      <td>
+                        <span className="status">{log.action}</span>
+                      </td>
+                      <td style={{ maxWidth: 180, wordBreak: 'break-word' }}>
+                        {log.details || '—'}
+                      </td>
+                      <td className="audit-datetime">{formatDateTime(log.createdAt)}</td>
+                      <td className="audit-ago">{timeAgo(log.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalLogPages > 1 && (
+              <div className="um-pagination">
+                <button
+                  onClick={() => setLogPage((p) => Math.max(1, p - 1))}
+                  disabled={logPage === 1}
+                >
+                  <ChevronLeft size={14} /> Prev
+                </button>
+                <span>Page {logPage} of {totalLogPages}</span>
+                <button
+                  onClick={() => setLogPage((p) => Math.min(totalLogPages, p + 1))}
+                  disabled={logPage === totalLogPages}
+                >
+                  Next <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
           </div>
         )}
-
-        {/* Filter toolbar */}
-        <div className="audit-toolbar">
-          <select
-            className="um-filter-select"
-            value={actionFilter}
-            onChange={(e) => setActionFilter(e.target.value)}
-          >
-            <option value="">All Actions</option>
-            {actionTypes.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
-          <span className="um-count">
-            {filteredLogs.length} event{filteredLogs.length !== 1 ? 's' : ''}
-          </span>
-          {actionFilter && (
-            <button className="um-clear-btn" onClick={() => setActionFilter('')}>Clear</button>
-          )}
-        </div>
-
-        {/* Table */}
-        <div className="um-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Action</th>
-                <th>Details</th>
-                <th>Date &amp; Time</th>
-                <th>When</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', color: '#8a9bb0', padding: '32px' }}>
-                    No activity logs found
-                  </td>
-                </tr>
-              ) : pagedLogs.map((log, idx) => (
-                <tr key={log.id ?? idx}>
-                  <td style={{ color: '#8a9bb0', width: 32 }}>
-                    {(logPage - 1) * LOG_PAGE_SIZE + idx + 1}
-                  </td>
-                  <td>
-                    <span className="status">{log.action}</span>
-                  </td>
-                  <td style={{ maxWidth: 180, wordBreak: 'break-word' }}>
-                    {log.details || '—'}
-                  </td>
-                  <td className="audit-datetime">{formatDateTime(log.createdAt)}</td>
-                  <td className="audit-ago">{timeAgo(log.createdAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalLogPages > 1 && (
-          <div className="um-pagination">
-            <button
-              onClick={() => setLogPage((p) => Math.max(1, p - 1))}
-              disabled={logPage === 1}
-            >
-              <ChevronLeft size={14} /> Prev
-            </button>
-            <span>Page {logPage} of {totalLogPages}</span>
-            <button
-              onClick={() => setLogPage((p) => Math.min(totalLogPages, p + 1))}
-              disabled={logPage === totalLogPages}
-            >
-              Next <ChevronRight size={14} />
-            </button>
-          </div>
-        )}
-      </Panel>
+      </div>
     </section>
   );
 }

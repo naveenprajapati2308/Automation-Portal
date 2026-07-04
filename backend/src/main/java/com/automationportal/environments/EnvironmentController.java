@@ -50,7 +50,7 @@ public class EnvironmentController {
     @DeleteMapping("/{id}")
     public ApiResponse<String> delete(@PathVariable Long id) {
         if (!repository.existsById(id)) {
-            throw new IllegalArgumentException("Environment not found: " + id);
+            throw new IllegalArgumentException("Please Try again Environment not found: " + id);
         }
         repository.deleteById(id);
         return ApiResponse.ok("Environment deleted successfully");

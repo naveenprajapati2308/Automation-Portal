@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api.js';
-import { Panel } from '../shared/index.jsx';
-import { GitCompare, ArrowRight, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { GitCompare, ArrowRight, CheckCircle2, XCircle, Calendar, Info } from 'lucide-react';
+import './compare.css';
 
 export function ComparePage({ executions = [] }) {
   const [baseId, setBaseId] = useState('');
@@ -25,160 +25,169 @@ export function ComparePage({ executions = [] }) {
   };
 
   return (
-    <section className="compare-page page-grid" style={{ display: 'grid', gap: '20px' }}>
-      <div className="dashboard-brief" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px' }}>
-        <div>
-          <span className="eyebrow">Comparison Center</span>
-          <h2>Historical Comparison</h2>
-        </div>
+    <section className="cp-page compare-page">
+
+      {/* Hero */}
+      <div className="cp-hero">
+        <img
+          src="/execution-art2.png"
+          alt=""
+          className="cp-hero-art"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
+        <div className="cp-hero-eyebrow">Comparison Center</div>
+        <h2 className="cp-hero-title">Historical Comparison</h2>
+        <p className="cp-hero-sub">Compare two execution runs to analyze improvements and identify issues.</p>
       </div>
 
       {/* Select Controls */}
-      <Panel title="Select Executions to Compare" style={{ gridColumn: '1 / -1' }}>
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '220px', display: 'grid', gap: '6px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#cfdae6' }}>Base Execution (Previous)</span>
-            <select
-              value={baseId}
-              onChange={(e) => setBaseId(e.target.value)}
-              style={{ height: '38px', borderRadius: '8px', border: '1px solid #1a2c3d', background: '#0f1923', color: '#cfdae6', padding: '0 10px', fontSize: '13px' }}
-            >
-              <option value="">Select Base Execution...</option>
-              {executions.map(e => (
-                <option key={e.id} value={e.id}>{e.executionCode} ({e.moduleCode} - {e.passRate}% Pass)</option>
-              ))}
-            </select>
+      <div className="cp-card">
+        <h3 className="cp-select-title">Select Executions to Compare</h3>
+        <p className="cp-select-sub">Choose two execution runs to see a detailed comparison of their performance.</p>
+
+        <div className="cp-pick-row">
+          <div className="cp-pick">
+            <label className="cp-pick-label">Base Execution (Previous)</label>
+            <div className="cp-select-wrap">
+              <span className="cp-select-chip cp-chip-violet"><Calendar size={17} /></span>
+              <select
+                className="cp-select cp-select-violet"
+                value={baseId}
+                onChange={(e) => setBaseId(e.target.value)}
+              >
+                <option value="">Select Base Execution...</option>
+                {executions.map(e => (
+                  <option key={e.id} value={e.id}>{e.executionCode} ({e.moduleCode} - {e.passRate}% Pass)</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <div style={{ display: 'grid', placeItems: 'center', height: '38px', color: '#8a9bb0' }}>
-            <ArrowRight size={18} />
+          <div className="cp-arrow">
+            <ArrowRight size={20} />
           </div>
 
-          <div style={{ flex: 1, minWidth: '220px', display: 'grid', gap: '6px' }}>
-            <span style={{ fontSize: '12px', fontWeight: 600, color: '#cfdae6' }}>Target Execution (Current/Newer)</span>
-            <select
-              value={targetId}
-              onChange={(e) => setTargetId(e.target.value)}
-              style={{ height: '38px', borderRadius: '8px', border: '1px solid #1a2c3d', background: '#0f1923', color: '#cfdae6', padding: '0 10px', fontSize: '13px' }}
-            >
-              <option value="">Select Target Execution...</option>
-              {executions.map(e => (
-                <option key={e.id} value={e.id}>{e.executionCode} ({e.moduleCode} - {e.passRate}% Pass)</option>
-              ))}
-            </select>
+          <div className="cp-pick">
+            <label className="cp-pick-label">Target Execution (Current/Newer)</label>
+            <div className="cp-select-wrap">
+              <span className="cp-select-chip cp-chip-cyan"><Calendar size={17} /></span>
+              <select
+                className="cp-select cp-select-cyan"
+                value={targetId}
+                onChange={(e) => setTargetId(e.target.value)}
+              >
+                <option value="">Select Target Execution...</option>
+                {executions.map(e => (
+                  <option key={e.id} value={e.id}>{e.executionCode} ({e.moduleCode} - {e.passRate}% Pass)</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <button
+            className="cp-compare-btn"
             onClick={handleCompare}
             disabled={!baseId || !targetId || loading}
-            style={{
-              height: '38px',
-              borderRadius: '8px',
-              border: 0,
-              background: '#00b0ff',
-              color: '#ffffff',
-              padding: '0 20px',
-              fontWeight: 700,
-              fontSize: '13px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              opacity: (!baseId || !targetId || loading) ? 0.6 : 1,
-            }}
           >
-            <GitCompare size={16} /> {loading ? 'Comparing...' : 'Compare Runs'}
+            <GitCompare size={17} /> {loading ? 'Comparing...' : 'Compare Runs'}
           </button>
         </div>
-      </Panel>
+
+        <div className="cp-tip">
+          <Info size={18} />
+          <span><strong>Tip:</strong> The base execution will be considered as the older run, and the target execution as the newer run for comparison.</span>
+        </div>
+      </div>
 
       {error && (
-        <div style={{ gridColumn: '1 / -1', background: 'rgba(239, 83, 80, 0.1)', border: '1px solid #ef5350', color: '#ef5350', padding: '12px 16px', borderRadius: '8px', fontSize: '13px' }}>
-          {error}
-        </div>
+        <div className="cp-error">{error}</div>
       )}
 
       {/* Comparison Results */}
       {result && (
         <>
           {/* Delta Statistics */}
-          <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-            <div style={{ background: '#0f1923', border: '1px solid #1a2c3d', padding: '16px', borderRadius: '12px' }}>
-              <span style={{ fontSize: '11px', color: '#8a9bb0', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>Pass Rate Change</span>
-              <strong style={{ display: 'block', fontSize: '28px', marginTop: '6px', color: result.delta.passRateChange >= 0 ? '#2f9c5d' : '#ef5350' }}>
+          <div className="cp-kpi-grid">
+            <div className="cp-kpi">
+              <span>Pass Rate Change</span>
+              <strong style={{ color: result.delta.passRateChange >= 0 ? '#2ecc71' : '#f87171' }}>
                 {result.delta.passRateChange >= 0 ? '+' : ''}{result.delta.passRateChange}%
               </strong>
-              <span style={{ fontSize: '11px', color: '#5d6b7a', display: 'block', marginTop: '4px' }}>
-                Base: {result.base.passRate}% → Target: {result.target.passRate}%
-              </span>
+              <em>Base: {result.base.passRate}% → Target: {result.target.passRate}%</em>
             </div>
 
-            <div style={{ background: '#0f1923', border: '1px solid #1a2c3d', padding: '16px', borderRadius: '12px', color: '#ef5350' }}>
-              <span style={{ fontSize: '11px', color: '#8a9bb0', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>New Failures</span>
-              <strong style={{ display: 'block', fontSize: '28px', marginTop: '6px' }}>{result.delta.newFailures}</strong>
-              <span style={{ fontSize: '11px', color: '#5d6b7a', display: 'block', marginTop: '4px' }}>Tests that broke</span>
+            <div className="cp-kpi">
+              <span>New Failures</span>
+              <strong style={{ color: '#f87171' }}>{result.delta.newFailures}</strong>
+              <em>Tests that broke</em>
             </div>
 
-            <div style={{ background: '#0f1923', border: '1px solid #1a2c3d', padding: '16px', borderRadius: '12px', color: '#2f9c5d' }}>
-              <span style={{ fontSize: '11px', color: '#8a9bb0', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>Fixed Failures</span>
-              <strong style={{ display: 'block', fontSize: '28px', marginTop: '6px' }}>{result.delta.fixedFailures}</strong>
-              <span style={{ fontSize: '11px', color: '#5d6b7a', display: 'block', marginTop: '4px' }}>Tests now passing</span>
+            <div className="cp-kpi">
+              <span>Fixed Failures</span>
+              <strong style={{ color: '#2ecc71' }}>{result.delta.fixedFailures}</strong>
+              <em>Tests now passing</em>
             </div>
 
-            <div style={{ background: '#0f1923', border: '1px solid #1a2c3d', padding: '16px', borderRadius: '12px', color: '#ffb300' }}>
-              <span style={{ fontSize: '11px', color: '#8a9bb0', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>Still Failing</span>
-              <strong style={{ display: 'block', fontSize: '28px', marginTop: '6px' }}>{result.delta.stillFailing}</strong>
-              <span style={{ fontSize: '11px', color: '#5d6b7a', display: 'block', marginTop: '4px' }}>Persistent failures</span>
+            <div className="cp-kpi">
+              <span>Still Failing</span>
+              <strong style={{ color: '#e0a64a' }}>{result.delta.stillFailing}</strong>
+              <em>Persistent failures</em>
             </div>
           </div>
 
-          {/* New Failures */}
-          <Panel title={`New Failures (${result.newFailures.length})`} style={{ gridColumn: 'span 2' }}>
-            {result.newFailures.length === 0 ? (
-              <p style={{ color: '#8a9bb0', textAlign: 'center', padding: '30px 0', fontSize: '13px' }}>
-                <CheckCircle2 size={24} style={{ display: 'block', margin: '0 auto 8px', color: '#2f9c5d' }} />
-                No new failures! Clean run transition.
-              </p>
-            ) : (
-              <div style={{ display: 'grid', gap: '8px' }}>
-                {result.newFailures.map((item, idx) => (
-                  <div key={idx} style={{ padding: '12px', background: 'rgba(239, 83, 80, 0.05)', borderLeft: '4px solid #ef5350', borderRadius: '4px' }}>
-                    <strong style={{ fontSize: '13px', color: '#ef5350', display: 'block' }}>{item.methodName}</strong>
-                    <span style={{ fontSize: '11px', color: '#8a9bb0', display: 'block', margin: '2px 0 6px 0' }}>{item.className}</span>
-                    <pre style={{ margin: 0, padding: '8px', background: '#0a1017', color: '#ef5350', fontSize: '11px', borderRadius: '4px', overflowX: 'auto' }}>
-                      {item.failureReason || 'No failure reason provided.'}
-                    </pre>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Panel>
+          {/* New / Fixed failures side by side */}
+          <div className="cp-result-grid">
+            <div className="cp-card">
+              <h3 className="cp-result-title cp-result-title-fail">
+                <XCircle size={16} /> New Failures ({result.newFailures.length})
+              </h3>
+              {result.newFailures.length === 0 ? (
+                <p className="cp-empty-note">
+                  <CheckCircle2 size={24} style={{ display: 'block', margin: '0 auto 8px', color: '#2ecc71' }} />
+                  No new failures! Clean run transition.
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {result.newFailures.map((item, idx) => (
+                    <div key={idx} className="cp-fail-item">
+                      <strong>{item.methodName}</strong>
+                      <span>{item.className}</span>
+                      <pre>{item.failureReason || 'No failure reason provided.'}</pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-          {/* Fixed Failures */}
-          <Panel title={`Fixed Failures (${result.fixedTests.length})`}>
-            {result.fixedTests.length === 0 ? (
-              <p style={{ color: '#8a9bb0', textAlign: 'center', padding: '30px 0', fontSize: '13px' }}>
-                No previously failing tests were resolved in this run.
-              </p>
-            ) : (
-              <div style={{ display: 'grid', gap: '8px' }}>
-                {result.fixedTests.map((item, idx) => (
-                  <div key={idx} style={{ padding: '10px 12px', background: 'rgba(47, 156, 93, 0.05)', borderLeft: '4px solid #2f9c5d', borderRadius: '4px', fontSize: '13px' }}>
-                    <strong style={{ color: '#2f9c5d', display: 'block' }}>{item.methodName}</strong>
-                    <span style={{ fontSize: '11px', color: '#8a9bb0' }}>{item.className}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Panel>
+            <div className="cp-card">
+              <h3 className="cp-result-title cp-result-title-fixed">
+                <CheckCircle2 size={16} /> Fixed Failures ({result.fixedTests.length})
+              </h3>
+              {result.fixedTests.length === 0 ? (
+                <p className="cp-empty-note">No previously failing tests were resolved in this run.</p>
+              ) : (
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  {result.fixedTests.map((item, idx) => (
+                    <div key={idx} className="cp-fixed-item">
+                      <strong>{item.methodName}</strong>
+                      <span>{item.className}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Detailed side-by-side list */}
-          <Panel title="Detailed Test Results Comparison" style={{ gridColumn: '1 / -1' }}>
+          <div className="cp-card">
+            <h3 className="cp-result-title">
+              <GitCompare size={16} /> Detailed Test Results Comparison
+            </h3>
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', fontSize: '13px' }}>
+              <table className="cp-table">
                 <thead>
                   <tr>
-                    <th>Test Class & Method</th>
+                    <th>Test Class &amp; Method</th>
                     <th>Base Status ({result.base.executionCode})</th>
                     <th>Target Status ({result.target.executionCode})</th>
                   </tr>
@@ -186,7 +195,7 @@ export function ComparePage({ executions = [] }) {
                 <tbody>
                   {result.statusChangedTests.length === 0 ? (
                     <tr>
-                      <td colSpan={3} style={{ textAlign: 'center', color: '#8a9bb0', padding: '20px 0' }}>
+                      <td colSpan={3} style={{ textAlign: 'center', color: '#8fa2b8', padding: '20px 0' }}>
                         All test statuses are identical between these executions.
                       </td>
                     </tr>
@@ -194,8 +203,8 @@ export function ComparePage({ executions = [] }) {
                     result.statusChangedTests.map((item, idx) => (
                       <tr key={idx}>
                         <td>
-                          <strong style={{ color: '#cfdae6' }}>{item.methodName}</strong>
-                          <span style={{ display: 'block', fontSize: '11px', color: '#8a9bb0' }}>{item.className}</span>
+                          <strong>{item.methodName}</strong>
+                          <span>{item.className}</span>
                         </td>
                         <td>
                           <span className={`status ${item.baseStatus.toLowerCase()}`}>{item.baseStatus}</span>
@@ -209,7 +218,7 @@ export function ComparePage({ executions = [] }) {
                 </tbody>
               </table>
             </div>
-          </Panel>
+          </div>
         </>
       )}
     </section>
