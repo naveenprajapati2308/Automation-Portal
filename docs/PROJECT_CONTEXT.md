@@ -32,6 +32,16 @@
 > Historical Compare / Screenshots / Test Logs / Profile / Topbar (admin workspace deliberately
 > deferred), screenshot delete API + confirm flow, and a dark/bright theme toggle. See §11.
 > Everything remains uncommitted.
+>
+> **2026-07-05/06 update:** executions were dead again (stale Docker-hostname row in EM's
+> `runner_registry` — now self-healing on EM boot); the "session expired right after login" bug
+> was finally root-caused (a zombie 401 popup surviving across the login screen) and fixed; the
+> Dashboard lost its dummy modules and gained real DB-driven Module Analytics, a 3-series
+> Execution Trend with Today/hourly bucketing, and env-filtered module rows; execution delete
+> (full cascade), an Environments health/config page (V9), module↔environment availability
+> (V10), report action-button auth fix, ExecutionDetailPage crash fix + dark restyle, a
+> reference-based bright-theme redesign, and colored toast tones all landed. See §12.
+> Everything still uncommitted.
 
 ---
 

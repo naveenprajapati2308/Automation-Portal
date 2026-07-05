@@ -5,43 +5,17 @@
 
 /* ── Base shell ────────────────────────────────────────────────────────────── */
 :root[data-theme="light"] body {
-  background: #f1f5f9;
+  background: #eef1f7;
   color: #334155;
 }
 
-:root[data-theme="light"] .sidebar {
-  background: #ffffff;
-  color: #1e293b;
-  border-right: 1px solid #e2e8f0;
-}
-:root[data-theme="light"] .sidebar .brand strong {
-  color: #0f172a;
-}
-:root[data-theme="light"] .nav-section-label {
-  color: #94a3b8;
-}
-:root[data-theme="light"] nav button {
-  color: #475569;
-}
-:root[data-theme="light"] nav button:hover {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-:root[data-theme="light"] nav button.active {
-  background: linear-gradient(90deg, rgba(79, 70, 229, 0.14), rgba(124, 58, 237, 0.05));
-  color: #4f46e5;
-  box-shadow: inset 3px 0 0 #7c3aed;
-}
-:root[data-theme="light"] nav button.active svg {
-  color: #7c3aed;
-}
-:root[data-theme="light"] .sidebar-footer p {
-  color: #94a3b8;
-}
+/* Per the reference design, the sidebar keeps its dark navy look in the bright
+   theme too (dark rail + light content) — so no sidebar overrides here; the
+   default dark styles from styles.css apply as-is. */
 
 :root[data-theme="light"] .topbar {
-  background: #f1f5f9;
-  border-bottom-color: #e2e8f0 !important;
+  background: #eef1f7 !important;
+  border-bottom-color: #e5e9f2 !important;
 }
 :root[data-theme="light"] .topbar h1 {
   color: #0f172a !important;
@@ -50,7 +24,7 @@
 /* ── Topbar chips ──────────────────────────────────────────────────────────── */
 :root[data-theme="light"] .tb-chip {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
   color: #475569;
 }
 :root[data-theme="light"] .tb-chip-cyan {
@@ -70,7 +44,7 @@
 }
 :root[data-theme="light"] .tb-search {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
 }
 :root[data-theme="light"] .tb-search input {
   color: #0f172a;
@@ -80,19 +54,19 @@
   color: #94a3b8;
 }
 :root[data-theme="light"] .tb-kbd {
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
 }
 :root[data-theme="light"] .tb-icon-btn {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
   color: #64748b;
 }
 :root[data-theme="light"] .tb-icon-btn:hover {
-  border-color: #cbd5e1;
+  border-color: #d5dce8;
   color: #0f172a;
 }
 :root[data-theme="light"] .tb-count-badge {
-  box-shadow: 0 0 0 2px #f1f5f9;
+  box-shadow: 0 0 0 2px #eef1f7;
 }
 
 /* ── Cards (all feature pages share these class families) ─────────────────── */
@@ -103,12 +77,12 @@
 :root[data-theme="light"] .cp-card,
 :root[data-theme="light"] .xc-tabs-card {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
 }
 :root[data-theme="light"] .pf-hero,
 :root[data-theme="light"] .cp-hero {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
 }
 
 :root[data-theme="light"] .pf-card-title,
@@ -158,18 +132,18 @@
 :root[data-theme="light"] .rc-cmp-result,
 :root[data-theme="light"] .cp-tip,
 :root[data-theme="light"] .cp-arrow {
-  background: #f8fafc;
-  border-color: #e2e8f0;
+  background: #f6f8fc;
+  border-color: #e5e9f2;
 }
 :root[data-theme="light"] .sg-thumb {
-  background: #f1f5f9;
-  border-bottom-color: #e2e8f0;
+  background: #eef1f7;
+  border-bottom-color: #e5e9f2;
 }
 :root[data-theme="light"] .pf-info-row {
-  border-bottom-color: #eef2f7;
+  border-bottom-color: #edf0f6;
 }
 :root[data-theme="light"] .pf-avatar-inner {
-  background: #e2e8f0;
+  background: #e5e9f2;
   color: #64748b;
 }
 
@@ -194,7 +168,7 @@
 :root[data-theme="light"] .xc-select,
 :root[data-theme="light"] .rc-input,
 :root[data-theme="light"] .rc-select {
-  border-color: #cbd5e1;
+  border-color: #d5dce8;
 }
 :root[data-theme="light"] .xc-select-primary,
 :root[data-theme="light"] .rc-accent,
@@ -212,61 +186,61 @@
 :root[data-theme="light"] .xc-eye-btn,
 :root[data-theme="light"] .sg-btn-cancel {
   background: #ffffff;
-  border-color: #cbd5e1;
+  border-color: #d5dce8;
   color: #475569;
 }
 :root[data-theme="light"] .sg-pager select {
   background: #ffffff;
-  border-color: #cbd5e1;
+  border-color: #d5dce8;
   color: #0f172a;
 }
 :root[data-theme="light"] .pf-log-toggle {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: #f6f8fc;
+  border-color: #d5dce8;
   color: #475569;
 }
 
 /* ── DataTable ─────────────────────────────────────────────────────────────── */
 :root[data-theme="light"] .datatable-container .datatable-table-wrapper {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
 }
 :root[data-theme="light"] .datatable-container .datatable-table th {
-  background: #f8fafc;
+  background: #f6f8fc;
   color: #64748b;
-  border-bottom-color: #e2e8f0;
+  border-bottom-color: #e5e9f2;
 }
 :root[data-theme="light"] .datatable-container .datatable-table td {
   color: #334155;
-  border-bottom-color: #eef2f7;
+  border-bottom-color: #edf0f6;
 }
 :root[data-theme="light"] .datatable-container .datatable-table tbody tr:hover td {
-  background: #f8fafc;
+  background: #f6f8fc;
 }
 :root[data-theme="light"] .datatable-container .datatable-search-input {
   background: #ffffff;
-  border-color: #cbd5e1;
+  border-color: #d5dce8;
   color: #0f172a;
 }
 :root[data-theme="light"] .datatable-container .btn-secondary {
   background: #ffffff;
-  border-color: #cbd5e1;
+  border-color: #d5dce8;
   color: #475569;
 }
 :root[data-theme="light"] .datatable-container .btn-secondary:hover:not(:disabled) {
-  background: #f8fafc;
+  background: #f6f8fc;
   border-color: #94a3b8;
 }
 :root[data-theme="light"] .datatable-container .datatable-column-toggle-popup {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
 }
 :root[data-theme="light"] .datatable-container .datatable-column-toggle-label {
   color: #334155;
 }
 :root[data-theme="light"] .datatable-container .datatable-column-toggle-label:hover {
-  background: #f1f5f9;
+  background: #eef1f7;
 }
 :root[data-theme="light"] .datatable-container .datatable-footer,
 :root[data-theme="light"] .datatable-container .datatable-pagesize-select-wrapper span,
@@ -275,21 +249,21 @@
 }
 :root[data-theme="light"] .datatable-container .datatable-pagesize-select {
   background: #ffffff;
-  border-color: #cbd5e1;
+  border-color: #d5dce8;
   color: #0f172a;
 }
 :root[data-theme="light"] .datatable-container .datatable-page-buttons span {
   color: #334155;
 }
 :root[data-theme="light"] .datatable-container .skeleton {
-  background: linear-gradient(90deg, #eef2f7 25%, #e2e8f0 50%, #eef2f7 75%);
+  background: linear-gradient(90deg, #edf0f6 25%, #e5e9f2 50%, #edf0f6 75%);
   background-size: 200% 100%;
 }
 
 /* ── Modal ─────────────────────────────────────────────────────────────────── */
 :root[data-theme="light"] .modal {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
   color: #334155;
 }
 :root[data-theme="light"] .modal-header h2 {
@@ -302,7 +276,7 @@
 /* ── Test Logs page ────────────────────────────────────────────────────────── */
 :root[data-theme="light"] .tl-card {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
 }
 :root[data-theme="light"] .tl-head-title,
 :root[data-theme="light"] .tl-tc-name {
@@ -323,7 +297,7 @@
 :root[data-theme="light"] .tl-search-wrap,
 :root[data-theme="light"] .tl-view-btn {
   background: #ffffff;
-  border-color: #cbd5e1;
+  border-color: #d5dce8;
 }
 :root[data-theme="light"] .tl-tab {
   color: #64748b;
@@ -349,10 +323,10 @@
 :root[data-theme="light"] .db-card,
 :root[data-theme="light"] .db-select {
   background: #ffffff;
-  border-color: #e2e8f0;
+  border-color: #e5e9f2;
 }
 :root[data-theme="light"] .db-select {
-  border-color: #cbd5e1;
+  border-color: #d5dce8;
   color: #0f172a;
 }
 :root[data-theme="light"] .db-select option {
@@ -375,26 +349,91 @@
 }
 :root[data-theme="light"] .db-table th {
   color: #64748b;
-  border-bottom-color: #e2e8f0;
+  border-bottom-color: #e5e9f2;
 }
 :root[data-theme="light"] .db-table td {
   color: #334155;
-  border-bottom-color: #eef2f7;
+  border-bottom-color: #edf0f6;
 }
 :root[data-theme="light"] .db-table tbody tr:hover td {
-  background: #f8fafc;
+  background: #f6f8fc;
 }
 :root[data-theme="light"] .db-sys-tile {
-  background: #f8fafc;
-  border-color: #e2e8f0;
+  background: #f6f8fc;
+  border-color: #e5e9f2;
 }
 :root[data-theme="light"] .db-sys-tile strong {
   color: #0f172a;
 }
 :root[data-theme="light"] .db-bar-track {
-  background: #e2e8f0;
+  background: #e5e9f2;
 }
 
 /* Note: the full-screen boot loader, the live-log terminal, and the test-log
    drawer intentionally stay dark in both themes — splash branding and
    terminal-style log output read better dark. */
+
+/* ── Environments page ─────────────────────────────────────────────────────── */
+:root[data-theme="light"] .ev-card {
+  background: #ffffff;
+  border-color: #e5e9f2;
+}
+:root[data-theme="light"] .ev-title,
+:root[data-theme="light"] .ev-card-title h3,
+:root[data-theme="light"] .ev-stat strong {
+  color: #0f172a;
+}
+:root[data-theme="light"] .ev-stat span,
+:root[data-theme="light"] .ev-config-hint,
+:root[data-theme="light"] .ev-url-row {
+  color: #64748b;
+}
+:root[data-theme="light"] .ev-url-row,
+:root[data-theme="light"] .ev-stat,
+:root[data-theme="light"] .ev-config-row input,
+:root[data-theme="light"] .ev-add-form input,
+:root[data-theme="light"] .ev-refresh,
+:root[data-theme="light"] .ev-mini-btn {
+  background: #f6f8fc;
+  border-color: #e5e9f2;
+  color: #334155;
+}
+:root[data-theme="light"] .ev-url-row input {
+  color: #0f172a;
+}
+:root[data-theme="light"] .ev-config-row input,
+:root[data-theme="light"] .ev-add-form input {
+  color: #0f172a;
+}
+:root[data-theme="light"] .ev-config-toggle {
+  color: #334155;
+  border-color: #d5dce8;
+}
+:root[data-theme="light"] .ev-card-foot {
+  border-top-color: #e5e9f2;
+}
+
+/* ── Delete-confirm modals (Reports / Execution Center) ────────────────────── */
+:root[data-theme="light"] .rc-confirm-text {
+  color: #475569;
+}
+:root[data-theme="light"] .rc-btn-cancel {
+  background: #ffffff;
+  border-color: #d5dce8;
+  color: #475569;
+}
+
+/* ── Card depth (reference look: crisp white cards on a soft grey body) ────── */
+:root[data-theme="light"] .pf-card,
+:root[data-theme="light"] .xc-card,
+:root[data-theme="light"] .rc-card,
+:root[data-theme="light"] .sg-card,
+:root[data-theme="light"] .cp-card,
+:root[data-theme="light"] .tl-card,
+:root[data-theme="light"] .db-card,
+:root[data-theme="light"] .ev-card,
+:root[data-theme="light"] .pf-hero,
+:root[data-theme="light"] .cp-hero,
+:root[data-theme="light"] .xc-tabs-card {
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.07);
+}

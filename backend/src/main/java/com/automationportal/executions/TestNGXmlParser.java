@@ -77,7 +77,16 @@ public class TestNGXmlParser {
                                         Node methodNode = methodNodes.item(m);
                                         if (methodNode.getNodeType() == Node.ELEMENT_NODE) {
                                             Element methodElement = (Element) methodNode;
-                                            
+
+                                            // Configuration methods (@BeforeClass/@AfterMethod/... —
+                                            // is-config="true") are not test cases: the live event
+                                            // stream never reports them, and importing them inflates
+                                            // the Test Logs list with PASS rows that the execution
+                                            // totals (correctly) don't count.
+                                            if ("true".equalsIgnoreCase(methodElement.getAttribute("is-config"))) {
+                                                continue;
+                                            }
+
                                             ExecutionTestCase tc = new ExecutionTestCase();
                                             tc.setExecutionId(executionId);
                                             tc.setSuiteName(suiteName);

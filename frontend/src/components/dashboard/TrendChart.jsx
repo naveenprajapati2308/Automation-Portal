@@ -1,15 +1,31 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+
+// Portal-wide status colors (same as Module Analytics / Execution Mix).
+const SERIES = [
+  { key: 'pass', label: 'Pass', color: '#2ecc71' },
+  { key: 'fail', label: 'Fail', color: '#f87171' },
+  { key: 'skip', label: 'Skip', color: '#e0a64a' },
+];
+
+const toRate = (part, total) => (total > 0 ? Math.round((part / total) * 1000) / 10 : 0);
 
 export function TrendChart({ data = [], loading = false }) {
+  const [visible, setVisible] = useState({ pass: true, fail: true, skip: true });
+
   const points = useMemo(() => {
     if (!data || data.length === 0) return [];
-    return data.map((d, index) => ({
-      x: index,
-      date: d.date,
-      passRate: Number(d.passRate ?? 0),
-      failRate: Number(d.failRate ?? 0),
-      execCount: d.execCount ?? 0,
-    }));
+    return data.map((d, index) => {
+      const total = Number(d.totalTests ?? 0);
+      return {
+        x: index,
+        date: d.date,
+        label: d.label ?? (d.date ? d.date.substring(5) : ''),
+        pass: Number(d.passRate ?? toRate(Number(d.passed ?? 0), total)),
+        fail: Number(d.failRate ?? toRate(Number(d.failed ?? 0), total)),
+        skip: Number(d.skipRate ?? toRate(Number(d.skipped ?? 0), total)),
+        execCount: d.execCount ?? d.executions ?? 0,
+      };
+    });
   }, [data]);
 
   if (loading) {
@@ -38,43 +54,49 @@ export function TrendChart({ data = [], loading = false }) {
   const getX = (index) => padding + (index / maxIndex) * chartWidth;
   const getY = (value) => padding + chartHeight - (value / 100) * chartHeight;
 
-  // Generate SVG path for pass rate
-  let passPath = '';
-  let passAreaPath = '';
-  points.forEach((p, i) => {
-    const x = getX(i);
-    const y = getY(p.passRate);
-    if (i === 0) {
-      passPath = `M ${x} ${y}`;
-      passAreaPath = `M ${x} ${padding + chartHeight} L ${x} ${y}`;
-    } else {
-      passPath += ` L ${x} ${y}`;
-      passAreaPath += ` L ${x} ${y}`;
-    }
-    if (i === points.length - 1) {
-      passAreaPath += ` L ${x} ${padding + chartHeight} Z`;
-    }
-  });
+  const linePath = (key) =>
+    points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(p[key])}`).join(' ');
+
+  const areaPath = (key) => {
+    const baseline = padding + chartHeight;
+    const line = points.map((p, i) => `L ${getX(i)} ${getY(p[key])}`).join(' ');
+    return `M ${getX(0)} ${baseline} ${line} L ${getX(points.length - 1)} ${baseline} Z`;
+  };
+
+  const shownSeries = SERIES.filter((s) => visible[s.key]);
+  // The soft area fill only appears when a single series is shown — overlapping
+  // translucent fills for all three would just read as mud.
+  const soloSeries = shownSeries.length === 1 ? shownSeries[0] : null;
+
+  const toggle = (key) => setVisible((v) => ({ ...v, [key]: !v[key] }));
 
   return (
     <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '14px', marginBottom: '8px', fontSize: '11px', fontWeight: 600 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ display: 'inline-block', width: '10px', height: '10px', background: 'linear-gradient(to right, #6366f1, #a5b4fc)', borderRadius: '2px' }} />
-          <span style={{ color: '#94a3b8' }}>Pass Rate</span>
-        </div>
+        {SERIES.map((s) => (
+          <label
+            key={s.key}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', opacity: visible[s.key] ? 1 : 0.45, userSelect: 'none' }}
+          >
+            <input
+              type="checkbox"
+              checked={visible[s.key]}
+              onChange={() => toggle(s.key)}
+              style={{ accentColor: s.color, width: 13, height: 13, cursor: 'pointer', margin: 0 }}
+            />
+            <span style={{ color: '#94a3b8' }}>{s.label}</span>
+          </label>
+        ))}
       </div>
       <div style={{ position: 'relative', width: '100%', overflow: 'hidden' }}>
         <svg viewBox={`0 0 ${width} ${height}`} width="100%" height="100%" style={{ overflow: 'visible' }}>
           <defs>
-            <linearGradient id="passGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
-            </linearGradient>
-            <linearGradient id="passStroke" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#6366f1" />
-              <stop offset="100%" stopColor="#a5b4fc" />
-            </linearGradient>
+            {SERIES.map((s) => (
+              <linearGradient key={s.key} id={`trendGrad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={s.color} stopOpacity="0.25" />
+                <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+              </linearGradient>
+            ))}
           </defs>
 
           {/* Grid lines */}
@@ -102,45 +124,33 @@ export function TrendChart({ data = [], loading = false }) {
             </g>
           ))}
 
-          {/* Area & Stroke Paths */}
-          {points.length > 1 && (
-            <>
-              <path d={passAreaPath} fill="url(#passGrad)" />
-              <path
-                d={passPath}
-                fill="none"
-                stroke="url(#passStroke)"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </>
+          {/* Area fill (only when a single series is visible) */}
+          {soloSeries && points.length > 1 && (
+            <path d={areaPath(soloSeries.key)} fill={`url(#trendGrad-${soloSeries.key})`} />
           )}
 
-          {/* Data Points / Interactive Dots */}
+          {/* Series lines */}
+          {points.length > 1 && shownSeries.map((s) => (
+            <path
+              key={s.key}
+              d={linePath(s.key)}
+              fill="none"
+              stroke={s.color}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+
+          {/* Data points */}
           {points.map((p, i) => {
             const x = getX(i);
-            const y = getY(p.passRate);
-            return (
-              <g key={i} className="chart-dot-group" style={{ cursor: 'pointer' }}>
-                <circle
-                  cx={x}
-                  cy={y}
-                  r="6"
-                  fill="#0c1020"
-                  stroke="#6366f1"
-                  strokeWidth="2"
-                  style={{ transition: 'all 0.15s' }}
-                />
-                <circle
-                  cx={x}
-                  cy={y}
-                  r="2.5"
-                  fill="#a5b4fc"
-                />
-                <title>{`${p.date}\nPass Rate: ${p.passRate}%\nRuns: ${p.execCount}`}</title>
+            return shownSeries.map((s) => (
+              <g key={`${s.key}-${i}`} style={{ cursor: 'pointer' }}>
+                <circle cx={x} cy={getY(p[s.key])} r="4" fill="#0d1727" stroke={s.color} strokeWidth="2" />
+                <title>{`${p.label.includes(':') ? `${p.date} ${p.label}` : p.date}\nPass: ${p.pass}%  Fail: ${p.fail}%  Skip: ${p.skip}%\nRuns: ${p.execCount}`}</title>
               </g>
-            );
+            ));
           })}
 
           {/* X Axis Labels */}
@@ -157,7 +167,7 @@ export function TrendChart({ data = [], loading = false }) {
                 fill="#64748b"
                 fontWeight="600"
               >
-                {p.date ? p.date.substring(5) : ''}
+                {p.label}
               </text>
             );
           })}

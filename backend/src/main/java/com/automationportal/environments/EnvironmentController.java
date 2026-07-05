@@ -4,19 +4,27 @@ import com.automationportal.common.ApiResponse;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/environments")
 public class EnvironmentController {
     private final EnvironmentRepository repository;
+    private final EnvironmentHealthService healthService;
 
-    public EnvironmentController(EnvironmentRepository repository) {
+    public EnvironmentController(EnvironmentRepository repository, EnvironmentHealthService healthService) {
         this.repository = repository;
+        this.healthService = healthService;
     }
 
     @GetMapping
     public ApiResponse<List<EnvironmentEntity>> list() {
         return ApiResponse.ok(repository.findAll());
+    }
+
+    @GetMapping("/health")
+    public ApiResponse<List<Map<String, Object>>> health() {
+        return ApiResponse.ok(healthService.health());
     }
 
     @PostMapping
@@ -42,6 +50,9 @@ public class EnvironmentController {
         }
         if (entity.getBaseUrl() != null) {
             existing.setBaseUrl(entity.getBaseUrl());
+        }
+        if (entity.getConfigJson() != null) {
+            existing.setConfigJson(entity.getConfigJson());
         }
         existing.setActive(entity.isActive());
         return ApiResponse.ok(repository.save(existing));

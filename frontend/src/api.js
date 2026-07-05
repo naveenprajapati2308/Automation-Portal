@@ -126,11 +126,21 @@ const request = async (path, options = {}, retryCount = 0) => {
       if (current?.refreshToken === session.refreshToken) {
         authStore.clear();
         triggerGlobalError(401, 'Your session has expired. Please sign in again.');
-      } else {
+      } else if (current?.accessToken) {
         return request(path, options, retryCount + 1);
       }
+      // Store empty and it wasn't this session's tokens: another caller already
+      // handled the expiry — resolving silently avoids stacking popups.
     }
   } else if (response.status === 401) {
+    // A 401 is only a real expiry if the token this request carried is still the
+    // active one. A request from a previous session epoch can resolve *after* the
+    // user has already signed back in — killing the brand-new session with a
+    // "Session Expired" popup. Retry those against the current session instead.
+    const current = authStore.get();
+    if (current?.accessToken && current.accessToken !== session?.accessToken && retryCount < 2) {
+      return request(path, options, retryCount + 1);
+    }
     triggerGlobalError(401, 'Your session has expired. Please sign in again.');
   }
   return unwrap(response, path);
@@ -186,6 +196,7 @@ export const api = {
   getTestSteps: (testCaseId) => request(`/api/test-cases/${testCaseId}/steps`),
   
   environments: () => request('/api/environments'),
+  environmentsHealth: () => request('/api/environments/health'),
   createEnvironment: (payload) => request('/api/environments', { method: 'POST', body: JSON.stringify(payload) }),
   updateEnvironment: (id, payload) => request(`/api/environments/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteEnvironment: (id) => request(`/api/environments/${id}`, { method: 'DELETE' }),
@@ -211,6 +222,7 @@ export const api = {
   executionArtifacts: (id) => request(`/api/executions/${id}/artifacts`),
   executionLogs: (id) => request(`/api/executions/${id}/logs`),
   executionSummary: (id) => request(`/api/executions/${id}/summary`),
+  deleteExecution: (id) => request(`/api/executions/${id}`, { method: 'DELETE' }),
   cancelExecution: (id) => request(`/api/executions/${id}/cancel`, { method: 'POST' }),
   rerunExecution: (id) => request(`/api/executions/${id}/rerun`, { method: 'POST' }),
   rerunFailedExecution: (id) => request(`/api/executions/${id}/rerun-failed`, { method: 'POST' }),

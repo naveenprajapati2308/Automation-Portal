@@ -7,10 +7,12 @@ import {
   Image as ImageIcon,
   ChevronDown,
   Rocket,
-  History
+  History,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { api, auth } from '../../api.js';
-import { DataTable } from '../shared/index.jsx';
+import { DataTable, Modal } from '../shared/index.jsx';
 import './execution.css';
 
 // ── Formatting helpers ─────────────────────────────────────────────────────────
@@ -28,9 +30,22 @@ export function ExecutionCenter({
   setSelectedModule,
   run,
   executions,
-  onSelectExecution
+  onSelectExecution,
+  onRefresh
 }) {
-  const activeModules = (modules || []).filter(m => m.active !== false);
+  // Active modules, narrowed to the selected environment (empty envCodes = all envs)
+  const selectedEnvCode = (environments || []).find(e => String(e.id) === String(selectedEnv))?.code;
+  const activeModules = (modules || []).filter(m => m.active !== false)
+    .filter(m => !m.envCodes || !selectedEnvCode ||
+      m.envCodes.split(',').map(c => c.trim()).includes(selectedEnvCode));
+
+  // If the environment switch made the current module unavailable, fall back
+  // to the first module that is available there.
+  useEffect(() => {
+    if (selectedModule && !activeModules.some(m => m.code === selectedModule)) {
+      setSelectedModule(activeModules[0]?.code || '');
+    }
+  }, [selectedEnv, modules]);
 
   const [runnerSuites, setRunnerSuites] = useState([]);
   const [selectedSuite, setSelectedSuite] = useState('');
@@ -252,6 +267,24 @@ export function ExecutionCenter({
     }
   };
 
+  // Delete flow (same behavior as Reports Center — full cascade on the backend)
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    try {
+      await api.deleteExecution(confirmDelete.id);
+      setConfirmDelete(null);
+      if (onRefresh) await onRefresh();
+    } catch (e) {
+      alert('Failed to delete execution: ' + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // Prepare columns for recent executions list
   const queueColumns = [
     {
@@ -261,7 +294,7 @@ export function ExecutionCenter({
         <button
           onClick={() => onSelectExecution(row.id)}
           className="btn-link"
-          style={{ textDecoration: 'underline', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 600, color: '#0f63ce' }}
+          style={{ textDecoration: 'underline', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 600, color: '#7c8ffa' }}
         >
           {val}
         </button>
@@ -285,6 +318,24 @@ export function ExecutionCenter({
           {row.passedTests} P / {row.failedTests} F ({val}%)
         </div>
       )
+    },
+    {
+      key: 'actions',
+      label: '',
+      render: (_, row) => {
+        const busy = row.status === 'QUEUED' || row.status === 'RUNNING';
+        return (
+          <button
+            onClick={() => setConfirmDelete(row)}
+            className="rc-act-btn rc-act-danger"
+            title={busy ? 'Cancel the run before deleting' : 'Delete Execution'}
+            disabled={busy}
+            style={busy ? { opacity: 0.35, cursor: 'not-allowed' } : undefined}
+          >
+            <Trash2 size={14} />
+          </button>
+        );
+      }
     }
   ];
 
@@ -511,6 +562,28 @@ export function ExecutionCenter({
           exportFilename="executions.csv"
         />
       </div>
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <Modal title="Delete Execution" onClose={() => setConfirmDelete(null)}>
+          <div className="rc-confirm-body">
+            <AlertTriangle size={38} />
+            <p className="rc-confirm-text">
+              Are you sure you want to delete this execution?<br />
+              <code>{confirmDelete.executionCode}</code> — {confirmDelete.moduleCode} ({confirmDelete.status})<br />
+              This permanently removes its test cases, logs, screenshots, reports and all artifact files. This cannot be undone.
+            </p>
+            <div className="rc-confirm-actions">
+              <button className="rc-btn-cancel" onClick={() => setConfirmDelete(null)} disabled={deleting}>
+                Cancel
+              </button>
+              <button className="rc-btn-delete" onClick={handleDelete} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
     </section>
   );

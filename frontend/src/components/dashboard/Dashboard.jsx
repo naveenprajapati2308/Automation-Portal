@@ -44,6 +44,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   const [recentExecutions, setRecentExecutions] = useState([]);
   const [environments, setEnvironments] = useState([]);
   const [modulesHealthData, setModulesHealthData] = useState([]);
+  const [modules, setModules] = useState([]);
   const [envDistribution, setEnvDistribution] = useState([]);
   const [trends, setTrends] = useState([]);
   const [slowTests, setSlowTests] = useState([]);
@@ -61,7 +62,8 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         envDistData,
         trendsData,
         slowTestData,
-        flakyTestData
+        flakyTestData,
+        modulesData
       ] = await Promise.all([
         api.dashboardSummary().catch(() => null),
         api.dashboardRecentActivity().catch(() => []),
@@ -70,7 +72,8 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         api.dashboardEnvDistribution(range).catch(() => []),
         api.dashboardTrends(range).catch(() => []),
         api.dashboardSlowTests(range).catch(() => []),
-        api.dashboardFlakyTests(range).catch(() => [])
+        api.dashboardFlakyTests(range).catch(() => []),
+        api.modules().catch(() => [])
       ]);
 
       if (summaryData) setSummary(summaryData);
@@ -84,6 +87,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
       }
 
       if (healthData) setModulesHealthData(healthData);
+      if (modulesData) setModules(modulesData);
       if (envDistData) setEnvDistribution(envDistData);
       if (trendsData) setTrends(trendsData);
       if (slowTestData) setSlowTests(slowTestData);
@@ -126,38 +130,31 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   const startTimes = useMemo(() => formatDateTime(lastRun?.startTime), [lastRun]);
   const endTimes = useMemo(() => formatDateTime(lastRun?.endTime), [lastRun]);
 
-  // Helper for mapping module codes to suite names
-  const mapModuleToSuiteName = (code) => {
-    if (code === 'GIS') return 'GISSystemSuite';
-    if (code === 'ALL') return 'ALLSuite';
-    if (code === 'LAND') return 'LandManagementSuite';
-    if (code === 'SURVEY') return 'SurveyManagementSuite';
-    if (code === 'ARCHITECT') return 'ArchitectEmpanelmentSuite';
-    return `${code}Suite`;
-  };
+  // Module Analytics rows come from the admin-registered modules (active only),
+  // merged with the range-scoped health aggregates by module code. The ALL
+  // master-suite module is excluded — the "Run All Modules" button owns that.
+  // A module with envCodes set is only shown for those environments.
+  const selectedEnvCode = environments.find(e => String(e.id) === String(selectedEnvId))?.code;
+  const availableInEnv = (m) =>
+    !m.envCodes || !selectedEnvCode ||
+    m.envCodes.split(',').map(c => c.trim()).includes(selectedEnvCode);
 
-  // Static definition of modules to guarantee the table has the exact 4 rows from the screenshot
   const moduleRows = useMemo(() => {
-    const standardModules = [
-      { code: 'GIS', name: 'GISSystemSuite' },
-      { code: 'ALL', name: 'ALLSuite' },
-      { code: 'LAND', name: 'LandManagementSuite' },
-      { code: 'SURVEY', name: 'SurveyManagementSuite' }
-    ];
-
-    return standardModules.map(m => {
-      const health = modulesHealthData.find(h => h.moduleCode === m.code);
-      return {
-        code: m.code,
-        name: m.name,
-        total: health ? (health.totalTests ?? health.total ?? 0) : 0,
-        passed: health ? (health.passed ?? 0) : 0,
-        failed: health ? (health.failed ?? 0) : 0,
-        skipped: health ? (health.skipped ?? 0) : 0,
-        accuracy: health ? (health.passRate ?? 0) : 0
-      };
-    });
-  }, [modulesHealthData]);
+    return modules
+      .filter(m => m.active && m.code !== 'ALL' && availableInEnv(m))
+      .map(m => {
+        const health = modulesHealthData.find(h => h.moduleCode === m.code);
+        return {
+          code: m.code,
+          name: m.name,
+          total: health ? (health.totalTests ?? health.total ?? 0) : 0,
+          passed: health ? (health.passed ?? 0) : 0,
+          failed: health ? (health.failed ?? 0) : 0,
+          skipped: health ? (health.skipped ?? 0) : 0,
+          accuracy: health ? (health.passRate ?? 0) : 0
+        };
+      });
+  }, [modules, modulesHealthData, selectedEnvId, environments]);
 
   // Trigger run for a module
   const handleRunModule = async (moduleCode) => {
@@ -172,7 +169,10 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         moduleCode: moduleCode === 'ALL' ? null : moduleCode
       };
       await api.runExecution(payload);
-      alert(`Execution queued successfully for ${mapModuleToSuiteName(moduleCode)}!`);
+      const moduleName = moduleCode === 'ALL'
+        ? 'All Modules'
+        : (modules.find(m => m.code === moduleCode)?.name || moduleCode);
+      alert(`Execution queued successfully for ${moduleName}!`);
       loadData();
     } catch (err) {
       console.error(err);
@@ -219,6 +219,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         <div className="db-range">
           Filter Range:
           <select className="db-select" value={range} onChange={(e) => setRange(e.target.value)}>
+            <option value="today">Today</option>
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
             <option value="90d">Last 90 Days</option>
@@ -297,7 +298,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         {/* Card 5: Last Total Accuracy */}
         <div className="db-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
           <div style={{ flex: 1 }}>
-            <span className="db-kpi-label">Last Total Accuracy</span>
+            <span className="db-kpi-label">Total Accuracy</span>
             <strong className="db-kpi-value" style={{ fontSize: 22, marginTop: 10 }}>
               {accuracyPercent.toFixed(2)}%
             </strong>
@@ -330,9 +331,9 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
       {/* Row 2: Charts and Mix */}
       <div className="db-charts-row">
 
-        {/* Pass Rate Trend */}
+        {/* Execution Trend */}
         <div className="db-card">
-          <h3 className="db-card-title"><TrendingUp size={16} /> Pass Rate Trend</h3>
+          <h3 className="db-card-title"><TrendingUp size={16} /> Execution Trend</h3>
           <TrendChart data={trends} loading={loading} />
         </div>
 

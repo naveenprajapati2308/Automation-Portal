@@ -30,6 +30,7 @@ public class ModuleAdminController {
         m.setDescription(body.getDescription());
         m.setXmlFile(body.getXmlFile());
         m.setReportPath(body.getReportPath());
+        m.setEnvCodes(body.getEnvCodes());
         if (body.getRunnerType() != null && !body.getRunnerType().isBlank()) {
             m.setRunnerType(body.getRunnerType());
         }
@@ -43,6 +44,7 @@ public class ModuleAdminController {
         m.setDescription(body.getDescription());
         m.setXmlFile(body.getXmlFile());
         m.setReportPath(body.getReportPath());
+        m.setEnvCodes(body.getEnvCodes());
         m.setActive(body.isActive());
         if (body.getRunnerType() != null && !body.getRunnerType().isBlank()) {
             m.setRunnerType(body.getRunnerType());

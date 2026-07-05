@@ -15,6 +15,10 @@ public class EnvironmentEntity {
     private String baseUrl;
     private boolean active = true;
 
+    /** JSON object of framework config key/values (credentials, captcha keys, …). */
+    @Column(name = "config_json", columnDefinition = "TEXT")
+    private String configJson;
+
     protected EnvironmentEntity() {
     }
 
@@ -32,4 +36,6 @@ public class EnvironmentEntity {
     public void setBaseUrl(String baseUrl) { this.baseUrl = baseUrl; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public String getConfigJson() { return configJson; }
+    public void setConfigJson(String configJson) { this.configJson = configJson; }
 }

@@ -1,0 +1,829 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testng-results ignored="0" total="14" passed="2" failed="9" skipped="3">
+  <reporter-output>
+  </reporter-output>
+  <suite started-at="2026-07-05T14:30:04 IST" name="Architect Empanelment Suite" finished-at="2026-07-05T14:35:05 IST" duration-ms="300590">
+    <groups>
+    </groups>
+    <test started-at="2026-07-05T14:30:04 IST" name="Architect Empanelment Tests" finished-at="2026-07-05T14:35:05 IST" duration-ms="300590">
+      <class name="testCases.ArchitectEmpanelment.TC_002_SignUp">
+        <test-method is-config="true" signature="setup()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:30:34 IST" name="setup" finished-at="2026-07-05T14:30:50 IST" duration-ms="15625" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- setup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:30:50 IST" name="loadHomePage" finished-at="2026-07-05T14:31:00 IST" duration-ms="10341" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:31:00 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:31:06 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="5608" status="PASS">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Invalid Mobile Number]]>
+              </value>
+            </param>
+          </params>
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:31:06 IST" name="loadHomePage" finished-at="2026-07-05T14:31:16 IST" duration-ms="10265" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:31:16 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:31:29 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="12718" status="FAIL">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Invalid Email Id]]>
+              </value>
+            </param>
+          </params>
+          <exception class="org.openqa.selenium.TimeoutException">
+            <message>
+              <![CDATA[Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.openqa.selenium.TimeoutException: Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477
+at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:85)
+at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:234)
+at pageObjects.ArchitectEmpanelment.RegisterPage.enterEmail(RegisterPage.java:122)
+at testCases.ArchitectEmpanelment.TC_002_SignUp.verifySignup(TC_002_SignUp.java:103)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.openqa.selenium.TimeoutException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:31:29 IST" name="loadHomePage" finished-at="2026-07-05T14:31:39 IST" duration-ms="10195" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:31:39 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:31:42 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="2235" status="PASS">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Mobile Number Blank]]>
+              </value>
+            </param>
+          </params>
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:31:42 IST" name="loadHomePage" finished-at="2026-07-05T14:31:52 IST" duration-ms="10462" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:31:52 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:32:04 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="12122" status="FAIL">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Email Id Blank]]>
+              </value>
+            </param>
+          </params>
+          <exception class="org.openqa.selenium.TimeoutException">
+            <message>
+              <![CDATA[Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.openqa.selenium.TimeoutException: Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477
+at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:85)
+at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:234)
+at pageObjects.ArchitectEmpanelment.RegisterPage.enterEmail(RegisterPage.java:122)
+at testCases.ArchitectEmpanelment.TC_002_SignUp.verifySignup(TC_002_SignUp.java:103)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.openqa.selenium.TimeoutException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:32:04 IST" name="loadHomePage" finished-at="2026-07-05T14:32:15 IST" duration-ms="10265" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:32:15 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:32:27 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="11969" status="FAIL">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Checkbox Unchecked]]>
+              </value>
+            </param>
+          </params>
+          <exception class="org.openqa.selenium.TimeoutException">
+            <message>
+              <![CDATA[Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.openqa.selenium.TimeoutException: Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477
+at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:85)
+at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:234)
+at pageObjects.ArchitectEmpanelment.RegisterPage.enterEmail(RegisterPage.java:122)
+at testCases.ArchitectEmpanelment.TC_002_SignUp.verifySignup(TC_002_SignUp.java:103)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.openqa.selenium.TimeoutException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:32:27 IST" name="loadHomePage" finished-at="2026-07-05T14:32:37 IST" duration-ms="10266" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:32:37 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:32:49 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="12174" status="FAIL">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Create User1 Firm]]>
+              </value>
+            </param>
+          </params>
+          <exception class="org.openqa.selenium.TimeoutException">
+            <message>
+              <![CDATA[Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.openqa.selenium.TimeoutException: Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477
+at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:85)
+at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:234)
+at pageObjects.ArchitectEmpanelment.RegisterPage.enterEmail(RegisterPage.java:122)
+at testCases.ArchitectEmpanelment.TC_002_SignUp.verifySignup(TC_002_SignUp.java:103)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.openqa.selenium.TimeoutException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:32:49 IST" name="loadHomePage" finished-at="2026-07-05T14:33:00 IST" duration-ms="10226" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:33:00 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:33:12 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="12210" status="FAIL">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Create User2 Firm]]>
+              </value>
+            </param>
+          </params>
+          <exception class="org.openqa.selenium.TimeoutException">
+            <message>
+              <![CDATA[Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.openqa.selenium.TimeoutException: Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477
+at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:85)
+at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:234)
+at pageObjects.ArchitectEmpanelment.RegisterPage.enterEmail(RegisterPage.java:122)
+at testCases.ArchitectEmpanelment.TC_002_SignUp.verifySignup(TC_002_SignUp.java:103)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.openqa.selenium.TimeoutException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:33:12 IST" name="loadHomePage" finished-at="2026-07-05T14:33:22 IST" duration-ms="10206" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:33:22 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:33:35 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="12363" status="FAIL">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Duplicate Mobile User1]]>
+              </value>
+            </param>
+          </params>
+          <exception class="org.openqa.selenium.TimeoutException">
+            <message>
+              <![CDATA[Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.openqa.selenium.TimeoutException: Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477
+at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:85)
+at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:234)
+at pageObjects.ArchitectEmpanelment.RegisterPage.enterEmail(RegisterPage.java:122)
+at testCases.ArchitectEmpanelment.TC_002_SignUp.verifySignup(TC_002_SignUp.java:103)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.openqa.selenium.TimeoutException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:33:35 IST" name="loadHomePage" finished-at="2026-07-05T14:33:45 IST" duration-ms="10269" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:33:45 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:33:57 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="11689" status="FAIL">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Duplicate Email User1]]>
+              </value>
+            </param>
+          </params>
+          <exception class="org.openqa.selenium.TimeoutException">
+            <message>
+              <![CDATA[Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.openqa.selenium.TimeoutException: Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477
+at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:85)
+at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:234)
+at pageObjects.ArchitectEmpanelment.RegisterPage.enterEmail(RegisterPage.java:122)
+at testCases.ArchitectEmpanelment.TC_002_SignUp.verifySignup(TC_002_SignUp.java:103)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.openqa.selenium.TimeoutException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:33:57 IST" name="loadHomePage" finished-at="2026-07-05T14:34:07 IST" duration-ms="10382" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifySignup(testData.SignUpDataArch)[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:34:07 IST" name="verifySignup" data-provider="SignUpDataArch" finished-at="2026-07-05T14:34:19 IST" depends-on-methods="verifyWebsiteLaunch" duration-ms="11944" status="FAIL">
+          <params>
+            <param index="0">
+              <value>
+                <![CDATA[Create User3 Individual]]>
+              </value>
+            </param>
+          </params>
+          <exception class="org.openqa.selenium.TimeoutException">
+            <message>
+              <![CDATA[Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.openqa.selenium.TimeoutException: Expected condition failed: waiting for element found by By.xpath: //input[@placeholder='Enter email ID'] to be clickable, but the element was not found: org.openqa.selenium.NoSuchElementException: no such element: Unable to locate element: {"method":"xpath","selector":"//input[@placeholder='Enter email ID']"}.
+(tried for 10 seconds with 500 milliseconds interval)
+Build info: version: '4.44.0', revision: 'da2039b'
+System info: os.name: 'Windows 11', os.arch: 'amd64', os.version: '10.0', java.version: '21.0.9'
+Driver info: org.openqa.selenium.chrome.ChromeDriver
+Capabilities {acceptInsecureCerts: false, browserName: chrome, browserVersion: 149.0.7827.201, chrome: {chromedriverVersion: 149.0.7827.155 (07b52360cc1..., userDataDir: C:\Users\HP\AppData\Local\T...}, fedcm:accounts: true, goog:chromeOptions: {debuggerAddress: localhost:63473}, goog:processID: 4344, networkConnectionEnabled: false, pageLoadStrategy: normal, platformName: windows, proxy: Proxy(), se:cdp: ws://localhost:63473/devtoo..., se:cdpVersion: 149.0.7827.201, setWindowRect: true, strictFileInteractability: false, timeouts: {implicit: 0, pageLoad: 300000, script: 30000}, unhandledPromptBehavior: dismiss and notify, webauthn:extension:credBlob: true, webauthn:extension:largeBlob: true, webauthn:extension:minPinLength: true, webauthn:extension:prf: true, webauthn:virtualAuthenticators: true}
+Session ID: 53013bafeb152b1335234055f5858477
+at org.openqa.selenium.support.ui.WebDriverWait.timeoutException(WebDriverWait.java:85)
+at org.openqa.selenium.support.ui.FluentWait.until(FluentWait.java:234)
+at pageObjects.ArchitectEmpanelment.RegisterPage.enterEmail(RegisterPage.java:122)
+at testCases.ArchitectEmpanelment.TC_002_SignUp.verifySignup(TC_002_SignUp.java:103)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.openqa.selenium.TimeoutException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifySignup -->
+        <test-method is-config="true" signature="tearDown()[pri:0, instance:testCases.ArchitectEmpanelment.TC_002_SignUp@4efbca5a]" started-at="2026-07-05T14:34:19 IST" name="tearDown" finished-at="2026-07-05T14:34:20 IST" duration-ms="447" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- tearDown -->
+      </class> <!-- testCases.ArchitectEmpanelment.TC_002_SignUp -->
+      <class name="testCases.ArchitectEmpanelment.TC_001_LaunchUrl">
+        <test-method is-config="true" signature="setup()[pri:0, instance:testCases.ArchitectEmpanelment.TC_001_LaunchUrl@c8c12ac]" started-at="2026-07-05T14:30:04 IST" name="setup" finished-at="2026-07-05T14:30:23 IST" duration-ms="18340" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- setup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_001_LaunchUrl@c8c12ac]" started-at="2026-07-05T14:30:23 IST" name="loadHomePage" finished-at="2026-07-05T14:30:33 IST" duration-ms="10393" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="verifyWebsiteLaunch()[pri:0, instance:testCases.ArchitectEmpanelment.TC_001_LaunchUrl@c8c12ac]" started-at="2026-07-05T14:30:33 IST" name="verifyWebsiteLaunch" finished-at="2026-07-05T14:30:33 IST" duration-ms="97" status="FAIL">
+          <exception class="java.lang.AssertionError">
+            <message>
+              <![CDATA[expected [Welcome To MPHIDB 🏠] but found [Welcome to MPHIDB 🏠]]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[java.lang.AssertionError: expected [Welcome To MPHIDB 🏠] but found [Welcome to MPHIDB 🏠]
+at org.testng.Assert.fail(Assert.java:111)
+at org.testng.Assert.failNotEquals(Assert.java:1590)
+at org.testng.Assert.assertEqualsImpl(Assert.java:150)
+at org.testng.Assert.assertEquals(Assert.java:132)
+at org.testng.Assert.assertEquals(Assert.java:656)
+at org.testng.Assert.assertEquals(Assert.java:666)
+at testCases.ArchitectEmpanelment.TC_001_LaunchUrl.verifyWebsiteLaunch(TC_001_LaunchUrl.java:18)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- java.lang.AssertionError -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- verifyWebsiteLaunch -->
+        <test-method is-config="true" signature="tearDown()[pri:0, instance:testCases.ArchitectEmpanelment.TC_001_LaunchUrl@c8c12ac]" started-at="2026-07-05T14:30:34 IST" name="tearDown" finished-at="2026-07-05T14:30:34 IST" duration-ms="535" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- tearDown -->
+      </class> <!-- testCases.ArchitectEmpanelment.TC_001_LaunchUrl -->
+      <class name="testCases.ArchitectEmpanelment.TC_003_SignIn">
+        <test-method is-config="true" signature="setup()[pri:0, instance:testCases.ArchitectEmpanelment.TC_003_SignIn@1b7cc17c]" started-at="2026-07-05T14:34:20 IST" name="setup" finished-at="2026-07-05T14:34:33 IST" duration-ms="13235" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- setup -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_003_SignIn@1b7cc17c]" started-at="2026-07-05T14:34:33 IST" name="loadHomePage" finished-at="2026-07-05T14:34:44 IST" duration-ms="10431" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="LoginFirm_User1()[pri:1, instance:testCases.ArchitectEmpanelment.TC_003_SignIn@1b7cc17c]" started-at="2026-07-05T14:34:44 IST" name="LoginFirm_User1" finished-at="2026-07-05T14:34:44 IST" depends-on-methods="verifySignup" duration-ms="4" status="SKIP">
+          <exception class="org.testng.SkipException">
+            <message>
+              <![CDATA[Signup did not generate username. Login test skipped.]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.testng.SkipException: Signup did not generate username. Login test skipped.
+at testCases.ArchitectEmpanelment.TC_003_SignIn.LoginFirm_User1(TC_003_SignIn.java:28)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.testng.SkipException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- LoginFirm_User1 -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_003_SignIn@1b7cc17c]" started-at="2026-07-05T14:34:44 IST" name="loadHomePage" finished-at="2026-07-05T14:34:54 IST" duration-ms="10328" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="LoginFirmUser2()[pri:2, instance:testCases.ArchitectEmpanelment.TC_003_SignIn@1b7cc17c]" started-at="2026-07-05T14:34:54 IST" name="LoginFirmUser2" finished-at="2026-07-05T14:34:54 IST" depends-on-methods="verifySignup" duration-ms="2" status="SKIP">
+          <exception class="org.testng.SkipException">
+            <message>
+              <![CDATA[Signup did not generate username. Login test skipped.]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.testng.SkipException: Signup did not generate username. Login test skipped.
+at testCases.ArchitectEmpanelment.TC_003_SignIn.LoginFirmUser2(TC_003_SignIn.java:90)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.testng.SkipException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- LoginFirmUser2 -->
+        <test-method is-config="true" signature="loadHomePage()[pri:0, instance:testCases.ArchitectEmpanelment.TC_003_SignIn@1b7cc17c]" started-at="2026-07-05T14:34:54 IST" name="loadHomePage" finished-at="2026-07-05T14:35:04 IST" duration-ms="10312" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- loadHomePage -->
+        <test-method signature="LoginIndivisualUser()[pri:3, instance:testCases.ArchitectEmpanelment.TC_003_SignIn@1b7cc17c]" started-at="2026-07-05T14:35:04 IST" name="LoginIndivisualUser" finished-at="2026-07-05T14:35:04 IST" depends-on-methods="verifySignup" duration-ms="2" status="SKIP">
+          <exception class="org.testng.SkipException">
+            <message>
+              <![CDATA[Signup did not generate username. Login test skipped.]]>
+            </message>
+            <full-stacktrace>
+              <![CDATA[org.testng.SkipException: Signup did not generate username. Login test skipped.
+at testCases.ArchitectEmpanelment.TC_003_SignIn.LoginIndivisualUser(TC_003_SignIn.java:150)
+at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
+at org.testng.internal.invokers.TestInvoker.invokeMethod(TestInvoker.java:697)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethod(TestInvoker.java:230)
+at org.testng.internal.invokers.MethodRunner.runInSequence(MethodRunner.java:63)
+at org.testng.internal.invokers.TestInvoker$MethodInvocationAgent.invoke(TestInvoker.java:1005)
+at org.testng.internal.invokers.TestInvoker.invokeTestMethods(TestInvoker.java:203)
+at org.testng.internal.invokers.TestMethodWorker.invokeTestMethods(TestMethodWorker.java:154)
+at org.testng.internal.invokers.TestMethodWorker.run(TestMethodWorker.java:134)
+at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
+at org.testng.TestRunner.privateRun(TestRunner.java:744)
+at org.testng.TestRunner.run(TestRunner.java:616)
+at org.testng.SuiteRunner.runTest(SuiteRunner.java:421)
+at org.testng.SuiteRunner.runSequentially(SuiteRunner.java:413)
+at org.testng.SuiteRunner.privateRun(SuiteRunner.java:373)
+at org.testng.SuiteRunner.run(SuiteRunner.java:312)
+at org.testng.SuiteRunnerWorker.runSuite(SuiteRunnerWorker.java:52)
+at org.testng.SuiteRunnerWorker.run(SuiteRunnerWorker.java:95)
+at org.testng.TestNG.runSuitesSequentially(TestNG.java:1274)
+at org.testng.TestNG.runSuitesLocally(TestNG.java:1208)
+at org.testng.TestNG.runSuites(TestNG.java:1112)
+at org.testng.TestNG.run(TestNG.java:1079)
+at org.apache.maven.surefire.testng.TestNGExecutor.run(TestNGExecutor.java:308)
+at org.apache.maven.surefire.testng.TestNGXmlTestSuite.execute(TestNGXmlTestSuite.java:71)
+at org.apache.maven.surefire.testng.TestNGProvider.invoke(TestNGProvider.java:113)
+at org.apache.maven.surefire.booter.ForkedBooter.runSuitesInProcess(ForkedBooter.java:385)
+at org.apache.maven.surefire.booter.ForkedBooter.execute(ForkedBooter.java:162)
+at org.apache.maven.surefire.booter.ForkedBooter.run(ForkedBooter.java:507)
+at org.apache.maven.surefire.booter.ForkedBooter.main(ForkedBooter.java:495)
+]]>
+            </full-stacktrace>
+          </exception> <!-- org.testng.SkipException -->
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- LoginIndivisualUser -->
+        <test-method is-config="true" signature="tearDown()[pri:0, instance:testCases.ArchitectEmpanelment.TC_003_SignIn@1b7cc17c]" started-at="2026-07-05T14:35:04 IST" name="tearDown" finished-at="2026-07-05T14:35:05 IST" duration-ms="645" status="PASS">
+          <reporter-output>
+          </reporter-output>
+        </test-method> <!-- tearDown -->
+      </class> <!-- testCases.ArchitectEmpanelment.TC_003_SignIn -->
+    </test> <!-- Architect Empanelment Tests -->
+  </suite> <!-- Architect Empanelment Suite -->
+</testng-results>

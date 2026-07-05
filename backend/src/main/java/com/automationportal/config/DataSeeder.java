@@ -57,10 +57,10 @@ public class DataSeeder implements CommandLineRunner {
             });
         }
 
+        // Only QA/UAT ship as defaults — further environments are added from the
+        // Environments page (owner's call, 2026-07-05).
         seedEnvironment("QA", "QA");
         seedEnvironment("UAT", "UAT");
-        seedEnvironment("PREPROD", "PreProd");
-        seedEnvironment("PROD", "Prod");
 
         seedModule("LAND",     "Land Management",       "land.xml",     "reports/MasterReport2.html");
         seedModule("EMP_ARCH", "Architect Empanelment", "Emp_Arch.xml", "reports/MasterReport.html");

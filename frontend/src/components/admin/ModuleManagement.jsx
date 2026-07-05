@@ -75,6 +75,13 @@ export function ModuleManagement({ setNotice }) {
       render: (val) => <span className="status">{val || 'MAVEN_TESTNG'}</span>
     },
     {
+      key: 'envCodes',
+      label: 'Environments',
+      render: (val) => val
+        ? <span style={{ fontSize: '12px', fontWeight: 600 }}>{val.split(',').join(', ')}</span>
+        : <span style={{ fontSize: '12px', color: '#94a3b8' }}>All</span>
+    },
+    {
       key: 'active',
       label: 'Status',
       render: (val) => (
@@ -210,9 +217,28 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
     xmlFile:     mod?.xmlFile     || '',
     reportPath:  mod?.reportPath  || '',
     runnerType:  mod?.runnerType  || 'MAVEN_TESTNG',
+    envCodes:    mod?.envCodes    || '',
     active:      mod ? mod.active : true
   });
   const [errors, setErrors] = useState({});
+
+  // Environment availability — checkboxes fed from the Environments section.
+  // Nothing checked = module available in every environment.
+  const [environments, setEnvironments] = useState([]);
+  useEffect(() => {
+    api.environments().then((envs) => setEnvironments(envs || [])).catch(() => setEnvironments([]));
+  }, []);
+
+  const selectedEnvCodes = form.envCodes
+    ? form.envCodes.split(',').map((c) => c.trim()).filter(Boolean)
+    : [];
+
+  const toggleEnvCode = (code) => {
+    const next = selectedEnvCodes.includes(code)
+      ? selectedEnvCodes.filter((c) => c !== code)
+      : [...selectedEnvCodes, code];
+    update('envCodes', next.join(','));
+  };
 
   const update = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -267,6 +293,28 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
           </div>
         </label>
         <span style={{ fontSize: '11px', color: '#94a3b8' }}>More runner types can be added here as new frameworks are integrated.</span>
+      </div>
+
+      <div className="form-field">
+        <label className="form-row">
+          <span>Available Environments</span>
+        </label>
+        <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', margin: '6px 0 2px' }}>
+          {environments.map((env) => (
+            <label key={env.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+              <input
+                type="checkbox"
+                checked={selectedEnvCodes.includes(env.code)}
+                onChange={() => toggleEnvCode(env.code)}
+                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              />
+              {env.name} ({env.code})
+            </label>
+          ))}
+        </div>
+        <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+          Leave all unchecked to make this module available in every environment.
+        </span>
       </div>
 
       <div className="form-field" style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '14px 0' }}>

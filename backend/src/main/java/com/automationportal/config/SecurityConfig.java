@@ -54,6 +54,11 @@ public class SecurityConfig {
                     "/oauth2/**",
                     "/login/oauth2/**",
                     "/uploads/**",
+                    // Report files open via plain <a> links (no Authorization header).
+                    // These only redirect to / stream files already public under /uploads/**.
+                    "/api/reports/*/view",
+                    "/api/reports/*/download",
+                    "/api/reports/*/testng-results",
                     "/actuator/health",
                     "/v3/api-docs/**",
                     "/swagger-ui/**",

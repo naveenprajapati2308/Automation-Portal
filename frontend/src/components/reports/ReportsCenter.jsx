@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api.js';
-import { DataTable } from '../shared/index.jsx';
+import { DataTable, Modal } from '../shared/index.jsx';
 import {
   FileText,
   Download,
@@ -11,7 +11,9 @@ import {
   Filter,
   History,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import './reports.css';
 
@@ -31,6 +33,24 @@ export function ReportsCenter({ onSelectExecution }) {
   const [targetId, setTargetId] = useState('');
   const [isComparing, setIsComparing] = useState(false);
   const [comparisonResult, setComparisonResult] = useState(null);
+
+  // Delete flow
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    try {
+      await api.deleteExecution(confirmDelete.id);
+      setReports((prev) => prev.filter((r) => r.id !== confirmDelete.id));
+      setConfirmDelete(null);
+    } catch (e) {
+      alert('Failed to delete execution: ' + e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const fetchReports = async () => {
     setLoading(true);
@@ -181,6 +201,13 @@ export function ReportsCenter({ onSelectExecution }) {
             title="View Details"
           >
             <Eye size={14} />
+          </button>
+          <button
+            onClick={() => setConfirmDelete(report)}
+            className="rc-act-btn rc-act-danger"
+            title="Delete Execution"
+          >
+            <Trash2 size={14} />
           </button>
         </div>
       )
@@ -368,6 +395,28 @@ export function ReportsCenter({ onSelectExecution }) {
           )}
         </div>
       </div>
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <Modal title="Delete Execution" onClose={() => setConfirmDelete(null)}>
+          <div className="rc-confirm-body">
+            <AlertTriangle size={38} />
+            <p className="rc-confirm-text">
+              Are you sure you want to delete this execution?<br />
+              <code>{confirmDelete.executionCode}</code> — {confirmDelete.moduleCode} ({confirmDelete.status})<br />
+              This permanently removes its test cases, logs, screenshots, reports and all artifact files. This cannot be undone.
+            </p>
+            <div className="rc-confirm-actions">
+              <button className="rc-btn-cancel" onClick={() => setConfirmDelete(null)} disabled={deleting}>
+                Cancel
+              </button>
+              <button className="rc-btn-delete" onClick={handleDelete} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </section>
   );
 }

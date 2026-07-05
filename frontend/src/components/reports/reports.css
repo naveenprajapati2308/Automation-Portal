@@ -312,3 +312,70 @@
   text-align: center;
   padding: 10px 0;
 }
+/* ── Delete confirmation (mirrors the Screenshots gallery pattern) ──────────── */
+.rc-act-danger {
+  color: #f87171 !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.rc-act-danger:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+.rc-confirm-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 6px 4px;
+}
+
+.rc-confirm-body svg {
+  color: #f87171;
+}
+
+.rc-confirm-text {
+  color: #c7d6e6;
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.rc-confirm-text code {
+  color: #7c8ffa;
+}
+
+.rc-confirm-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.rc-btn-cancel {
+  height: 38px;
+  padding: 0 22px;
+  border-radius: 9px;
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #c7d6e6;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rc-btn-delete {
+  height: 38px;
+  padding: 0 22px;
+  border-radius: 9px;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.rc-btn-delete:hover {
+  background: rgba(239, 68, 68, 0.28);
+}

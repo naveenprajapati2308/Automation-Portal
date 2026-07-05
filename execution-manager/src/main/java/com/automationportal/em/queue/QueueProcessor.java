@@ -6,6 +6,7 @@ import com.automationportal.em.model.RunnerRegistry;
 import com.automationportal.em.repository.ExecutionJobRepository;
 import com.automationportal.em.repository.RunnerRegistryRepository;
 import com.automationportal.em.runner.RunnerClient;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,6 +49,31 @@ public class QueueProcessor {
         this.runnerRepository = runnerRepository;
         this.runnerClient = runnerClient;
         this.callbackClient = callbackClient;
+    }
+
+    /**
+     * The registry row persists in MySQL across environments, but the correct runner URL
+     * differs per environment (docker-compose sets EM_RUNNER_URL to the Docker network
+     * hostname; native runs default to localhost). Sync the default runner's row to this
+     * instance's configured URL on every boot so a stale row from the other environment
+     * can never black-hole dispatches.
+     */
+    @PostConstruct
+    void syncDefaultRunner() {
+        RunnerRegistry runner = runnerRepository.findById("default-runner").orElseGet(() -> {
+            RunnerRegistry r = new RunnerRegistry();
+            r.setRunnerId("default-runner");
+            r.setRunnerName("Default Runner");
+            return r;
+        });
+        if (!defaultRunnerUrl.equals(runner.getRunnerUrl()) || !"IDLE".equalsIgnoreCase(runner.getStatus())) {
+            log.info("Syncing default-runner registry entry: url {} -> {}, status {} -> IDLE",
+                     runner.getRunnerUrl(), defaultRunnerUrl, runner.getStatus());
+        }
+        runner.setRunnerUrl(defaultRunnerUrl);
+        runner.setStatus("IDLE");
+        runner.setLastHeartbeat(Instant.now());
+        runnerRepository.save(runner);
     }
 
     @Scheduled(fixedDelay = 5000)

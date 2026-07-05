@@ -66,6 +66,14 @@ const parseHashRoute = () => {
 };
 
 // ── Error Popup Content ───────────────────────────────────────────────────────
+// Toast tone palette — success stays the common case; warnings/errors mostly
+// surface via the global popup, but toast callers can opt into those tones too.
+const TOAST_TONES = {
+  success: { bg: '#16a34a', icon: Check },
+  warning: { bg: '#d97706', icon: AlertTriangle },
+  error: { bg: '#dc2626', icon: AlertTriangle },
+};
+
 function ErrorPopupContent({ error, onAction, onClose }) {
   const [showDiag, setShowDiag] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -175,7 +183,9 @@ export function App() {
   const [selectedEnv, setSelectedEnv] = useState(1);
   const [selectedModule, setSelectedModule] = useState('LAND');
   const [suiteXmlPath, setSuiteXmlPath] = useState('');
-  const [notice, setNotice] = useState('');
+  // Toast: { text, tone } — tone is 'success' | 'warning' | 'error'
+  const [notice, setNotice] = useState(null);
+  const notify = (text, tone = 'success') => setNotice(text ? { text, tone } : null);
   const [selectedExecutionId, setSelectedExecutionId] = useState(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     localStorage.getItem('sidebar-collapsed') === 'true'
@@ -187,10 +197,14 @@ export function App() {
     localStorage.setItem('sidebar-collapsed', String(nextVal));
   };
 
-  // Apply the saved theme before anything renders (toggle lives in Topbar)
+  // Apply the saved theme before anything renders (toggle lives in Topbar).
+  // The admin workspace always runs in the default (dark) theme — it has its
+  // own look and is not light-themed; the user's choice is restored on exit.
   useEffect(() => {
-    document.documentElement.dataset.theme = localStorage.getItem('portal-theme') || 'dark';
-  }, []);
+    document.documentElement.dataset.theme = workspace === 'admin'
+      ? 'dark'
+      : (localStorage.getItem('portal-theme') || 'dark');
+  }, [workspace]);
 
   // Set favicon once
   useEffect(() => {
@@ -218,7 +232,7 @@ export function App() {
   // `notice` is a toast, not a permanent header fixture — auto-dismiss it.
   useEffect(() => {
     if (!notice) return;
-    const timer = setTimeout(() => setNotice(''), 3500);
+    const timer = setTimeout(() => setNotice(null), 3500);
     return () => clearTimeout(timer);
   }, [notice]);
 
@@ -257,9 +271,9 @@ export function App() {
       if (envData[0]) setSelectedEnv(envData[0].id);
       if (moduleData[0]) setSelectedModule(moduleData[0].code);
     } catch (error) {
-      auth.clear();
-      setSession(null);
-      setNotice(error.message);
+      // Don't nuke the session on a transient load failure — if the session is
+      // genuinely expired, the api layer's 401 popup → logout already handles it.
+      notify(error.message, 'error');
     }
   };
 
@@ -289,7 +303,12 @@ export function App() {
   const onAuthenticated = (nextSession) => {
     auth.set(nextSession);
     setSession(nextSession);
-    setNotice('Signed in successfully.');
+    // A "Session Expired" popup raised while the previous session was dying can
+    // survive in state across the login screen (the popup JSX isn't rendered
+    // there) and would instantly reappear over the brand-new session — and its
+    // close handler would then log that new session out. Reset it on sign-in.
+    setGlobalError(null);
+    notify('Signed in successfully.');
   };
 
   const logout = async () => {
@@ -298,6 +317,7 @@ export function App() {
     } finally {
       auth.clear();
       setSession(null);
+      setGlobalError(null);
       setActive('dashboard');
       setWorkspace('portal');
       setAdminPage('admin-dashboard');
@@ -313,11 +333,11 @@ export function App() {
         suiteXmlPath: overrideXml || (executionType === 'XML_SUITE' ? suiteXmlPath : undefined)
       };
       const execution = await api.runExecution(payload);
-      setNotice(`${execution.executionCode} queued successfully.`);
+      notify(`${execution.executionCode} queued successfully.`);
       await refresh();
       return execution;
     } catch (error) {
-      setNotice(error.message);
+      notify(error.message, 'error');
       throw error;
     }
   };
@@ -392,14 +412,15 @@ export function App() {
             run={run}
             executions={executions}
             onSelectExecution={setSelectedExecutionId}
+            onRefresh={refresh}
           />
         )}
         {active === 'reports' && <ReportsCenter onSelectExecution={setSelectedExecutionId} />}
         {active === 'logs' && <LogsViewer />}
         {active === 'screenshots' && <ScreenshotsGallery onSelectExecution={setSelectedExecutionId} />}
         {active === 'compare' && <ComparePage executions={executions} />}
-        {active === 'environments' && <EnvironmentView environments={environments} />}
-        {active === 'profile' && <Profile setNotice={setNotice} />}
+        {active === 'environments' && <EnvironmentView onRefresh={refresh} />}
+        {active === 'profile' && <Profile setNotice={notify} />}
         {selectedExecutionId && (
           <ExecutionDetailPage
             executionId={selectedExecutionId}
@@ -419,60 +440,62 @@ export function App() {
 
       {bootLoader && <FullScreenLoader exiting={bootLoader === 'exit'} />}
 
-      {notice && (
-        <div
-          role="status"
-          style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            background: 'rgba(16, 185, 129, 0.12)',
-            border: '1px solid rgba(16, 185, 129, 0.4)',
-            color: '#34d399',
-            padding: '12px 16px',
-            borderRadius: '10px',
-            fontSize: '13px',
-            fontWeight: 600,
-            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
-            backdropFilter: 'blur(6px)',
-          }}
-        >
-          <span
+      {notice && (() => {
+        const tone = TOAST_TONES[notice.tone] || TOAST_TONES.success;
+        const ToneIcon = tone.icon;
+        return (
+          <div
+            role="status"
             style={{
-              display: 'grid',
-              placeItems: 'center',
-              width: '18px',
-              height: '18px',
-              borderRadius: '50%',
-              background: '#10b981',
-              color: '#052e1d',
-              flexShrink: 0,
+              position: 'fixed',
+              top: '20px',
+              right: '20px',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: tone.bg,
+              color: '#ffffff',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
             }}
           >
-            <Check size={12} strokeWidth={3} />
-          </span>
-          {notice}
-          <button
-            onClick={() => setNotice('')}
-            aria-label="Dismiss"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#34d399',
-              cursor: 'pointer',
-              padding: '2px',
-              marginLeft: '4px',
-              opacity: 0.7,
-            }}
-          >
-            ✕
-          </button>
-        </div>
-      )}
+            <span
+              style={{
+                display: 'grid',
+                placeItems: 'center',
+                width: '20px',
+                height: '20px',
+                borderRadius: '50%',
+                background: 'rgba(255, 255, 255, 0.25)',
+                color: '#ffffff',
+                flexShrink: 0,
+              }}
+            >
+              <ToneIcon size={12} strokeWidth={3} />
+            </span>
+            {notice.text}
+            <button
+              onClick={() => setNotice(null)}
+              aria-label="Dismiss"
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#ffffff',
+                cursor: 'pointer',
+                padding: '2px',
+                marginLeft: '4px',
+                opacity: 0.8,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        );
+      })()}
 
       {globalError && (
         <Modal

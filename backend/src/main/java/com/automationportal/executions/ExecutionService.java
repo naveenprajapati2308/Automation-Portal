@@ -6,6 +6,7 @@ import com.automationportal.events.ExecutionEventPayload;
 import com.automationportal.events.ExecutionEventType;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,6 +56,44 @@ public class ExecutionService {
         execution.setTriggeredBy(triggeredByUserId);
         execution.setStatus(ExecutionStatus.QUEUED);
         return repository.save(execution);
+    }
+
+    /**
+     * Permanently removes an execution and every trace of it: test cases (+steps,
+     * +tag links), artifact rows, logs, the EM job/queue rows, the execution row
+     * itself, and the copied artifact files on disk.
+     */
+    @Transactional
+    public void delete(Long id) {
+        Execution e = repository.findById(id).orElseThrow();
+        if (e.getStatus() == ExecutionStatus.QUEUED || e.getStatus() == ExecutionStatus.RUNNING) {
+            throw new IllegalStateException("Cannot delete a QUEUED/RUNNING execution — cancel it first.");
+        }
+        repository.deleteTestStepsFor(id);
+        repository.deleteTestCaseTagLinksFor(id);
+        repository.deleteTestCasesFor(id);
+        repository.deleteArtifactRowsFor(id);
+        repository.deleteLogRowsFor(id);
+        repository.deleteJobRowsFor(id);
+        repository.deleteQueueRowsFor(id);
+        repository.delete(e);
+        deleteArtifactDirectory(e.getExecutionCode());
+    }
+
+    private void deleteArtifactDirectory(String executionCode) {
+        if (executionCode == null || executionCode.isBlank()) return;
+        try {
+            Path root = Path.of(properties.getArtifactsRoot()).toAbsolutePath().normalize();
+            Path dir = root.resolve("executions").resolve(executionCode).normalize();
+            if (!dir.startsWith(root) || !Files.exists(dir)) return;
+            try (var walk = Files.walk(dir)) {
+                walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                    try { Files.delete(p); } catch (IOException ignored) { }
+                });
+            }
+        } catch (IOException ignored) {
+            // DB cleanup already committed; leftover files are harmless and re-deletable.
+        }
     }
 
     public List<Execution> recent() {

@@ -1,0 +1,33 @@
+/* Execution Detail drawer — dark-theme helpers. Layout stays in the component's
+   inline styles; this only covers what inline styles can't reach. */
+
+.xd-drawer input,
+.xd-drawer select {
+  color: #c7d6e6;
+}
+
+.xd-drawer select option {
+  background: #101d31;
+  color: #c7d6e6;
+}
+
+.xd-drawer table th {
+  color: #7f93ab;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.xd-drawer ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.xd-drawer ::-webkit-scrollbar-thumb {
+  background: #1c2b40;
+  border-radius: 6px;
+}
+
+.xd-drawer ::-webkit-scrollbar-track {
+  background: transparent;
+}

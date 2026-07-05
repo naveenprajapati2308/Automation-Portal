@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd">
+<suite name="Failed suite [Land Management Suite]" guice-stage="DEVELOPMENT" verbose="0">
+  <listeners>
+    <listener class-name="ReportManager.Master_extent_report_v2"/>
+  </listeners>
+  <test thread-count="5" name="land Management Tests(failed)" verbose="0">
+    <classes>
+      <class name="testCases.LandModule.SurveyDetails">
+        <methods>
+          <include name="TC_008"/>
+          <include name="TC_009"/>
+          <include name="tearDown"/>
+          <include name="setup"/>
+        </methods>
+      </class> <!-- testCases.LandModule.SurveyDetails -->
+      <class name="testCases.LandModule.ForwordToCA">
+        <methods>
+          <include name="tearDown"/>
+          <include name="setup"/>
+          <include name="TC_010"/>
+        </methods>
+      </class> <!-- testCases.LandModule.ForwordToCA -->
+      <class name="testCases.LandModule.landCreation">
+        <methods>
+          <include name="tearDown"/>
+          <include name="TC_003"/>
+          <include name="setup"/>
+          <include name="TC_002"/>
+          <include name="TC_004"/>
+        </methods>
+      </class> <!-- testCases.LandModule.landCreation -->
+      <class name="testCases.LandModule.login">
+        <methods>
+          <include name="tearDown"/>
+          <include name="setup"/>
+          <include name="TC_001"/>
+        </methods>
+      </class> <!-- testCases.LandModule.login -->
+      <class name="testCases.LandModule.AddKhasra">
+        <methods>
+          <include name="TC_005"/>
+          <include name="tearDown"/>
+          <include name="setup"/>
+          <include name="TC_006"/>
+          <include name="TC_007"/>
+        </methods>
+      </class> <!-- testCases.LandModule.AddKhasra -->
+    </classes>
+  </test> <!-- land Management Tests(failed) -->
+</suite> <!-- Failed suite [Land Management Suite] -->

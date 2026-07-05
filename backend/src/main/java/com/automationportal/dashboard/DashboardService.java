@@ -5,8 +5,9 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.Instant;
-//import java.time.LocalDate;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -74,48 +75,76 @@ public class DashboardService {
         return summary;
     }
 
+    /**
+     * Bucketed trend series. The bucket size follows the range so the x-axis stays
+     * readable: today = hourly, 7d = daily, 30d = every 3 days, 90d = every 9 days.
+     * Empty buckets are included so the axis always spans the full range.
+     */
     public List<Map<String, Object>> getTrends(String range) {
-        Instant since = getSinceInstant(range);
+        ZoneId zone = ZoneId.systemDefault();
+        Instant now = Instant.now();
+
+        Instant start;
+        Duration bucketSize;
+        DateTimeFormatter labelFmt;
+        if ("today".equalsIgnoreCase(range)) {
+            start = LocalDate.now(zone).atStartOfDay(zone).toInstant();
+            bucketSize = Duration.ofHours(1);
+            labelFmt = DateTimeFormatter.ofPattern("HH:00").withZone(zone);
+        } else if ("30d".equalsIgnoreCase(range)) {
+            start = LocalDate.now(zone).minusDays(29).atStartOfDay(zone).toInstant();
+            bucketSize = Duration.ofDays(3);
+            labelFmt = DateTimeFormatter.ofPattern("MM-dd").withZone(zone);
+        } else if ("90d".equalsIgnoreCase(range)) {
+            start = LocalDate.now(zone).minusDays(89).atStartOfDay(zone).toInstant();
+            bucketSize = Duration.ofDays(9);
+            labelFmt = DateTimeFormatter.ofPattern("MM-dd").withZone(zone);
+        } else { // 7d default
+            start = LocalDate.now(zone).minusDays(6).atStartOfDay(zone).toInstant();
+            bucketSize = Duration.ofDays(1);
+            labelFmt = DateTimeFormatter.ofPattern("MM-dd").withZone(zone);
+        }
+        final Instant rangeStart = start;
+
         List<Execution> executions = executionRepository.findAll().stream()
-                .filter(e -> e.getCreatedAt() != null && e.getCreatedAt().isAfter(since))
+                .filter(e -> e.getCreatedAt() != null && !e.getCreatedAt().isBefore(rangeStart))
                 .sorted(Comparator.comparing(Execution::getCreatedAt))
                 .collect(Collectors.toList());
 
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        Map<String, List<Execution>> grouped = executions.stream()
-                .collect(Collectors.groupingBy(e -> dtf.format(e.getCreatedAt().atZone(ZoneId.systemDefault()))));
-
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(zone);
         List<Map<String, Object>> trends = new ArrayList<>();
-        List<String> sortedDates = new ArrayList<>(grouped.keySet());
-        Collections.sort(sortedDates);
 
-        for (String dateStr : sortedDates) {
-            List<Execution> dayExecs = grouped.get(dateStr);
-            long dayTests = 0;
-            long dayPassed = 0;
-            long dayFailed = 0;
-            long daySkipped = 0;
+        for (Instant bucketStart = start; !bucketStart.isAfter(now); bucketStart = bucketStart.plus(bucketSize)) {
+            Instant bucketEnd = bucketStart.plus(bucketSize);
+            final Instant bs = bucketStart;
+            List<Execution> bucketExecs = executions.stream()
+                    .filter(e -> !e.getCreatedAt().isBefore(bs) && e.getCreatedAt().isBefore(bucketEnd))
+                    .collect(Collectors.toList());
 
-            for (Execution e : dayExecs) {
+            long tests = 0;
+            long passed = 0;
+            long failed = 0;
+            long skipped = 0;
+            for (Execution e : bucketExecs) {
                 if (e.getStatus() != ExecutionStatus.QUEUED && e.getStatus() != ExecutionStatus.RUNNING) {
-                    dayTests += e.getTotalTests();
-                    dayPassed += e.getPassedTests();
-                    dayFailed += e.getFailedTests();
-                    daySkipped += e.getSkippedTests();
+                    tests += e.getTotalTests();
+                    passed += e.getPassedTests();
+                    failed += e.getFailedTests();
+                    skipped += e.getSkippedTests();
                 }
             }
+            double passRate = tests > 0 ? (passed * 100.0) / tests : 0.0;
 
-            double dayPassRate = dayTests > 0 ? (dayPassed * 100.0) / dayTests : 0.0;
-
-            Map<String, Object> dayMap = new HashMap<>();
-            dayMap.put("date", dateStr);
-            dayMap.put("executions", dayExecs.size());
-            dayMap.put("totalTests", dayTests);
-            dayMap.put("passed", dayPassed);
-            dayMap.put("failed", dayFailed);
-            dayMap.put("skipped", daySkipped);
-            dayMap.put("passRate", BigDecimal.valueOf(dayPassRate).setScale(1, RoundingMode.HALF_UP));
-            trends.add(dayMap);
+            Map<String, Object> bucketMap = new HashMap<>();
+            bucketMap.put("date", dateFmt.format(bucketStart));
+            bucketMap.put("label", labelFmt.format(bucketStart));
+            bucketMap.put("executions", bucketExecs.size());
+            bucketMap.put("totalTests", tests);
+            bucketMap.put("passed", passed);
+            bucketMap.put("failed", failed);
+            bucketMap.put("skipped", skipped);
+            bucketMap.put("passRate", BigDecimal.valueOf(passRate).setScale(1, RoundingMode.HALF_UP));
+            trends.add(bucketMap);
         }
 
         return trends;
@@ -360,6 +389,8 @@ public class DashboardService {
     }
 
     private Instant getSinceInstant(String range) {
+        if ("today".equalsIgnoreCase(range))
+            return LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant();
         int days = 7;
         if ("30d".equalsIgnoreCase(range))
             days = 30;

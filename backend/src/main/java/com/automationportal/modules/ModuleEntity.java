@@ -22,6 +22,10 @@ public class ModuleEntity {
     @Column(name = "runner_type", nullable = false)
     private String runnerType = "MAVEN_TESTNG";
 
+    /** CSV of environment codes this module is available in; null/empty = all. */
+    @Column(name = "env_codes")
+    private String envCodes;
+
     protected ModuleEntity() {
     }
 
@@ -45,4 +49,6 @@ public class ModuleEntity {
     public void setReportPath(String reportPath) { this.reportPath = reportPath; }
     public String getRunnerType() { return runnerType; }
     public void setRunnerType(String runnerType) { this.runnerType = runnerType; }
+    public String getEnvCodes() { return envCodes; }
+    public void setEnvCodes(String envCodes) { this.envCodes = envCodes; }
 }

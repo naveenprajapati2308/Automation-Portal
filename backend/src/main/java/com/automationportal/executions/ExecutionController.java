@@ -75,6 +75,12 @@ public class ExecutionController {
         return ApiResponse.ok(service.getSummary(id));
     }
 
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        service.delete(id);
+        return ApiResponse.ok(null);
+    }
+
     @PostMapping("/{id}/cancel")
     public ApiResponse<Void> cancel(@PathVariable Long id) {
         service.cancel(id);
