@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 
 const ENV_COLORS = {
-  dev: '#06b6d4',      // Neon Cyan
-  staging: '#fbbf24',  // Amber Yellow
-  prod: '#f43f5e',     // Rose Red
-  qa: '#6366f1',       // Indigo/Violet
-  default: '#94a3b8'   // Slate Gray
+  dev: '#06b6d4',      // Cyan
+  staging: '#10b981',  // Emerald
+  prod: '#f43f5e',     // Rose
+  qa: '#7c3aed',       // Violet (primary accent)
+  uat: '#2563eb',      // Blue
+  default: '#94a3b8'   // Slate
 };
 
 export function EnvDistribution({ data = [], environments = [], loading = false }) {
@@ -26,6 +27,7 @@ export function EnvDistribution({ data = [], environments = [], loading = false 
       else if (key.includes('stage') || key.includes('stg') || key.includes('preprod')) color = ENV_COLORS.staging;
       else if (key.includes('prod')) color = ENV_COLORS.prod;
       else if (key.includes('qa')) color = ENV_COLORS.qa;
+      else if (key.includes('uat')) color = ENV_COLORS.uat;
 
       return { name, count, pct, color };
     });
@@ -33,7 +35,7 @@ export function EnvDistribution({ data = [], environments = [], loading = false 
 
   if (loading) {
     return (
-      <div style={{ height: '100px', display: 'grid', placeItems: 'center', color: '#94a3b8', fontSize: '12px' }}>
+      <div style={{ height: '100px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
         Loading environment mix...
       </div>
     );
@@ -41,7 +43,7 @@ export function EnvDistribution({ data = [], environments = [], loading = false 
 
   if (resolvedData.length === 0) {
     return (
-      <div style={{ height: '100px', display: 'grid', placeItems: 'center', color: '#64748b', fontSize: '12px' }}>
+      <div style={{ height: '100px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
         No environment runs tracked.
       </div>
     );
@@ -52,10 +54,10 @@ export function EnvDistribution({ data = [], environments = [], loading = false 
       {resolvedData.map((item, idx) => (
         <div key={idx} style={{ display: 'grid', gap: '4px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 600 }}>
-            <span style={{ color: '#cbd5e1' }}>{item.name}</span>
-            <span style={{ color: '#94a3b8' }}>{item.count} runs ({item.pct.toFixed(0)}%)</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{item.name}</span>
+            <span style={{ color: 'var(--text-muted)' }}>{item.count} runs ({item.pct.toFixed(0)}%)</span>
           </div>
-          <div style={{ background: '#192038', height: '6px', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--bg-surface-2)', height: '6px', borderRadius: '4px', overflow: 'hidden' }}>
             <div style={{ height: '100%', background: item.color, width: `${item.pct}%`, borderRadius: '4px' }} />
           </div>
         </div>

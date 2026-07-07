@@ -29,7 +29,7 @@ export function RunHeatmap({ data = [], loading = false }) {
 
   if (loading) {
     return (
-      <div style={{ height: '180px', display: 'grid', placeItems: 'center', color: '#8a9bb0' }}>
+      <div style={{ height: '180px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)' }}>
         Loading execution heatmap...
       </div>
     );
@@ -38,7 +38,7 @@ export function RunHeatmap({ data = [], loading = false }) {
   const { grid, max } = matrix;
 
   const getColor = (count) => {
-    if (count === 0) return '#0f1923'; // Matches dark theme background
+    if (count === 0) return 'var(--heatmap-empty)';
     const intensity = count / max;
     // Premium theme gradient colors, e.g. blue shades
     if (intensity < 0.25) return 'rgba(0, 176, 255, 0.15)';
@@ -50,10 +50,10 @@ export function RunHeatmap({ data = [], loading = false }) {
   return (
     <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <span style={{ fontSize: '11px', color: '#8a9bb0', fontWeight: 600 }}>Run Frequency (Day × Hour)</span>
-        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', fontSize: '9px', fontWeight: 600, color: '#8a9bb0' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>Run Frequency (Day × Hour)</span>
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', fontSize: '9px', fontWeight: 600, color: 'var(--text-muted)' }}>
           <span>Less</span>
-          <div style={{ width: '8px', height: '8px', background: '#0f1923', border: '1px solid #1a2c3d', borderRadius: '1px' }} />
+          <div style={{ width: '8px', height: '8px', background: 'var(--heatmap-empty)', border: '1px solid var(--border-soft)', borderRadius: '1px' }} />
           <div style={{ width: '8px', height: '8px', background: 'rgba(0, 176, 255, 0.15)', borderRadius: '1px' }} />
           <div style={{ width: '8px', height: '8px', background: 'rgba(0, 176, 255, 0.4)', borderRadius: '1px' }} />
           <div style={{ width: '8px', height: '8px', background: 'rgba(0, 176, 255, 0.7)', borderRadius: '1px' }} />
@@ -72,7 +72,7 @@ export function RunHeatmap({ data = [], loading = false }) {
                 key={h} 
                 style={{ 
                   fontSize: '8px', 
-                  color: '#8a9bb0', 
+                  color: 'var(--text-muted)', 
                   textAlign: 'center', 
                   fontWeight: 600,
                   visibility: i % 4 === 0 ? 'visible' : 'hidden' 
@@ -89,7 +89,7 @@ export function RunHeatmap({ data = [], loading = false }) {
               key={day} 
               style={{ display: 'grid', gridTemplateColumns: '40px repeat(24, 1fr)', gap: '3px', alignItems: 'center' }}
             >
-              <div style={{ fontSize: '10px', color: '#8a9bb0', fontWeight: 700, textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>
                 {day}
               </div>
               {grid[dIdx].map((count, hIdx) => (

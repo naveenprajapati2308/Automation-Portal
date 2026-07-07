@@ -14,7 +14,7 @@ import {
   Search,
   FolderOpen
 } from 'lucide-react';
-import './datatable-dark.css';
+import './datatable-theme.css';
 
 export function DataTable({
   columns,

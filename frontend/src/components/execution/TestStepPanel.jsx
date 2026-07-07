@@ -33,7 +33,7 @@ export function TestStepPanel({ testCaseId }) {
 
   if (loading) {
     return (
-      <div style={{ padding: '12px', color: '#8a9bb0', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
         <Clock className="animate-spin" size={14} /> Loading step execution logs...
       </div>
     );
@@ -41,7 +41,7 @@ export function TestStepPanel({ testCaseId }) {
 
   if (error) {
     return (
-      <div style={{ padding: '12px', color: '#ef5350', fontSize: '12px' }}>
+      <div style={{ padding: '12px', color: 'var(--danger-text)', fontSize: '12px' }}>
         Error: {error}
       </div>
     );
@@ -49,7 +49,7 @@ export function TestStepPanel({ testCaseId }) {
 
   if (steps.length === 0) {
     return (
-      <div style={{ padding: '12px', color: '#8a9bb0', fontSize: '12px' }}>
+      <div style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '12px' }}>
         No steps available for this test case.
       </div>
     );
@@ -58,17 +58,17 @@ export function TestStepPanel({ testCaseId }) {
   const getStepIcon = (status) => {
     switch (status.toUpperCase()) {
       case 'PASS':
-        return <CheckCircle2 size={16} style={{ color: '#2f9c5d' }} />;
+        return <CheckCircle2 size={16} style={{ color: 'var(--success-text)' }} />;
       case 'FAIL':
-        return <XCircle size={16} style={{ color: '#ef5350' }} />;
+        return <XCircle size={16} style={{ color: 'var(--danger-text)' }} />;
       default:
         return <AlertCircle size={16} style={{ color: '#ffb300' }} />;
     }
   };
 
   return (
-    <div style={{ display: 'grid', gap: '8px', padding: '12px', background: '#0a1017', borderRadius: '8px', border: '1px solid #1a2c3d' }}>
-      <div style={{ fontSize: '11px', fontWeight: 700, color: '#8a9bb0', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
+    <div style={{ display: 'grid', gap: '8px', padding: '12px', background: 'var(--bg-page)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px', letterSpacing: '0.5px' }}>
         Execution Steps Log ({steps.length})
       </div>
       <div style={{ display: 'grid', gap: '6px' }}>
@@ -79,7 +79,7 @@ export function TestStepPanel({ testCaseId }) {
             <div
               key={step.id}
               style={{
-                background: '#0f1923',
+                background: 'var(--bg-inset)',
                 borderRadius: '6px',
                 border: isFailed ? '1px solid rgba(239, 83, 80, 0.2)' : '1px solid #1a2c3d',
                 overflow: 'hidden',
@@ -98,7 +98,7 @@ export function TestStepPanel({ testCaseId }) {
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {getStepIcon(step.status)}
-                  <span style={{ fontSize: '12px', fontWeight: 600, color: '#cfdae6' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
                     {step.stepName}
                   </span>
                 </div>
@@ -106,24 +106,24 @@ export function TestStepPanel({ testCaseId }) {
                   <span style={{ fontSize: '10px', color: '#5d6b7a', fontWeight: 600 }}>
                     {step.durationMs ? `${(step.durationMs / 1000).toFixed(2)}s` : '0s'}
                   </span>
-                  {isFailed && (isExpanded ? <ChevronUp size={14} style={{ color: '#8a9bb0' }} /> : <ChevronDown size={14} style={{ color: '#8a9bb0' }} />)}
+                  {isFailed && (isExpanded ? <ChevronUp size={14} style={{ color: 'var(--text-muted)' }} /> : <ChevronDown size={14} style={{ color: 'var(--text-muted)' }} />)}
                 </div>
               </div>
 
               {isFailed && isExpanded && (
-                <div style={{ padding: '12px', background: '#080d13', borderTop: '1px solid rgba(239, 83, 80, 0.15)' }}>
-                  <div style={{ color: '#ef5350', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>
+                <div style={{ padding: '12px', background: 'var(--bg-page)', borderTop: '1px solid rgba(239, 83, 80, 0.15)' }}>
+                  <div style={{ color: 'var(--danger-text)', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>
                     Error Message:
                   </div>
-                  <div style={{ color: '#cfdae6', fontSize: '12px', background: 'rgba(239,83,80,0.05)', padding: '8px 12px', borderRadius: '4px', borderLeft: '3px solid #ef5350', marginBottom: '10px', fontFamily: 'monospace' }}>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '12px', background: 'rgba(239,83,80,0.05)', padding: '8px 12px', borderRadius: '4px', borderLeft: '3px solid #ef5350', marginBottom: '10px', fontFamily: 'monospace' }}>
                     {step.errorMessage}
                   </div>
                   {step.stackTrace && (
                     <>
-                      <div style={{ color: '#8a9bb0', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>
+                      <div style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, marginBottom: '4px' }}>
                         Stack Trace:
                       </div>
-                      <pre style={{ margin: 0, padding: '10px', background: '#040609', color: '#8a9bb0', borderRadius: '4px', overflowX: 'auto', fontSize: '11px', maxHeight: '180px', overflowY: 'auto', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                      <pre style={{ margin: 0, padding: '10px', background: 'var(--bg-page)', color: 'var(--text-muted)', borderRadius: '4px', overflowX: 'auto', fontSize: '11px', maxHeight: '180px', overflowY: 'auto', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
                         {step.stackTrace}
                       </pre>
                     </>

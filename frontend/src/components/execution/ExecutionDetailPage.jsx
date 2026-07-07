@@ -151,21 +151,21 @@ export function ExecutionDetailPage({ executionId, onClose }) {
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,25,35,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-      <div className="xd-drawer" style={{ width: '85%', maxWidth: '1200px', height: '100%', background: '#0a1322', display: 'flex', flexDirection: 'column', boxShadow: '-5px 0 25px rgba(0,0,0,0.3)', animation: 'slideIn 0.3s ease-out' }}>
+      <div className="xd-drawer" style={{ width: '85%', maxWidth: '1200px', height: '100%', background: 'var(--bg-inset)', display: 'flex', flexDirection: 'column', boxShadow: '-5px 0 25px rgba(0,0,0,0.3)', animation: 'slideIn 0.3s ease-out' }}>
 
         {/* Header */}
-        <div style={{ padding: '20px 24px', background: '#0d1727', borderBottom: '1px solid #1c2b40', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '20px 24px', background: 'var(--bg-inset)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className={`status ${summary?.status?.toLowerCase()}`}>{summary?.status}</span>
-              <span style={{ fontSize: '12px', color: '#8fa2b8' }}>{formatDate(summary?.startTime)}</span>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{formatDate(summary?.startTime)}</span>
             </div>
             <h2 style={{ margin: '4px 0 0', fontSize: '20px', fontWeight: 800 }}>Execution Details: {summary?.executionCode}</h2>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             {summary?.status === 'RUNNING' || summary?.status === 'QUEUED' ? (
-              <button onClick={handleCancel} className="secondary-action" style={{ color: '#f87171', borderColor: '#f87171' }}>
+              <button onClick={handleCancel} className="secondary-action" style={{ color: 'var(--danger-text)', borderColor: '#f87171' }}>
                 Cancel Run
               </button>
             ) : (
@@ -180,14 +180,14 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                 )}
               </>
             )}
-            <button onClick={onClose} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: '6px', borderRadius: '6px', color: '#8fa2b8' }}>
+            <button onClick={onClose} style={{ border: 0, background: 'transparent', cursor: 'pointer', padding: '6px', borderRadius: '6px', color: 'var(--text-muted)' }}>
               <X size={24} />
             </button>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div style={{ background: '#0d1727', borderBottom: '1px solid #1c2b40', padding: '0 24px', display: 'flex', gap: '20px' }}>
+        <div style={{ background: 'var(--bg-inset)', borderBottom: '1px solid var(--border)', padding: '0 24px', display: 'flex', gap: '20px' }}>
           {[
             { key: 'summary', label: 'Summary', icon: FileText },
             { key: 'testCases', label: `Test Cases (${testCases.filter(t => !t.isConfigMethod).length})`, icon: ChevronRight },
@@ -210,7 +210,7 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                   borderBottom: isTabActive ? '3px solid #176b87' : '3px solid transparent',
                   background: 'transparent',
                   fontWeight: isTabActive ? 700 : 500,
-                  color: isTabActive ? '#a78bfa' : '#8fa2b8',
+                  color: isTabActive ? 'var(--accent-text)' : 'var(--text-muted)',
                   cursor: 'pointer',
                   fontSize: '13px',
                   display: 'flex',
@@ -235,35 +235,35 @@ export function ExecutionDetailPage({ executionId, onClose }) {
               <div>
                 <Panel title="Results Statistics">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px', textAlign: 'center' }}>
-                    <div style={{ background: '#101d31', padding: '16px', borderRadius: '8px' }}>
-                      <span style={{ fontSize: '11px', color: '#7f93ab', textTransform: 'uppercase' }}>Total Tests</span>
+                    <div style={{ background: 'var(--bg-surface)', padding: '16px', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Tests</span>
                       <strong style={{ display: 'block', fontSize: '28px' }}>{summary?.totalTests}</strong>
                     </div>
-                    <div style={{ background: 'rgba(46,204,113,0.12)', padding: '16px', borderRadius: '8px', color: '#2ecc71' }}>
+                    <div style={{ background: 'rgba(46,204,113,0.12)', padding: '16px', borderRadius: '8px', color: 'var(--success-text)' }}>
                       <span style={{ fontSize: '11px', textTransform: 'uppercase' }}>Passed</span>
                       <strong style={{ display: 'block', fontSize: '28px' }}>{summary?.passed}</strong>
                     </div>
-                    <div style={{ background: 'rgba(248,113,113,0.12)', padding: '16px', borderRadius: '8px', color: '#f87171' }}>
+                    <div style={{ background: 'rgba(248,113,113,0.12)', padding: '16px', borderRadius: '8px', color: 'var(--danger-text)' }}>
                       <span style={{ fontSize: '11px', textTransform: 'uppercase' }}>Failed</span>
                       <strong style={{ display: 'block', fontSize: '28px' }}>{summary?.failed}</strong>
                     </div>
-                    <div style={{ background: 'rgba(224,166,74,0.14)', padding: '16px', borderRadius: '8px', color: '#e0a64a' }}>
+                    <div style={{ background: 'rgba(224,166,74,0.14)', padding: '16px', borderRadius: '8px', color: 'var(--warning-text)' }}>
                       <span style={{ fontSize: '11px', textTransform: 'uppercase' }}>Skipped</span>
                       <strong style={{ display: 'block', fontSize: '28px' }}>{summary?.skipped}</strong>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '20px', marginTop: '20px', borderTop: '1px solid #1c2b40', paddingTop: '20px' }}>
+                  <div style={{ display: 'flex', gap: '20px', marginTop: '20px', borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
                     <div>
-                      <span style={{ fontSize: '12px', color: '#7f93ab', display: 'block' }}>Pass Rate</span>
-                      <strong style={{ fontSize: '20px', color: '#2ecc71' }}>{summary?.passRate}%</strong>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block' }}>Pass Rate</span>
+                      <strong style={{ fontSize: '20px', color: 'var(--success-text)' }}>{summary?.passRate}%</strong>
                     </div>
                     <div>
-                      <span style={{ fontSize: '12px', color: '#7f93ab', display: 'block' }}>Fail Rate</span>
-                      <strong style={{ fontSize: '20px', color: '#f87171' }}>{summary?.failRate}%</strong>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block' }}>Fail Rate</span>
+                      <strong style={{ fontSize: '20px', color: 'var(--danger-text)' }}>{summary?.failRate}%</strong>
                     </div>
                     <div>
-                      <span style={{ fontSize: '12px', color: '#7f93ab', display: 'block' }}>Execution Duration</span>
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block' }}>Execution Duration</span>
                       <strong style={{ fontSize: '20px' }}>{formatDuration(summary?.durationSeconds)}</strong>
                     </div>
                   </div>
@@ -272,10 +272,10 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                 <Panel title="Ingested Artifacts" style={{ marginTop: '20px' }}>
                   <div style={{ display: 'grid', gap: '10px' }}>
                     {artifacts.map(art => (
-                      <div key={art.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: '#0d1727', border: '1px solid #1c2b40', borderRadius: '8px', alignItems: 'center' }}>
+                      <div key={art.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: '8px', alignItems: 'center' }}>
                         <div>
                           <strong style={{ fontSize: '13px' }}>{art.fileName}</strong>
-                          <span style={{ display: 'block', fontSize: '11px', color: '#7f93ab' }}>{art.artifactType}</span>
+                          <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)' }}>{art.artifactType}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {art.artifactType === 'EXTENT_REPORT' && (
@@ -297,23 +297,23 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                 <Panel title="Run Environment Details">
                   <div style={{ display: 'grid', gap: '12px', fontSize: '13px' }}>
                     <div>
-                      <span style={{ color: '#7f93ab', display: 'block', fontSize: '11px' }}>HOST MACHINE</span>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>HOST MACHINE</span>
                       <strong>{summary?.machineName ?? 'N/A'}</strong>
                     </div>
                     <div>
-                      <span style={{ color: '#7f93ab', display: 'block', fontSize: '11px' }}>OPERATING SYSTEM</span>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>OPERATING SYSTEM</span>
                       <strong>{summary?.osName ?? 'N/A'}</strong>
                     </div>
                     <div>
-                      <span style={{ color: '#7f93ab', display: 'block', fontSize: '11px' }}>JAVA VERSION</span>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>JAVA VERSION</span>
                       <strong>Java {summary?.javaVersion ?? 'N/A'}</strong>
                     </div>
                     <div>
-                      <span style={{ color: '#7f93ab', display: 'block', fontSize: '11px' }}>BROWSER ENGINE</span>
+                      <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>BROWSER ENGINE</span>
                       <strong>{summary?.browserName ?? 'N/A'}</strong>
                     </div>
                     {summary?.finalReportPath && (
-                      <div style={{ borderTop: '1px solid #1c2b40', paddingTop: '12px', marginTop: '4px' }}>
+                      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
                         <a href={`/api/reports/${executionId}/view`} target="_blank" rel="noreferrer" className="primary-action" style={{ display: 'inline-flex', gap: '8px' }}>
                           <ExternalLink size={16} /> Open Extent Report
                         </a>
@@ -334,12 +334,12 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                   placeholder="Search method or class..."
                   value={tcSearch}
                   onChange={(e) => setTcSearch(e.target.value)}
-                  style={{ flex: 1, height: '36px', borderRadius: '8px', border: '1px solid #1c2b40', padding: '0 12px', fontSize: '13px' }}
+                  style={{ flex: 1, height: '36px', borderRadius: '8px', border: '1px solid var(--border)', padding: '0 12px', fontSize: '13px' }}
                 />
                 <select
                   value={tcStatus}
                   onChange={(e) => setTcStatus(e.target.value)}
-                  style={{ height: '36px', borderRadius: '8px', border: '1px solid #1c2b40', padding: '0 8px', background: '#0d1727', fontSize: '13px' }}
+                  style={{ height: '36px', borderRadius: '8px', border: '1px solid var(--border)', padding: '0 8px', background: 'var(--bg-inset)', fontSize: '13px' }}
                 >
                   <option value="">All Statuses</option>
                   <option value="PASS">Pass</option>
@@ -374,7 +374,7 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                         <React.Fragment key={tc.id}>
                           <tr
                             onClick={() => toggleTcExpand(tc.id)}
-                            style={{ cursor: 'pointer', background: isExpanded ? '#101d31' : 'transparent', transition: 'background 0.15s' }}
+                            style={{ cursor: 'pointer', background: isExpanded ? 'var(--bg-surface)' : 'transparent', transition: 'background 0.15s' }}
                           >
                             <td>
                               <span className={`status ${tc.status.toLowerCase()}`}>
@@ -383,24 +383,24 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                             </td>
                             <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <strong style={{ color: '#e6eefc' }}>{tc.methodName}</strong>
-                                {tc.isConfigMethod && <span style={{ fontSize: '10px', color: '#e0a64a', background: 'rgba(224,166,74,0.14)', padding: '2px 6px', borderRadius: '50px', fontWeight: 700 }}>CONFIG</span>}
-                                {tc.retries > 0 && <span style={{ fontSize: '10px', color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '2px 6px', borderRadius: '50px', fontWeight: 700 }}>RETRIED ({tc.retries})</span>}
+                                <strong style={{ color: 'var(--text-primary)' }}>{tc.methodName}</strong>
+                                {tc.isConfigMethod && <span style={{ fontSize: '10px', color: 'var(--warning-text)', background: 'rgba(224,166,74,0.14)', padding: '2px 6px', borderRadius: '50px', fontWeight: 700 }}>CONFIG</span>}
+                                {tc.retries > 0 && <span style={{ fontSize: '10px', color: 'var(--warning-text)', background: 'rgba(245,158,11,0.15)', padding: '2px 6px', borderRadius: '50px', fontWeight: 700 }}>RETRIED ({tc.retries})</span>}
                               </div>
                             </td>
-                            <td style={{ fontSize: '12px', color: '#8fa2b8' }}>{tc.className}</td>
-                            <td style={{ fontSize: '12px', color: '#8fa2b8', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tc.parameters}>
+                            <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{tc.className}</td>
+                            <td style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={tc.parameters}>
                               {tc.parameters ?? '-'}
                             </td>
                             <td style={{ textAlign: 'right', fontWeight: 600 }}>{tc.durationMs ? (tc.durationMs / 1000.0).toFixed(2) + 's' : '0s'}</td>
                           </tr>
                           {isExpanded && (
                             <tr>
-                              <td colSpan={5} style={{ background: '#101d31', padding: '16px', borderBottom: '1px solid #1c2b40' }}>
+                              <td colSpan={5} style={{ background: 'var(--bg-surface)', padding: '16px', borderBottom: '1px solid var(--border)' }}>
                                 <div style={{ display: 'grid', gap: '12px' }}>
                                   {tc.tags && tc.tags.length > 0 && (
                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                      <span style={{ fontSize: '11px', color: '#7f93ab', fontWeight: 700, textTransform: 'uppercase' }}>Tags:</span>
+                                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Tags:</span>
                                       {tc.tags.map(t => (
                                         <span
                                           key={t.id}
@@ -438,7 +438,7 @@ export function ExecutionDetailPage({ executionId, onClose }) {
             <div style={{ display: 'grid', gap: '16px' }}>
               {failedTestCases.length === 0 ? (
                 <Panel title="Regression Failures">
-                  <p style={{ textAlign: 'center', color: '#2ecc71', padding: '40px 0', fontWeight: 600 }}>
+                  <p style={{ textAlign: 'center', color: 'var(--success-text)', padding: '40px 0', fontWeight: 600 }}>
                     <CheckCircle2 size={36} style={{ display: 'block', margin: '0 auto 10px' }} />
                     Zero failures! All tests passed in this execution.
                   </p>
@@ -447,29 +447,29 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                 failedTestCases.map(tc => (
                   <Panel key={tc.id} title={`${tc.methodName} - Failed`}>
                     <div style={{ fontSize: '13px' }}>
-                      <div style={{ display: 'flex', gap: '20px', marginBottom: '10px', borderBottom: '1px solid #1c2b40', paddingBottom: '8px' }}>
+                      <div style={{ display: 'flex', gap: '20px', marginBottom: '10px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
                         <div>
-                          <span style={{ color: '#7f93ab', fontSize: '11px', display: 'block' }}>CLASS NAME</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block' }}>CLASS NAME</span>
                           <strong>{tc.className}</strong>
                         </div>
                         <div>
-                          <span style={{ color: '#7f93ab', fontSize: '11px', display: 'block' }}>EXCEPTION TYPE</span>
-                          <strong style={{ color: '#f87171' }}>{tc.exceptionType}</strong>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block' }}>EXCEPTION TYPE</span>
+                          <strong style={{ color: 'var(--danger-text)' }}>{tc.exceptionType}</strong>
                         </div>
                       </div>
 
-                      <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.35)', padding: '12px', borderRadius: '8px', color: '#f87171', marginBottom: '12px', fontWeight: 600 }}>
+                      <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.35)', padding: '12px', borderRadius: '8px', color: 'var(--danger-text)', marginBottom: '12px', fontWeight: 600 }}>
                         {tc.failureReason}
                       </div>
 
                       {tc.screenshotPath && (
                         <div style={{ marginBottom: '16px' }}>
-                          <span style={{ color: '#7f93ab', fontSize: '11px', display: 'block', marginBottom: '6px' }}>FAILURE SCREENSHOT</span>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginBottom: '6px' }}>FAILURE SCREENSHOT</span>
                           <a href={`/uploads/${tc.screenshotPath}`} target="_blank" rel="noreferrer">
                             <img
                               src={`/uploads/${tc.screenshotPath}`}
                               alt="Failure screenshot"
-                              style={{ maxWidth: '360px', borderRadius: '8px', border: '1px solid #1c2b40', cursor: 'pointer' }}
+                              style={{ maxWidth: '360px', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer' }}
                             />
                           </a>
                         </div>
@@ -477,8 +477,8 @@ export function ExecutionDetailPage({ executionId, onClose }) {
 
                       {tc.stackTrace && (
                         <div>
-                          <span style={{ color: '#7f93ab', fontSize: '11px', display: 'block', marginBottom: '6px' }}>STACK TRACE</span>
-                          <pre style={{ margin: 0, padding: '14px', background: '#0f1923', color: '#f7fbff', borderRadius: '8px', overflowX: 'auto', fontSize: '12px', maxHeight: '250px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginBottom: '6px' }}>STACK TRACE</span>
+                          <pre style={{ margin: 0, padding: '14px', background: 'var(--bg-inset)', color: 'var(--text-primary)', borderRadius: '8px', overflowX: 'auto', fontSize: '12px', maxHeight: '250px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
                             {tc.stackTrace}
                           </pre>
                         </div>
@@ -494,22 +494,22 @@ export function ExecutionDetailPage({ executionId, onClose }) {
           {activeTab === 'screenshots' && (
             <Panel title="Failure Screenshots">
               {screenshotTestCases.length === 0 ? (
-                <p style={{ textAlign: 'center', color: '#7f93ab', padding: '30px 0' }}>No screenshots captured during this execution run.</p>
+                <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '30px 0' }}>No screenshots captured during this execution run.</p>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
                   {screenshotTestCases.map(tc => (
-                    <div key={tc.id} style={{ border: '1px solid #1c2b40', borderRadius: '8px', overflow: 'hidden', background: '#0d1727' }}>
+                    <div key={tc.id} style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden', background: 'var(--bg-inset)' }}>
                       <a href={`/uploads/${tc.screenshotPath}`} target="_blank" rel="noreferrer">
                         <img
                           src={`/uploads/${tc.screenshotPath}`}
                           alt={tc.methodName}
-                          style={{ width: '100%', height: '160px', objectFit: 'cover', cursor: 'pointer', borderBottom: '1px solid #1c2b40' }}
+                          style={{ width: '100%', height: '160px', objectFit: 'cover', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
                         />
                       </a>
                       <div style={{ padding: '10px 14px' }}>
-                        <strong style={{ display: 'block', fontSize: '13px', color: '#e6eefc' }}>{tc.methodName}</strong>
-                        <span style={{ fontSize: '11px', color: '#7f93ab' }}>{tc.className}</span>
-                        <p style={{ fontSize: '12px', color: '#f87171', margin: '6px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                        <strong style={{ display: 'block', fontSize: '13px', color: 'var(--text-primary)' }}>{tc.methodName}</strong>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{tc.className}</span>
+                        <p style={{ fontSize: '12px', color: 'var(--danger-text)', margin: '6px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                           {tc.failureReason}
                         </p>
                       </div>
@@ -523,13 +523,13 @@ export function ExecutionDetailPage({ executionId, onClose }) {
           {/* Logs Tab */}
           {activeTab === 'logs' && (
             <Panel title="Console Execution Stream (Stdout/Stderr)">
-              <div style={{ background: '#0f1923', borderRadius: '8px', padding: '16px' }}>
-                <pre style={{ margin: 0, color: '#9db0c2', fontSize: '13px', whiteSpace: 'pre-wrap', maxHeight: '500px', overflowY: 'auto', fontFamily: 'monospace' }}>
+              <div style={{ background: 'var(--bg-inset)', borderRadius: '8px', padding: '16px' }}>
+                <pre style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px', whiteSpace: 'pre-wrap', maxHeight: '500px', overflowY: 'auto', fontFamily: 'monospace' }}>
                   {logs.length === 0 ? (
                     "[INFO] Awaiting console stream initialization..."
                   ) : (
                     logs.map((log, idx) => (
-                      <div key={idx} style={{ color: log.level === 'ERROR' ? '#f87171' : '#9db0c2', marginBottom: '4px' }}>
+                      <div key={idx} style={{ color: log.level === 'ERROR' ? 'var(--danger-text)' : 'var(--text-muted)', marginBottom: '4px' }}>
                         [{log.level}] {log.message}
                       </div>
                     ))
@@ -544,14 +544,14 @@ export function ExecutionDetailPage({ executionId, onClose }) {
             <Panel title="Download / Open Automation Results">
               <div style={{ display: 'grid', gap: '12px' }}>
                 {artifacts.map(art => (
-                  <div key={art.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '14px', background: '#0d1727', border: '1px solid #1c2b40', borderRadius: '8px', alignItems: 'center' }}>
+                  <div key={art.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '14px', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: '8px', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                      <div style={{ width: '40px', height: '40px', background: 'rgba(124,58,237,0.15)', borderRadius: '8px', display: 'grid', placeItems: 'center', color: '#a78bfa' }}>
+                      <div style={{ width: '40px', height: '40px', background: 'rgba(124,58,237,0.15)', borderRadius: '8px', display: 'grid', placeItems: 'center', color: 'var(--accent-text)' }}>
                         <FileText size={20} />
                       </div>
                       <div>
                         <strong style={{ display: 'block', fontSize: '14px' }}>{art.fileName}</strong>
-                        <span style={{ fontSize: '12px', color: '#7f93ab' }}>{art.artifactType} • {(art.sizeBytes / 1024).toFixed(1)} KB</span>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{art.artifactType} • {(art.sizeBytes / 1024).toFixed(1)} KB</span>
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
@@ -579,7 +579,7 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                   <select
                     value={compareTargetId}
                     onChange={(e) => setCompareTargetId(e.target.value)}
-                    style={{ height: '36px', borderRadius: '8px', border: '1px solid #1c2b40', padding: '0 8px', background: '#0d1727', fontSize: '13px', flex: 1 }}
+                    style={{ height: '36px', borderRadius: '8px', border: '1px solid var(--border)', padding: '0 8px', background: 'var(--bg-inset)', fontSize: '13px', flex: 1 }}
                   >
                     <option value="">Select an execution run...</option>
                     {compExecutions.map(e => (
@@ -597,45 +597,45 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                 </div>
 
                 {comparisonResult && (
-                  <div style={{ background: '#101d31', border: '1px solid #1c2b40', borderRadius: '10px', padding: '16px' }}>
+                  <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '16px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', textAlign: 'center', marginBottom: '16px' }}>
-                      <div style={{ background: '#0d1727', padding: '10px', borderRadius: '6px' }}>
-                        <span style={{ fontSize: '10px', color: '#7f93ab', display: 'block' }}>PASS RATE DELTA</span>
-                        <strong style={{ fontSize: '18px', color: comparisonResult.delta.passRateChange >= 0 ? '#2ecc71' : '#f87171' }}>
+                      <div style={{ background: 'var(--bg-inset)', padding: '10px', borderRadius: '6px' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>PASS RATE DELTA</span>
+                        <strong style={{ fontSize: '18px', color: comparisonResult.delta.passRateChange >= 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>
                           {comparisonResult.delta.passRateChange >= 0 ? '+' : ''}{comparisonResult.delta.passRateChange}%
                         </strong>
                       </div>
-                      <div style={{ background: '#0d1727', padding: '10px', borderRadius: '6px', color: '#f87171' }}>
-                        <span style={{ fontSize: '10px', color: '#7f93ab', display: 'block' }}>NEW REGRESSIONS</span>
+                      <div style={{ background: 'var(--bg-inset)', padding: '10px', borderRadius: '6px', color: 'var(--danger-text)' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>NEW REGRESSIONS</span>
                         <strong style={{ fontSize: '18px' }}>{comparisonResult.delta.newFailures}</strong>
                       </div>
-                      <div style={{ background: '#0d1727', padding: '10px', borderRadius: '6px', color: '#2ecc71' }}>
-                        <span style={{ fontSize: '10px', color: '#7f93ab', display: 'block' }}>FIXED FAILURES</span>
+                      <div style={{ background: 'var(--bg-inset)', padding: '10px', borderRadius: '6px', color: 'var(--success-text)' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>FIXED FAILURES</span>
                         <strong style={{ fontSize: '18px' }}>{comparisonResult.delta.fixedFailures}</strong>
                       </div>
-                      <div style={{ background: '#0d1727', padding: '10px', borderRadius: '6px', color: '#e0a64a' }}>
-                        <span style={{ fontSize: '10px', color: '#7f93ab', display: 'block' }}>STILL FAILING</span>
+                      <div style={{ background: 'var(--bg-inset)', padding: '10px', borderRadius: '6px', color: 'var(--warning-text)' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'block' }}>STILL FAILING</span>
                         <strong style={{ fontSize: '18px' }}>{comparisonResult.delta.stillFailing}</strong>
                       </div>
                     </div>
 
                     {comparisonResult.newFailures.length > 0 && (
-                      <div style={{ background: '#0d1727', padding: '12px', borderRadius: '6px', border: '1px solid rgba(248,113,113,0.35)', marginBottom: '12px' }}>
-                        <h4 style={{ color: '#f87171', margin: '0 0 8px 0', fontSize: '13px' }}>New Failures in Current Run</h4>
+                      <div style={{ background: 'var(--bg-inset)', padding: '12px', borderRadius: '6px', border: '1px solid rgba(248,113,113,0.35)', marginBottom: '12px' }}>
+                        <h4 style={{ color: 'var(--danger-text)', margin: '0 0 8px 0', fontSize: '13px' }}>New Failures in Current Run</h4>
                         {comparisonResult.newFailures.map((item, idx) => (
                           <div key={idx} style={{ fontSize: '12px', padding: '4px 0', borderBottom: idx < comparisonResult.newFailures.length - 1 ? '1px solid #fcf2f2' : 0 }}>
-                            <strong>{item.methodName}</strong> <span style={{ color: '#7f93ab' }}>({item.className})</span>
+                            <strong>{item.methodName}</strong> <span style={{ color: 'var(--text-muted)' }}>({item.className})</span>
                           </div>
                         ))}
                       </div>
                     )}
 
                     {comparisonResult.fixedTests.length > 0 && (
-                      <div style={{ background: '#0d1727', padding: '12px', borderRadius: '6px', border: '1px solid rgba(46,204,113,0.25)' }}>
-                        <h4 style={{ color: '#2ecc71', margin: '0 0 8px 0', fontSize: '13px' }}>Fixed Failures (Now Passing)</h4>
+                      <div style={{ background: 'var(--bg-inset)', padding: '12px', borderRadius: '6px', border: '1px solid rgba(46,204,113,0.25)' }}>
+                        <h4 style={{ color: 'var(--success-text)', margin: '0 0 8px 0', fontSize: '13px' }}>Fixed Failures (Now Passing)</h4>
                         {comparisonResult.fixedTests.map((item, idx) => (
                           <div key={idx} style={{ fontSize: '12px', padding: '4px 0', borderBottom: idx < comparisonResult.fixedTests.length - 1 ? '1px solid #f4fbf6' : 0 }}>
-                            <strong>{item.methodName}</strong> <span style={{ color: '#7f93ab' }}>({item.className})</span>
+                            <strong>{item.methodName}</strong> <span style={{ color: 'var(--text-muted)' }}>({item.className})</span>
                           </div>
                         ))}
                       </div>
@@ -650,24 +650,24 @@ export function ExecutionDetailPage({ executionId, onClose }) {
           {activeTab === 'sysinfo' && (
             <Panel title="Execution Environment Specs">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
-                <div style={{ background: '#0d1727', border: '1px solid #1c2b40', borderRadius: '8px', padding: '16px' }}>
-                  <span style={{ fontSize: '11px', color: '#7f93ab', textTransform: 'uppercase', display: 'block' }}>Host Server</span>
-                  <strong style={{ fontSize: '18px', display: 'block', marginTop: '4px', color: '#e6eefc' }}>{summary?.machineName ?? 'N/A'}</strong>
+                <div style={{ background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Host Server</span>
+                  <strong style={{ fontSize: '18px', display: 'block', marginTop: '4px', color: 'var(--text-primary)' }}>{summary?.machineName ?? 'N/A'}</strong>
                 </div>
 
-                <div style={{ background: '#0d1727', border: '1px solid #1c2b40', borderRadius: '8px', padding: '16px' }}>
-                  <span style={{ fontSize: '11px', color: '#7f93ab', textTransform: 'uppercase', display: 'block' }}>Operating System</span>
-                  <strong style={{ fontSize: '18px', display: 'block', marginTop: '4px', color: '#e6eefc' }}>{summary?.osName ?? 'N/A'}</strong>
+                <div style={{ background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Operating System</span>
+                  <strong style={{ fontSize: '18px', display: 'block', marginTop: '4px', color: 'var(--text-primary)' }}>{summary?.osName ?? 'N/A'}</strong>
                 </div>
 
-                <div style={{ background: '#0d1727', border: '1px solid #1c2b40', borderRadius: '8px', padding: '16px' }}>
-                  <span style={{ fontSize: '11px', color: '#7f93ab', textTransform: 'uppercase', display: 'block' }}>Java Runtime</span>
-                  <strong style={{ fontSize: '18px', display: 'block', marginTop: '4px', color: '#e6eefc' }}>Java {summary?.javaVersion ?? 'N/A'}</strong>
+                <div style={{ background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Java Runtime</span>
+                  <strong style={{ fontSize: '18px', display: 'block', marginTop: '4px', color: 'var(--text-primary)' }}>Java {summary?.javaVersion ?? 'N/A'}</strong>
                 </div>
 
-                <div style={{ background: '#0d1727', border: '1px solid #1c2b40', borderRadius: '8px', padding: '16px' }}>
-                  <span style={{ fontSize: '11px', color: '#7f93ab', textTransform: 'uppercase', display: 'block' }}>Web Driver Browser</span>
-                  <strong style={{ fontSize: '18px', display: 'block', marginTop: '4px', color: '#2ecc71' }}>{summary?.browserName ?? 'N/A'}</strong>
+                <div style={{ background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Web Driver Browser</span>
+                  <strong style={{ fontSize: '18px', display: 'block', marginTop: '4px', color: 'var(--success-text)' }}>{summary?.browserName ?? 'N/A'}</strong>
                 </div>
               </div>
             </Panel>

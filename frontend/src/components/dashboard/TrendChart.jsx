@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 
 // Portal-wide status colors (same as Module Analytics / Execution Mix).
 const SERIES = [
-  { key: 'pass', label: 'Pass', color: '#2ecc71' },
-  { key: 'fail', label: 'Fail', color: '#f87171' },
-  { key: 'skip', label: 'Skip', color: '#e0a64a' },
+  { key: 'pass', label: 'Pass', color: 'var(--success-text)' },
+  { key: 'fail', label: 'Fail', color: 'var(--danger-text)' },
+  { key: 'skip', label: 'Skip', color: 'var(--warning-text)' },
 ];
 
 const toRate = (part, total) => (total > 0 ? Math.round((part / total) * 1000) / 10 : 0);
@@ -30,7 +30,7 @@ export function TrendChart({ data = [], loading = false }) {
 
   if (loading) {
     return (
-      <div style={{ height: '160px', display: 'grid', placeItems: 'center', color: '#94a3b8', fontSize: '13px' }}>
+      <div style={{ height: '160px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
         Loading trend analytics...
       </div>
     );
@@ -38,7 +38,7 @@ export function TrendChart({ data = [], loading = false }) {
 
   if (points.length === 0) {
     return (
-      <div style={{ height: '160px', display: 'grid', placeItems: 'center', color: '#64748b', fontSize: '13px' }}>
+      <div style={{ height: '160px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
         No trend data available for this range.
       </div>
     );
@@ -84,7 +84,7 @@ export function TrendChart({ data = [], loading = false }) {
               onChange={() => toggle(s.key)}
               style={{ accentColor: s.color, width: 13, height: 13, cursor: 'pointer', margin: 0 }}
             />
-            <span style={{ color: '#94a3b8' }}>{s.label}</span>
+            <span style={{ color: 'var(--text-muted)' }}>{s.label}</span>
           </label>
         ))}
       </div>
@@ -93,8 +93,8 @@ export function TrendChart({ data = [], loading = false }) {
           <defs>
             {SERIES.map((s) => (
               <linearGradient key={s.key} id={`trendGrad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={s.color} stopOpacity="0.25" />
-                <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+                <stop offset="0%" style={{ stopColor: s.color }} stopOpacity="0.25" />
+                <stop offset="100%" style={{ stopColor: s.color }} stopOpacity="0" />
               </linearGradient>
             ))}
           </defs>
@@ -107,7 +107,7 @@ export function TrendChart({ data = [], loading = false }) {
                 y1={getY(level)}
                 x2={width - padding}
                 y2={getY(level)}
-                stroke="#192038"
+                style={{ stroke: 'var(--border-soft)' }}
                 strokeWidth="1"
                 strokeDasharray="4 4"
               />
@@ -116,7 +116,7 @@ export function TrendChart({ data = [], loading = false }) {
                 y={getY(level) + 3}
                 textAnchor="end"
                 fontSize="9"
-                fill="#64748b"
+                style={{ fill: 'var(--text-muted)' }}
                 fontWeight="600"
               >
                 {level}%
@@ -135,7 +135,7 @@ export function TrendChart({ data = [], loading = false }) {
               key={s.key}
               d={linePath(s.key)}
               fill="none"
-              stroke={s.color}
+              style={{ stroke: s.color }}
               strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -147,7 +147,7 @@ export function TrendChart({ data = [], loading = false }) {
             const x = getX(i);
             return shownSeries.map((s) => (
               <g key={`${s.key}-${i}`} style={{ cursor: 'pointer' }}>
-                <circle cx={x} cy={getY(p[s.key])} r="4" fill="#0d1727" stroke={s.color} strokeWidth="2" />
+                <circle cx={x} cy={getY(p[s.key])} r="4" style={{ fill: 'var(--bg-surface)', stroke: s.color }} strokeWidth="2" />
                 <title>{`${p.label.includes(':') ? `${p.date} ${p.label}` : p.date}\nPass: ${p.pass}%  Fail: ${p.fail}%  Skip: ${p.skip}%\nRuns: ${p.execCount}`}</title>
               </g>
             ));
@@ -164,7 +164,7 @@ export function TrendChart({ data = [], loading = false }) {
                 y={height - 6}
                 textAnchor="middle"
                 fontSize="9"
-                fill="#64748b"
+                style={{ fill: 'var(--text-muted)' }}
                 fontWeight="600"
               >
                 {p.label}

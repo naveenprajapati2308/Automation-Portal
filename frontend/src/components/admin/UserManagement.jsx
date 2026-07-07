@@ -101,7 +101,7 @@ export function UserManagement({ setNotice }) {
     {
       key: 'index',
       label: '#',
-      render: (val) => <span style={{ color: '#8a9bb0' }}>{val}</span>
+      render: (val) => <span style={{ color: 'var(--text-muted)' }}>{val}</span>
     },
     {
       key: 'username',

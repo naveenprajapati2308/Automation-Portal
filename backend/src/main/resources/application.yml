@@ -54,16 +54,20 @@ portal:
     suites:
       all:
         name: "Master Automation Suite"
-        xml: "MPHIDB.xml"
-        report: "reports/MasterReport2.html"
+        xml: "MPHIDB-v2.xml"
+        report: "reports/Master_Automation_Suite.html"
       land:
         name: "Land Management Suite"
-        xml: "land.xml"
-        report: "reports/MasterReport2.html"
+        xml: "land-v2.xml"
+        report: "reports/Land_Management_Suite.html"
       architect:
         name: "Architect Empanelment Suite"
-        xml: "Emp_Arch.xml"
-        report: "reports/MasterReport.html"
+        xml: "Emp_Arch-v2.xml"
+        report: "reports/Architect_Empanelment_Suite.html"
+      arch_workflow:
+        name: "Architect Workflow Suite"
+        xml: "Arch_workflow-v2.xml"
+        report: "reports/Architect_workflow_Suite.html"
     result-files:
       # Maven Surefire's TestNG provider writes TestNG's native reports under
       # target/surefire-reports (not test-output) once -Dusedefaultlisteners=true is set.

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  LayoutDashboard, 
-  LogOut, 
-  Search, 
-  Shield, 
-  ChevronLeft, 
+import {
+  LayoutDashboard,
+  LogOut,
+  Search,
+  Shield,
+  ChevronLeft,
   ChevronRight,
   Bell,
   Sun,
@@ -18,19 +18,19 @@ import appLogo from '../../assets/MPHIDB_Logo2.png';
 import { USER_NAV } from '../../constants.js';
 
 // ── Layout: Sidebar ───────────────────────────────────────────────────────────
-export function Sidebar({ 
-  active, 
-  setActive, 
-  superAdmin, 
-  logout, 
+export function Sidebar({
+  active,
+  setActive,
+  superAdmin,
+  logout,
   onOpenAdmin,
   isCollapsed,
   onToggle
 }) {
   return (
-    <aside 
+    <aside
       className="sidebar"
-      style={{ 
+      style={{
         width: isCollapsed ? '70px' : '280px',
         minWidth: isCollapsed ? '70px' : '280px',
         padding: isCollapsed ? '12px 8px' : '22px',
@@ -47,10 +47,10 @@ export function Sidebar({
       </div>
 
       <nav style={{ paddingRight: 0 }}>
-        <div 
-          className="nav-section-label" 
-          style={{ 
-            textAlign: isCollapsed ? 'center' : 'left', 
+        <div
+          className="nav-section-label"
+          style={{
+            textAlign: isCollapsed ? 'center' : 'left',
             fontSize: isCollapsed ? '9px' : '10px',
             padding: isCollapsed ? '10px 0 4px' : '10px 12px 4px'
           }}
@@ -79,7 +79,7 @@ export function Sidebar({
       </nav>
 
       {/* Collapse Toggle Button */}
-      <button 
+      <button
         onClick={onToggle}
         className="secondary-action"
         style={{
@@ -90,9 +90,9 @@ export function Sidebar({
           alignItems: 'center',
           justifyContent: 'center',
           margin: '8px 0',
-          border: '1px solid #253040',
-          background: '#1a2635',
-          color: '#8a9bb0'
+          border: '1px solid var(--sidebar-edge)',
+          background: 'var(--sidebar-item-hover-bg)',
+          color: 'var(--sidebar-muted)'
         }}
         title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
       >
@@ -100,9 +100,9 @@ export function Sidebar({
       </button>
 
       <div className="sidebar-footer" style={{ paddingGap: isCollapsed ? '8px' : '14px' }}>
-        <button 
-          onClick={logout} 
-          title="Logout" 
+        <button
+          onClick={logout}
+          title="Logout"
           className="logout-btn"
           style={{ justifyContent: isCollapsed ? 'center' : 'flex-start', padding: isCollapsed ? '0' : '0 12px' }}
         >
@@ -124,9 +124,9 @@ export function Sidebar({
 
 export function PortalLayout({ sidebar, topbar, children, shellClassName = '', mainClassName = '', isCollapsed }) {
   return (
-    <div 
+    <div
       className={`shell portal-layout ${shellClassName}`.trim()}
-      style={{ 
+      style={{
         gridTemplateColumns: isCollapsed ? '70px 1fr' : '280px 1fr',
         transition: 'grid-template-columns 0.2s ease-in-out'
       }}
@@ -142,11 +142,27 @@ export function PortalLayout({ sidebar, topbar, children, shellClassName = '', m
   );
 }
 
+// ── Breadcrumb: "{rootLabel} > {pageTitle}", root is a real nav link ──────────
+export function Breadcrumb({ rootLabel, pageTitle, onNavigateRoot }) {
+  if (!pageTitle || pageTitle === rootLabel) return null;
+  return (
+    // A <nav> element would inherit the sidebar's global `nav { flex-direction: column }`
+    // rule, so this uses a div with the equivalent ARIA role instead.
+    <div className="tb-breadcrumb" role="navigation" aria-label="Breadcrumb">
+      <button type="button" className="tb-breadcrumb-link" onClick={onNavigateRoot}>
+        {rootLabel}
+      </button>
+      <ChevronRight size={12} className="tb-breadcrumb-sep" />
+      <span className="tb-breadcrumb-current">{pageTitle}</span>
+    </div>
+  );
+}
+
 // ── Layout: Topbar ────────────────────────────────────────────────────────────
-export function Topbar({ pageTitle, superAdmin, onOpenAdmin }) {
+export function Topbar({ pageTitle, superAdmin, onOpenAdmin, onNavigateHome }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [theme, setTheme] = useState(() => localStorage.getItem('portal-theme') || 'dark');
+  const [theme, setTheme] = useState(() => localStorage.getItem('portal-theme') || 'light');
   const searchRef = React.useRef(null);
 
   const toggleTheme = () => {
@@ -154,6 +170,7 @@ export function Topbar({ pageTitle, superAdmin, onOpenAdmin }) {
     setTheme(next);
     localStorage.setItem('portal-theme', next);
     document.documentElement.dataset.theme = next;
+    document.documentElement.setAttribute('data-bs-theme', next);
   };
 
   // Ctrl+K focuses the global search (the shortcut shown on the input)
@@ -177,11 +194,12 @@ export function Topbar({ pageTitle, superAdmin, onOpenAdmin }) {
   const unreadCount = notifications.filter(n => n.unread).length;
 
   return (
-    <header className="topbar" style={{ background: '#070d19', borderBottom: '1px solid #14253f', paddingBottom: '16px', marginBottom: '16px' }}>
+    <header className="topbar" style={{ background: 'var(--bg-page)', borderBottom: '1px solid var(--border)', paddingBottom: '16px', marginBottom: '16px' }}>
       <div>
-        <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fff', fontSize: '22px', fontWeight: 800 }}>
+        <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', fontSize: '22px', fontWeight: 800 }}>
           {pageTitle}
         </h1>
+        <Breadcrumb rootLabel="Dashboard" pageTitle={pageTitle} onNavigateRoot={onNavigateHome} />
       </div>
 
       <div className="topbar-right">
@@ -215,34 +233,34 @@ export function Topbar({ pageTitle, superAdmin, onOpenAdmin }) {
               <span className="tb-count-badge">{unreadCount}</span>
             )}
           </button>
-          
+
           {showNotifications && (
-            <div 
-              style={{ 
-                position: 'absolute', 
-                top: '46px', 
-                right: 0, 
-                width: '320px', 
-                background: '#0d1527', 
-                border: '1px solid #14253f', 
-                borderRadius: '10px', 
-                boxShadow: '0 10px 30px rgba(0,0,0,0.5)', 
+            <div
+              style={{
+                position: 'absolute',
+                top: '46px',
+                right: 0,
+                width: '320px',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '10px',
+                boxShadow: '0 10px 30px var(--shadow-a50)',
                 zIndex: 200,
                 padding: '12px'
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #14253f', paddingBottom: '8px', marginBottom: '8px' }}>
-                <strong style={{ fontSize: '13px', color: '#fff' }}>Notifications</strong>
-                <span style={{ fontSize: '11px', color: '#60b3e0', cursor: 'pointer', fontWeight: 'bold' }}>Mark all read</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: '8px', marginBottom: '8px' }}>
+                <strong style={{ fontSize: '13px', color: 'var(--text-primary)' }}>Notifications</strong>
+                <span style={{ fontSize: '11px', color: 'var(--cyan-text)', cursor: 'pointer', fontWeight: 'bold' }}>Mark all read</span>
               </div>
               <div style={{ display: 'grid', gap: '8px' }}>
                 {notifications.map(n => (
                   <div key={n.id} style={{ background: n.unread ? 'rgba(96, 179, 224, 0.04)' : 'transparent', padding: '8px', borderRadius: '6px', fontSize: '12px', border: n.unread ? '1px solid rgba(96, 179, 224, 0.08)' : '1px solid transparent' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: '#fff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text-primary)' }}>
                       <span>{n.title}</span>
-                      <span style={{ fontSize: '10px', color: '#7a9cb8', fontWeight: 400 }}>{n.time}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 400 }}>{n.time}</span>
                     </div>
-                    <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#7a9cb8' }}>{n.message}</p>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>{n.message}</p>
                   </div>
                 ))}
               </div>

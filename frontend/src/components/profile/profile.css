@@ -8,8 +8,8 @@
 }
 
 .pf-card {
-  background: #0d1727;
-  border: 1px solid #1c2b40;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 20px;
   margin-top: 15px;
@@ -22,11 +22,11 @@
   margin: 0 0 16px;
   font-size: 15px;
   font-weight: 700;
-  color: #dbe7f3;
+  color: var(--text-primary);
 }
 
 .pf-card-title svg {
-  color: #7c8ffa;
+  color: var(--indigo-text);
 }
 
 /* ── Hero ──────────────────────────────────────────────────────────────────── */
@@ -35,10 +35,9 @@
   display: flex;
   align-items: center;
   gap: 26px;
-  background:
-    radial-gradient(500px 180px at 0% 0%, rgba(124, 143, 250, 0.10), transparent 60%),
-    #0d1727;
-  border: 1px solid #1c2b40;
+  background: radial-gradient(500px 180px at 0% 0%, rgba(124, 143, 250, 0.10), transparent 60%),
+    var(--bg-inset);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 26px 28px;
   flex-wrap: wrap;
@@ -54,7 +53,7 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  color: #e8f1fb;
+  color: var(--text-primary);
   background: linear-gradient(135deg, #3f6df0, #27b0d6);
   padding: 3px;
 }
@@ -64,7 +63,7 @@
   height: 100%;
   border-radius: 50%;
   overflow: hidden;
-  background: #12203a;
+  background: var(--bg-surface);
   display: grid;
   place-items: center;
 }
@@ -84,7 +83,7 @@
   gap: 4px;
   font-size: 11px;
   font-weight: 600;
-  color: #eaf3ff;
+  color: var(--text-primary);
   background: rgba(7, 12, 22, 0.65);
   opacity: 0;
   transition: opacity 0.15s;
@@ -107,11 +106,11 @@
   margin: 0;
   font-size: 26px;
   font-weight: 800;
-  color: #eef5fc;
+  color: var(--text-primary);
 }
 
 .pf-hero-name svg {
-  color: #38a7f5;
+  color: var(--info-text);
 }
 
 .pf-chips {
@@ -122,8 +121,8 @@
 }
 
 .pf-chip {
-  border: 1px solid #223650;
-  background: #101d31;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
   border-radius: 10px;
   padding: 9px 14px;
   min-width: 110px;
@@ -131,17 +130,17 @@
 
 .pf-chip strong {
   display: block;
-  color: #dfeaf5;
+  color: var(--text-primary);
   font-size: 13.5px;
 }
 
 .pf-chip span {
-  color: #7d90a6;
+  color: var(--text-muted);
   font-size: 11.5px;
 }
 
 .pf-chip.pf-chip-role strong {
-  color: #4aa8ff;
+  color: var(--info-text);
 }
 
 .pf-hero-actions {
@@ -159,7 +158,7 @@
   gap: 7px;
   border: 1px solid rgba(46, 204, 113, 0.35);
   background: rgba(46, 204, 113, 0.08);
-  color: #2ecc71;
+  color: var(--success-text);
   font-size: 12.5px;
   font-weight: 700;
   border-radius: 999px;
@@ -176,7 +175,7 @@
 .pf-status-pill.pf-status-off {
   border-color: rgba(224, 82, 82, 0.35);
   background: rgba(224, 82, 82, 0.08);
-  color: #e05252;
+  color: var(--danger-text);
 }
 
 .pf-status-pill.pf-status-off .pf-dot {
@@ -210,7 +209,7 @@
   justify-content: space-between;
   gap: 14px;
   padding: 11px 2px;
-  border-bottom: 1px solid #16243a;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .pf-info-row:last-child {
@@ -221,7 +220,7 @@
   display: inline-flex;
   align-items: center;
   gap: 9px;
-  color: #8fa2b8;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
@@ -230,7 +229,7 @@
 }
 
 .pf-info-value {
-  color: #e2ecf6;
+  color: var(--text-primary);
   font-size: 13.5px;
   font-weight: 600;
   text-align: right;
@@ -248,13 +247,13 @@
 .pf-badge-role {
   background: rgba(224, 166, 74, 0.12);
   border: 1px solid rgba(224, 166, 74, 0.4);
-  color: #e0a64a;
+  color: var(--warning-text);
 }
 
 .pf-badge-status {
   background: rgba(46, 204, 113, 0.1);
   border: 1px solid rgba(46, 204, 113, 0.4);
-  color: #2ecc71;
+  color: var(--success-text);
 }
 
 /* Quick actions */
@@ -288,25 +287,25 @@
 .pf-action-violet {
   border-color: rgba(139, 92, 246, 0.35);
   background: rgba(139, 92, 246, 0.07);
-  color: #a78bfa;
+  color: var(--accent-text);
 }
 
 .pf-action-blue {
   border-color: rgba(59, 130, 246, 0.35);
   background: rgba(59, 130, 246, 0.07);
-  color: #60a5fa;
+  color: var(--info-text);
 }
 
 .pf-action-teal {
   border-color: rgba(45, 212, 191, 0.35);
   background: rgba(45, 212, 191, 0.06);
-  color: #2dd4bf;
+  color: var(--teal-text);
 }
 
 .pf-action-red {
   border-color: rgba(239, 68, 68, 0.35);
   background: rgba(239, 68, 68, 0.06);
-  color: #f87171;
+  color: var(--danger-text);
 }
 
 /* Activity summary stat tiles */
@@ -317,8 +316,8 @@
 }
 
 .pf-stat-tile {
-  border: 1px solid #223650;
-  background: #101d31;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 14px;
 }
@@ -334,33 +333,33 @@
 
 .pf-stat-blue {
   background: rgba(59, 130, 246, 0.12);
-  color: #60a5fa;
+  color: var(--info-text);
 }
 
 .pf-stat-green {
   background: rgba(46, 204, 113, 0.12);
-  color: #2ecc71;
+  color: var(--success-text);
 }
 
 .pf-stat-amber {
   background: rgba(224, 166, 74, 0.12);
-  color: #e0a64a;
+  color: var(--warning-text);
 }
 
 .pf-stat-purple {
   background: rgba(139, 92, 246, 0.12);
-  color: #a78bfa;
+  color: var(--accent-text);
 }
 
 .pf-stat-value {
   font-size: 22px;
   font-weight: 800;
-  color: #eef5fc;
+  color: var(--text-primary);
   line-height: 1.1;
 }
 
 .pf-stat-label {
-  color: #8fa2b8;
+  color: var(--text-muted);
   font-size: 12px;
   margin-top: 3px;
 }
@@ -376,9 +375,9 @@
   padding: 8px 16px;
   font-size: 12.5px;
   font-weight: 700;
-  color: #f2f4ff;
+  color: var(--text-primary);
   cursor: pointer;
-  background: linear-gradient(90deg, #4f46e5, #7c3aed);
+  background: linear-gradient(90deg, #4f46e5, var(--accent));
   transition: filter 0.15s;
 }
 
@@ -398,9 +397,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #2a4364;
-  background: #12233b;
-  color: #9fc1e8;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface-2);
+  color: var(--text-secondary);
   border-radius: 9px;
   padding: 8px 16px;
   font-size: 12.5px;
@@ -409,7 +408,7 @@
 }
 
 .pf-log-toggle:hover {
-  background: #18304f;
+  background: var(--bg-hover);
 }
 
 .pf-log-body {

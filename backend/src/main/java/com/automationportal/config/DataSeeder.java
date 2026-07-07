@@ -62,8 +62,9 @@ public class DataSeeder implements CommandLineRunner {
         seedEnvironment("QA", "QA");
         seedEnvironment("UAT", "UAT");
 
-        seedModule("LAND",     "Land Management",       "land.xml",     "reports/MasterReport2.html");
-        seedModule("EMP_ARCH", "Architect Empanelment", "Emp_Arch.xml", "reports/MasterReport.html");
+        seedModule("LAND",          "Land Management",       "land-v2.xml",          "reports/Land_Management_Suite.html");
+        seedModule("EMP_ARCH",      "Architect Empanelment", "Emp_Arch-v2.xml",      "reports/Architect_Empanelment_Suite.html");
+        seedModule("ARCH_WORKFLOW", "Architect Workflow",    "Arch_workflow-v2.xml", "reports/Architect_workflow_Suite.html");
     }
 
     private void seedEnvironment(String code, String name) {

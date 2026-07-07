@@ -29,10 +29,18 @@ export function ComparePage({ executions = [] }) {
 
       {/* Hero */}
       <div className="cp-hero">
+        {/* Two variants stacked in place; CSS opacity swaps them by theme so
+            the toggle updates instantly without re-mounting. */}
+        <img
+          src="/execution-art-brigth-art2.png"
+          alt=""
+          className="cp-hero-art cp-hero-art-bright"
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
         <img
           src="/execution-art2.png"
           alt=""
-          className="cp-hero-art"
+          className="cp-hero-art cp-hero-art-dark"
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
         <div className="cp-hero-eyebrow">Comparison Center</div>
@@ -110,7 +118,7 @@ export function ComparePage({ executions = [] }) {
           <div className="cp-kpi-grid">
             <div className="cp-kpi">
               <span>Pass Rate Change</span>
-              <strong style={{ color: result.delta.passRateChange >= 0 ? '#2ecc71' : '#f87171' }}>
+              <strong style={{ color: result.delta.passRateChange >= 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>
                 {result.delta.passRateChange >= 0 ? '+' : ''}{result.delta.passRateChange}%
               </strong>
               <em>Base: {result.base.passRate}% → Target: {result.target.passRate}%</em>
@@ -118,19 +126,19 @@ export function ComparePage({ executions = [] }) {
 
             <div className="cp-kpi">
               <span>New Failures</span>
-              <strong style={{ color: '#f87171' }}>{result.delta.newFailures}</strong>
+              <strong style={{ color: 'var(--danger-text)' }}>{result.delta.newFailures}</strong>
               <em>Tests that broke</em>
             </div>
 
             <div className="cp-kpi">
               <span>Fixed Failures</span>
-              <strong style={{ color: '#2ecc71' }}>{result.delta.fixedFailures}</strong>
+              <strong style={{ color: 'var(--success-text)' }}>{result.delta.fixedFailures}</strong>
               <em>Tests now passing</em>
             </div>
 
             <div className="cp-kpi">
               <span>Still Failing</span>
-              <strong style={{ color: '#e0a64a' }}>{result.delta.stillFailing}</strong>
+              <strong style={{ color: 'var(--warning-text)' }}>{result.delta.stillFailing}</strong>
               <em>Persistent failures</em>
             </div>
           </div>
@@ -143,7 +151,7 @@ export function ComparePage({ executions = [] }) {
               </h3>
               {result.newFailures.length === 0 ? (
                 <p className="cp-empty-note">
-                  <CheckCircle2 size={24} style={{ display: 'block', margin: '0 auto 8px', color: '#2ecc71' }} />
+                  <CheckCircle2 size={24} style={{ display: 'block', margin: '0 auto 8px', color: 'var(--success-text)' }} />
                   No new failures! Clean run transition.
                 </p>
               ) : (
@@ -195,7 +203,7 @@ export function ComparePage({ executions = [] }) {
                 <tbody>
                   {result.statusChangedTests.length === 0 ? (
                     <tr>
-                      <td colSpan={3} style={{ textAlign: 'center', color: '#8fa2b8', padding: '20px 0' }}>
+                      <td colSpan={3} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>
                         All test statuses are identical between these executions.
                       </td>
                     </tr>

@@ -131,7 +131,7 @@ function ErrorPopupContent({ error, onAction, onClose }) {
                   right: '8px',
                   background: 'rgba(255, 255, 255, 0.1)',
                   border: '1px solid rgba(255, 255, 255, 0.15)',
-                  color: '#cbd5e1',
+                  color: 'var(--text-secondary)',
                   borderRadius: '4px',
                   padding: '2px 6px',
                   fontSize: '10px',
@@ -198,13 +198,13 @@ export function App() {
   };
 
   // Apply the saved theme before anything renders (toggle lives in Topbar).
-  // The admin workspace always runs in the default (dark) theme — it has its
-  // own look and is not light-themed; the user's choice is restored on exit.
+  // Bright is the default; dark is opt-in via the toggle. data-bs-theme keeps
+  // Bootstrap components in sync with the portal theme.
   useEffect(() => {
-    document.documentElement.dataset.theme = workspace === 'admin'
-      ? 'dark'
-      : (localStorage.getItem('portal-theme') || 'dark');
-  }, [workspace]);
+    const theme = localStorage.getItem('portal-theme') || 'light';
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.setAttribute('data-bs-theme', theme);
+  }, []);
 
   // Set favicon once
   useEffect(() => {
@@ -394,6 +394,7 @@ export function App() {
             pageTitle={pageTitle}
             superAdmin={superAdmin}
             onOpenAdmin={openAdminWorkspace}
+            onNavigateHome={() => setActive('dashboard')}
           />
         )}
       >

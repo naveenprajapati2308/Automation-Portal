@@ -22,6 +22,14 @@ import {
 } from 'lucide-react';
 import './screenshots.css';
 
+// Deterministic chip color per module code (matches the bright-theme mock)
+const CHIP_VARIANTS = ['violet', 'blue', 'green', 'orange', 'cyan'];
+function chipClass(code) {
+  if (!code) return 'sg-module-chip sg-chip-gray';
+  const sum = [...code].reduce((a, ch) => a + ch.charCodeAt(0), 0);
+  return 'sg-module-chip sg-chip-' + CHIP_VARIANTS[sum % CHIP_VARIANTS.length];
+}
+
 function fmtTime(raw) {
   if (!raw) return '—';
   const d = new Date(raw);
@@ -138,7 +146,7 @@ export function ScreenshotsGallery({ onSelectExecution }) {
     {
       key: 'moduleCode',
       label: 'Module',
-      render: (val) => <span className="sg-module-chip">{val}</span>
+      render: (val) => <span className={chipClass(val)}>{val}</span>
     },
     {
       key: 'testName',
@@ -277,7 +285,7 @@ export function ScreenshotsGallery({ onSelectExecution }) {
                         <Clock size={13} /> {fmtTime(shot.createdAt)}
                       </span>
                     </div>
-                    <span className="sg-module-chip">{shot.moduleCode || 'All Modules'}</span>
+                    <span className={chipClass(shot.moduleCode)}>{shot.moduleCode || 'All Modules'}</span>
                     {shot.failureReason && (
                       <p className="sg-fail-reason" title={shot.failureReason}>{shot.failureReason}</p>
                     )}
@@ -358,7 +366,7 @@ export function ScreenshotsGallery({ onSelectExecution }) {
             </button>
             <div className="sg-lightbox-foot">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6 }}>
-                <strong style={{ fontSize: '15px', color: '#eef5fc' }}>{activeImage.methodName}</strong>
+                <strong style={{ fontSize: '15px', color: 'var(--text-primary)' }}>{activeImage.methodName}</strong>
                 <button
                   className="sg-code-link"
                   style={{ fontSize: '12.5px' }}

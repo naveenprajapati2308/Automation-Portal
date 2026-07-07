@@ -7,8 +7,8 @@
 }
 
 .cp-card {
-  background: #0d1727;
-  border: 1px solid #1c2b40;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 24px;
   margin-top: -5px;
@@ -24,17 +24,16 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background:
-    radial-gradient(600px 260px at 8% 20%, rgba(124, 58, 237, 0.10), transparent 60%),
-    #0d1727;
-  border: 1px solid #1c2b40;
+  background: radial-gradient(600px 260px at 8% 20%, rgba(124, 58, 237, 0.10), transparent 60%),
+    var(--bg-inset);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 30px 34px;
   margin-top: 15px;
 }
 
 .cp-hero-eyebrow {
-  color: #a78bfa;
+  color: var(--accent-text);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.18em;
@@ -46,13 +45,13 @@
   margin: 0 0 12px;
   font-size: 28px;
   font-weight: 800;
-  color: #eef5fc;
+  color: var(--text-primary);
 }
 
 .cp-hero-sub {
   margin: 0;
   max-width: 420px;
-  color: #9db0c5;
+  color: var(--text-muted);
   font-size: 14.5px;
   line-height: 1.55;
 }
@@ -68,11 +67,31 @@
   object-fit: contain;
   pointer-events: none;
   user-select: none;
-  /* Blend into the card: near-black artwork background disappears with
-     `screen`, and the radial mask fades the hard edges away. */
-  mix-blend-mode: screen;
+  /* The radial mask fades the hard rectangular edges away so the artwork
+     reads as part of the card, not a pasted image. */
   -webkit-mask-image: radial-gradient(75% 75% at 50% 50%, #000 55%, transparent 82%);
   mask-image: radial-gradient(75% 75% at 50% 50%, #000 55%, transparent 82%);
+  transition: opacity 0.2s;
+}
+
+/* Bright and dark variants share the position above and are stacked exactly
+   on top of one another; only opacity decides which one is visible, so the
+   theme toggle swaps them instantly without re-mounting the component. */
+.cp-hero-art-bright {
+  /* White-background artwork: `multiply` drops the white into the light card. */
+  mix-blend-mode: multiply;
+  opacity: 1;
+}
+.cp-hero-art-dark {
+  /* Near-black-background artwork: `screen` drops the black into the dark card. */
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+:root[data-theme="dark"] .cp-hero-art-bright {
+  opacity: 0;
+}
+:root[data-theme="dark"] .cp-hero-art-dark {
+  opacity: 1;
 }
 
 @media (max-width: 1000px) {
@@ -86,12 +105,12 @@
   margin: 0 0 6px;
   font-size: 19px;
   font-weight: 800;
-  color: #eef5fc;
+  color: var(--text-primary);
 }
 
 .cp-select-sub {
   margin: 0 0 22px;
-  color: #9db0c5;
+  color: var(--text-muted);
   font-size: 13.5px;
 }
 
@@ -111,7 +130,7 @@
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #cfdae6;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
@@ -134,20 +153,20 @@
 
 .cp-chip-violet {
   background: rgba(139, 92, 246, 0.16);
-  color: #a78bfa;
+  color: var(--accent-text);
 }
 
 .cp-chip-cyan {
   background: rgba(34, 211, 238, 0.14);
-  color: #22d3ee;
+  color: var(--cyan-text);
 }
 
 .cp-select {
   width: 100%;
   height: 54px;
   border-radius: 11px;
-  background: #101d31;
-  color: #e2ecf6;
+  background: var(--bg-surface);
+  color: var(--text-primary);
   padding: 0 12px 0 56px;
   font-size: 13.5px;
   outline: none;
@@ -155,8 +174,8 @@
 }
 
 .cp-select option {
-  background: #101d31;
-  color: #e2ecf6;
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 .cp-select-violet {
@@ -184,8 +203,8 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  color: #a78bfa;
-  background: #0b1422;
+  color: var(--accent-text);
+  background: var(--bg-inset);
   border: 1px solid rgba(139, 92, 246, 0.45);
   box-shadow: 0 0 18px rgba(124, 58, 237, 0.25);
   margin-top: 22px;
@@ -202,9 +221,9 @@
   border-radius: 11px;
   font-size: 14px;
   font-weight: 700;
-  color: #f2f6ff;
+  color: var(--text-primary);
   cursor: pointer;
-  background: linear-gradient(90deg, #7c3aed, #2563eb);
+  background: linear-gradient(90deg, var(--accent), #2563eb);
   transition: filter 0.15s;
   white-space: nowrap;
 }
@@ -224,28 +243,28 @@
   align-items: center;
   gap: 12px;
   margin-top: 22px;
-  background: #0b1422;
-  border: 1px solid #1c2b40;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
   border-radius: 11px;
   padding: 14px 16px;
-  color: #9db0c5;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
 .cp-tip svg {
-  color: #38bdf8;
+  color: var(--cyan-text);
   flex-shrink: 0;
 }
 
 .cp-tip strong {
-  color: #dbe7f3;
+  color: var(--text-primary);
 }
 
 /* ── Comparison results ────────────────────────────────────────────────────── */
 .cp-error {
   background: rgba(239, 68, 68, 0.08);
   border: 1px solid rgba(239, 68, 68, 0.4);
-  color: #f87171;
+  color: var(--danger-text);
   padding: 12px 16px;
   border-radius: 10px;
   font-size: 13px;
@@ -260,15 +279,15 @@
 }
 
 .cp-kpi {
-  background: #0d1727;
-  border: 1px solid #1c2b40;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
 }
 .cp-kpi span {
   display: block;
   font-size: 11px;
-  color: #8fa2b8;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 700;
@@ -311,22 +330,22 @@
   margin: 0 0 14px;
   font-size: 15px;
   font-weight: 700;
-  color: #dbe7f3;
+  color: var(--text-primary);
 }
 .cp-result-title svg {
-  color: #7c8ffa;
+  color: var(--indigo-text);
 }
 .cp-result-title-fail,
 .cp-result-title-fail svg {
-  color: #f87171;
+  color: var(--danger-text);
 }
 .cp-result-title-fixed,
 .cp-result-title-fixed svg {
-  color: #2ecc71;
+  color: var(--success-text);
 }
 
 .cp-empty-note {
-  color: #8fa2b8;
+  color: var(--text-muted);
   text-align: center;
   padding: 30px 0;
   font-size: 13px;
@@ -341,21 +360,21 @@
 }
 .cp-fail-item strong {
   font-size: 13px;
-  color: #f87171;
+  color: var(--danger-text);
   display: block;
 }
 .cp-fail-item > span {
   font-size: 11px;
-  color: #8fa2b8;
+  color: var(--text-muted);
   display: block;
   margin: 2px 0 6px;
 }
 .cp-fail-item pre {
   margin: 0;
   padding: 8px;
-  background: #0a1220;
-  border: 1px solid #1c2b40;
-  color: #f0918d;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  color: var(--danger-text);
   font-size: 11px;
   border-radius: 6px;
   overflow-x: auto;
@@ -371,12 +390,12 @@
   font-size: 13px;
 }
 .cp-fixed-item strong {
-  color: #2ecc71;
+  color: var(--success-text);
   display: block;
 }
 .cp-fixed-item span {
   font-size: 11px;
-  color: #8fa2b8;
+  color: var(--text-muted);
 }
 
 /* Detailed comparison table */
@@ -388,28 +407,28 @@
 .cp-table th {
   text-align: left;
   padding: 10px 12px;
-  background: #0a1220;
-  color: #8fa2b8;
+  background: var(--bg-inset);
+  color: var(--text-muted);
   font-size: 11.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid #1c2b40;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 .cp-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid #16243a;
-  color: #dbe4ee;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--text-primary);
 }
 .cp-table tr:last-child td {
   border-bottom: none;
 }
 .cp-table td strong {
-  color: #eef5fc;
+  color: var(--text-primary);
 }
 .cp-table td span:not([class]) {
   display: block;
   font-size: 11px;
-  color: #8fa2b8;
+  color: var(--text-muted);
 }

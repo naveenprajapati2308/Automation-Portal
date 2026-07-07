@@ -294,7 +294,7 @@ export function ExecutionCenter({
         <button
           onClick={() => onSelectExecution(row.id)}
           className="btn-link"
-          style={{ textDecoration: 'underline', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 600, color: '#7c8ffa' }}
+          style={{ textDecoration: 'underline', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 600, color: 'var(--indigo-text)' }}
         >
           {val}
         </button>
@@ -348,11 +348,19 @@ export function ExecutionCenter({
 
       {/* Controls Card */}
         <div className="xc-card xc-controls-card">
-          {/* Decorative illustration (top-right) — served from frontend/public/ */}
+          {/* Decorative illustration (top-right) — served from frontend/public/.
+              Two variants stacked in place; CSS opacity swaps them by theme so
+              the toggle updates instantly without re-mounting. */}
+          <img
+            src="/execution-art-bright.png"
+            alt=""
+            className="xc-controls-art xc-controls-art-bright"
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
           <img
             src="/execution-art.png"
             alt=""
-            className="xc-controls-art"
+            className="xc-controls-art xc-controls-art-dark"
             onError={(e) => { e.currentTarget.style.display = 'none'; }}
           />
 
@@ -498,10 +506,10 @@ export function ExecutionCenter({
               </button>
             </div>
 
-            <div className="xc-tab-body" style={{ background: activeTab === 'logs' ? '#0a1220' : undefined }}>
+            <div className="xc-tab-body" style={{ background: activeTab === 'logs' ? 'var(--bg-inset)' : undefined }}>
               {activeTab === 'logs' ? (
                 // Console Terminal
-                <pre style={{ margin: 0, color: '#a0aec0', fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
+                <pre style={{ margin: 0, color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
                   {liveLogs.length === 0 ? (
                     <div style={{ color: '#5d7292', fontStyle: 'italic' }}>Awaiting pipeline execution log stream...</div>
                   ) : (
@@ -526,7 +534,7 @@ export function ExecutionCenter({
               ) : (
                 // screenshots
                 liveScreenshots.length === 0 ? (
-                  <div style={{ textAlign: 'center', color: '#8fa2b8', padding: '40px 0', fontSize: '13px' }}>
+                  <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: '13px' }}>
                     No failure screenshots captured yet.
                   </div>
                 ) : (

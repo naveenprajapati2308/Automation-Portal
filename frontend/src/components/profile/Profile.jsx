@@ -369,13 +369,13 @@ export function Profile({ setNotice }) {
                 <tbody>
                   {pagedLogs.length === 0 ? (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', color: '#8a9bb0', padding: '32px' }}>
+                      <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px' }}>
                         No activity logs found
                       </td>
                     </tr>
                   ) : pagedLogs.map((log, idx) => (
                     <tr key={log.id ?? idx}>
-                      <td style={{ color: '#8a9bb0', width: 32 }}>
+                      <td style={{ color: 'var(--text-muted)', width: 32 }}>
                         {(logPage - 1) * LOG_PAGE_SIZE + idx + 1}
                       </td>
                       <td>

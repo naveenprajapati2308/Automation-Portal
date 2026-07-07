@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/src/assets/MPHIDB_Logo2.png" />
     <title>Automation Portal</title>
+    <script>
+      // Apply the saved theme before first paint to avoid a flash of the
+      // wrong theme. Bright is the default; dark is opt-in via the toggle.
+      (function () {
+        var theme = localStorage.getItem('portal-theme') || 'light';
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.setAttribute('data-bs-theme', theme);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

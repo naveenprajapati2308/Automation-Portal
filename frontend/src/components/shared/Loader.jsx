@@ -1,9 +1,7 @@
 import './loader.css';
 import appLogo from '../../assets/MPHIDB_Logo2.png';
 
-/**
- * Inline loader for panels/sections: <Loader label="Loading reports..." />
- */
+
 export function Loader({ size = 40, label }) {
   return (
     <div className="tx-loader-inline" role="status" aria-live="polite">
@@ -17,10 +15,7 @@ export function Loader({ size = 40, label }) {
   );
 }
 
-/**
- * Full-screen branded loader shown while the portal boots its data.
- * Pass exiting=true to play the fade-out before unmounting.
- */
+
 export function FullScreenLoader({ exiting = false, subtitle = 'Loading TESTRIX' }) {
   return (
     <div className={`tx-loader-overlay${exiting ? ' tx-exit' : ''}`}>

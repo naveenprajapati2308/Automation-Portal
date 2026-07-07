@@ -24,15 +24,15 @@ export function RegressionAlerts({ alerts = [], onSelectExecution }) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ display: 'grid', placeItems: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(239, 83, 80, 0.2)', color: '#ef5350' }}>
+            <div style={{ display: 'grid', placeItems: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(239, 83, 80, 0.2)', color: 'var(--danger-text)' }}>
               <AlertTriangle size={20} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef5350', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Regression Detected</span>
-                <span style={{ fontSize: '10px', color: '#8a9bb0' }}>{new Date(alert.timestamp).toLocaleString()}</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--danger-text)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Regression Detected</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{new Date(alert.timestamp).toLocaleString()}</span>
               </div>
-              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#cfdae6' }}>
+              <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
                 Module <strong>{alert.moduleName}</strong> went from <strong>100% PASS</strong> ({alert.previousExecutionCode}) to <strong>{alert.passRate}% PASS</strong> in build <strong>{alert.latestExecutionCode}</strong>.
               </p>
             </div>

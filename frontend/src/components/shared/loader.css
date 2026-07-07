@@ -7,7 +7,7 @@
   z-index: 2000;
   display: grid;
   place-items: center;
-  background: radial-gradient(1200px 800px at 50% 35%, #101c33 0%, #0a1120 55%, #070c16 100%);
+  background: radial-gradient(1200px 800px at 50% 35%, var(--bg-surface) 0%, var(--bg-inset) 55%, var(--bg-page) 100%);
   animation: txFadeIn 0.35s ease both;
 }
 .tx-loader-overlay.tx-exit {
@@ -89,7 +89,7 @@
 }
 
 .tx-loader-subtitle {
-  color: #8a9bb0;
+  color: var(--text-muted);
   font-size: 13px;
   display: flex;
 }
@@ -125,7 +125,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: #8a9bb0;
+  color: var(--text-muted);
   font-size: 13px;
 }
 

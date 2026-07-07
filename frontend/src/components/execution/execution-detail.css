@@ -3,16 +3,16 @@
 
 .xd-drawer input,
 .xd-drawer select {
-  color: #c7d6e6;
+  color: var(--text-secondary);
 }
 
 .xd-drawer select option {
-  background: #101d31;
-  color: #c7d6e6;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
 }
 
 .xd-drawer table th {
-  color: #7f93ab;
+  color: var(--text-muted);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -24,7 +24,7 @@
 }
 
 .xd-drawer ::-webkit-scrollbar-thumb {
-  background: #1c2b40;
+  background: var(--bg-surface-2);
   border-radius: 6px;
 }
 

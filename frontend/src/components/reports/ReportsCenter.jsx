@@ -127,7 +127,7 @@ export function ReportsCenter({ onSelectExecution }) {
     {
       key: 'suiteName',
       label: 'Suite Name',
-      render: (val) => <span style={{ fontSize: '12px', color: '#c7d6e6', fontWeight: 600 }}>{val ?? 'Master Automation'}</span>
+      render: (val) => <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 600 }}>{val ?? 'Master Automation'}</span>
     },
     {
       key: 'moduleCode',
@@ -144,7 +144,7 @@ export function ReportsCenter({ onSelectExecution }) {
       label: 'Tests (P / F / S)',
       render: (_, report) => (
         <span style={{ fontSize: '12px', fontWeight: 600 }}>
-          <span style={{ color: '#2ecc71' }}>{report.passedTests}</span> / <span style={{ color: '#f87171' }}>{report.failedTests}</span> / <span style={{ color: '#e0a64a' }}>{report.skippedTests}</span>
+          <span style={{ color: 'var(--success-text)' }}>{report.passedTests}</span> / <span style={{ color: 'var(--danger-text)' }}>{report.failedTests}</span> / <span style={{ color: 'var(--warning-text)' }}>{report.skippedTests}</span>
         </span>
       )
     },
@@ -161,7 +161,7 @@ export function ReportsCenter({ onSelectExecution }) {
     {
       key: 'createdAt',
       label: 'Started At',
-      render: (val) => <span style={{ fontSize: '11px', color: '#8fa2b8' }}>{formatDate(val)}</span>
+      render: (val) => <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{formatDate(val)}</span>
     },
     {
       key: 'actions',
@@ -331,28 +331,28 @@ export function ReportsCenter({ onSelectExecution }) {
               <div className="rc-kpi-grid">
                 <div className="rc-kpi">
                   <span>Pass Rate Change</span>
-                  <strong style={{ color: comparisonResult.delta.passRateChange >= 0 ? '#2ecc71' : '#f87171' }}>
+                  <strong style={{ color: comparisonResult.delta.passRateChange >= 0 ? 'var(--success-text)' : 'var(--danger-text)' }}>
                     {comparisonResult.delta.passRateChange >= 0 ? '+' : ''}{comparisonResult.delta.passRateChange}%
                   </strong>
                 </div>
 
                 <div className="rc-kpi">
                   <span>New Failures</span>
-                  <strong style={{ color: comparisonResult.delta.newFailures > 0 ? '#f87171' : '#2ecc71' }}>
+                  <strong style={{ color: comparisonResult.delta.newFailures > 0 ? 'var(--danger-text)' : 'var(--success-text)' }}>
                     {comparisonResult.delta.newFailures} tests
                   </strong>
                 </div>
 
                 <div className="rc-kpi">
                   <span>Fixed Failures</span>
-                  <strong style={{ color: '#2ecc71' }}>
+                  <strong style={{ color: 'var(--success-text)' }}>
                     {comparisonResult.delta.fixedFailures} tests
                   </strong>
                 </div>
 
                 <div className="rc-kpi">
                   <span>Still Failing</span>
-                  <strong style={{ color: '#e0a64a' }}>
+                  <strong style={{ color: 'var(--warning-text)' }}>
                     {comparisonResult.delta.stillFailing} tests
                   </strong>
                 </div>
@@ -365,7 +365,7 @@ export function ReportsCenter({ onSelectExecution }) {
                   <div style={{ display: 'grid', gap: '8px' }}>
                     {comparisonResult.newFailures.map((item, idx) => (
                       <div key={idx} className="rc-fail-item">
-                        <strong>{item.methodName}</strong> <span style={{ color: '#8fa2b8' }}>({item.className})</span>
+                        <strong>{item.methodName}</strong> <span style={{ color: 'var(--text-muted)' }}>({item.className})</span>
                         <p>{item.failureReason ?? 'No message'}</p>
                       </div>
                     ))}
@@ -380,7 +380,7 @@ export function ReportsCenter({ onSelectExecution }) {
                   <div style={{ display: 'grid', gap: '6px' }}>
                     {comparisonResult.fixedTests.map((item, idx) => (
                       <div key={idx} className="rc-fixed-item">
-                        <strong>{item.methodName}</strong> <span style={{ color: '#8fa2b8' }}>({item.className})</span>
+                        <strong>{item.methodName}</strong> <span style={{ color: 'var(--text-muted)' }}>({item.className})</span>
                       </div>
                     ))}
                   </div>

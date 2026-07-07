@@ -6,7 +6,7 @@
   flex-direction: column;
   gap: 20px;
   padding: 4px 0 20px;
-  color: #dbe4ee;
+  color: var(--text-primary);
 }
 
 .db-subhead {
@@ -20,7 +20,7 @@
 .db-eyebrow {
   font-size: 10px;
   font-weight: 800;
-  color: #a78bfa;
+  color: var(--accent-text);
   letter-spacing: 0.15em;
   text-transform: uppercase;
 }
@@ -28,21 +28,21 @@
   margin: 2px 0 0;
   font-size: 20px;
   font-weight: 800;
-  color: #eef5fc;
+  color: var(--text-primary);
 }
 .db-range {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #8fa2b8;
+  color: var(--text-muted);
   font-weight: 600;
 }
 
 /* ── Cards ─────────────────────────────────────────────────────────────────── */
 .db-card {
-  background: #0d1727;
-  border: 1px solid #1c2b40;
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px;
   margin-top: 15px;
@@ -55,10 +55,10 @@
   margin: 0 0 16px;
   font-size: 15px;
   font-weight: 700;
-  color: #dbe7f3;
+  color: var(--text-primary);
 }
 .db-card-title svg {
-  color: #7c8ffa;
+  color: var(--indigo-text);
 }
 
 /* Row grids */
@@ -101,7 +101,7 @@
 .db-kpi-label {
   font-size: 11px;
   font-weight: 800;
-  color: #8fa2b8;
+  color: var(--text-muted);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -109,7 +109,7 @@
   display: block;
   font-size: 20px;
   font-weight: 800;
-  color: #eef5fc;
+  color: var(--text-primary);
 }
 .db-kpi-sub {
   display: block;
@@ -125,9 +125,9 @@
 .db-select {
   height: 36px;
   border-radius: 9px;
-  border: 1px solid #223650;
-  background: #101d31;
-  color: #e2ecf6;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
   padding: 0 10px;
   font-size: 13px;
   font-weight: 600;
@@ -138,8 +138,8 @@
   border-color: #4f6ef7;
 }
 .db-select option {
-  background: #101d31;
-  color: #e2ecf6;
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 .db-run-all-btn {
@@ -152,9 +152,9 @@
   border-radius: 9px;
   font-size: 13px;
   font-weight: 700;
-  color: #f2f6ff;
+  color: var(--text-primary);
   cursor: pointer;
-  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  background: linear-gradient(90deg, #2563eb, var(--accent));
   transition: filter 0.15s;
   white-space: nowrap;
 }
@@ -170,7 +170,7 @@
   border-radius: 8px;
   border: 1px solid rgba(124, 58, 237, 0.4);
   background: rgba(124, 58, 237, 0.1);
-  color: #a5b4fc;
+  color: var(--indigo-text-soft);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -178,7 +178,7 @@
 }
 .db-run-btn:hover {
   background: rgba(124, 58, 237, 0.22);
-  border-color: #7c3aed;
+  border-color: var(--accent);
 }
 
 /* ── Tables ────────────────────────────────────────────────────────────────── */
@@ -190,30 +190,30 @@
 .db-table th {
   padding: 10px 12px;
   font-size: 11px;
-  color: #8fa2b8;
+  color: var(--text-muted);
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid #1c2b40;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 .db-table td {
   padding: 12px;
   font-size: 13px;
-  color: #dbe4ee;
-  border-bottom: 1px solid #16243a;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-soft);
 }
 .db-table tr:last-child td {
   border-bottom: none;
 }
 .db-table tbody tr:hover td {
-  background: #101d31;
+  background: var(--bg-hover);
 }
 
 .db-cell-strong {
   font-size: 13px;
   font-weight: 700;
-  color: #eef5fc;
+  color: var(--text-primary);
 }
 .db-cell-sub {
   font-size: 11px;
@@ -229,19 +229,19 @@
   font-weight: 800;
   background: rgba(124, 58, 237, 0.14);
   border: 1px solid rgba(124, 58, 237, 0.3);
-  color: #a5b4fc;
+  color: var(--indigo-text-soft);
   white-space: nowrap;
 }
 
 .db-code-link {
-  color: #7c8ffa;
+  color: var(--indigo-text);
   cursor: pointer;
   font-weight: 700;
   font-size: 12px;
   font-family: 'Cascadia Code', 'Fira Code', monospace;
 }
 .db-code-link:hover {
-  color: #a5b4fc;
+  color: var(--indigo-text-soft);
   text-decoration: underline;
 }
 
@@ -249,7 +249,7 @@
 .db-bar-track {
   width: 80px;
   height: 6px;
-  background: #16243a;
+  background: var(--bg-surface-2);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -265,8 +265,8 @@
   gap: 12px;
 }
 .db-sys-tile {
-  background: #101d31;
-  border: 1px solid #223650;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px;
 }
@@ -280,7 +280,7 @@
 .db-sys-tile strong {
   display: block;
   font-size: 13px;
-  color: #eef5fc;
+  color: var(--text-primary);
   margin-top: 4px;
   word-break: break-word;
 }
@@ -288,11 +288,11 @@
   color: #5d7292;
   font-size: 11px;
   margin-top: 16px;
-  border-top: 1px solid #1c2b40;
+  border-top: 1px solid var(--border);
   padding-top: 12px;
 }
 .db-sys-foot strong {
-  color: #a5b4fc;
+  color: var(--indigo-text-soft);
 }
 
 /* Execution mix legend rows */
@@ -308,17 +308,17 @@
 .db-mix-pass {
   background: rgba(46, 204, 113, 0.08);
   border-color: rgba(46, 204, 113, 0.25);
-  color: #2ecc71;
+  color: var(--success-text);
 }
 .db-mix-fail {
   background: rgba(239, 68, 68, 0.08);
   border-color: rgba(239, 68, 68, 0.25);
-  color: #f87171;
+  color: var(--danger-text);
 }
 .db-mix-skip {
   background: rgba(224, 166, 74, 0.08);
   border-color: rgba(224, 166, 74, 0.25);
-  color: #e0a64a;
+  color: var(--warning-text);
 }
 
 /* Empty note (flaky) */
@@ -329,7 +329,7 @@
   justify-content: center;
   align-items: center;
   padding: 20px;
-  color: #8fa2b8;
+  color: var(--text-muted);
   font-size: 13px;
   text-align: center;
 }
@@ -337,4 +337,31 @@
   color: #7c3aed;
   filter: drop-shadow(0 0 12px rgba(124, 58, 237, 0.5));
   margin-bottom: 12px;
+}
+
+/* ── KPI card tints (bright theme; dark keeps the original flat cards) ─────── */
+.db-card {
+  background: var(--bg-surface);
+  box-shadow: 0 1px 2px var(--shadow-a10);
+}
+.db-tint-violet {
+  background: linear-gradient(150deg, var(--bg-surface) 45%, #f4f0ff 100%);
+  border-color: #ddd6fe;
+}
+.db-tint-red {
+  background: linear-gradient(150deg, var(--bg-surface) 45%, #fff1ef 100%);
+  border-color: #fecdd3;
+}
+.db-tint-green {
+  background: linear-gradient(150deg, var(--bg-surface) 45%, #ecfdf3 100%);
+  border-color: #bbf7d0;
+}
+
+:root[data-theme="dark"] .db-card,
+:root[data-theme="dark"] .db-tint-violet,
+:root[data-theme="dark"] .db-tint-red,
+:root[data-theme="dark"] .db-tint-green {
+  background: var(--bg-inset);
+  border-color: var(--border);
+  box-shadow: none;
 }

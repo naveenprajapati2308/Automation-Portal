@@ -10,7 +10,7 @@ const API_GROUPS = [
     id: 'auth',
     label: 'Authentication',
     icon: Key,
-    color: '#e0a64a',
+    color: 'var(--warning-text)',
     bg: 'rgba(224,166,74,0.10)',
     base: '/api/auth',
     description: 'Login, logout, token refresh and session management.',
@@ -24,7 +24,7 @@ const API_GROUPS = [
     id: 'users',
     label: 'User Management',
     icon: Users,
-    color: '#58a6ff',
+    color: 'var(--info-text)',
     bg: 'rgba(88,166,255,0.10)',
     base: '/api/admin/users',
     description: 'CRUD operations for portal users — Super Admin only.',
@@ -39,7 +39,7 @@ const API_GROUPS = [
     id: 'executions',
     label: 'Test Executions',
     icon: Play,
-    color: '#3fb950',
+    color: 'var(--success-text)',
     bg: 'rgba(63,185,80,0.10)',
     base: '/api/executions',
     description: 'Trigger, monitor and manage automation test runs.',
@@ -54,7 +54,7 @@ const API_GROUPS = [
     id: 'reports',
     label: 'Reports',
     icon: BarChart2,
-    color: '#a371f7',
+    color: 'var(--accent-text)',
     bg: 'rgba(163,113,247,0.10)',
     base: '/api/reports',
     description: 'Generate, download and browse test execution reports.',
@@ -82,7 +82,7 @@ const API_GROUPS = [
     id: 'environments',
     label: 'Environments',
     icon: Globe,
-    color: '#39d353',
+    color: 'var(--success-text)',
     bg: 'rgba(57,211,83,0.10)',
     base: '/api/environments',
     description: 'Configure and switch between test environments (URLs, credentials).',
@@ -97,7 +97,7 @@ const API_GROUPS = [
     id: 'screenshots',
     label: 'Screenshots',
     icon: Camera,
-    color: '#d2a8ff',
+    color: 'var(--accent-text-soft)',
     bg: 'rgba(210,168,255,0.10)',
     base: '/api/screenshots',
     description: 'Access screenshots captured during test executions.',
@@ -110,7 +110,7 @@ const API_GROUPS = [
     id: 'dashboard',
     label: 'Dashboard',
     icon: BarChart2,
-    color: '#79c0ff',
+    color: 'var(--info-text)',
     bg: 'rgba(121,192,255,0.10)',
     base: '/api/dashboard',
     description: 'Aggregate statistics and KPIs for the portal home screen.',
@@ -123,7 +123,7 @@ const API_GROUPS = [
     id: 'profile',
     label: 'Profile',
     icon: Users,
-    color: '#ffa657',
+    color: 'var(--warning-text)',
     bg: 'rgba(255,166,87,0.10)',
     base: '/api/profile',
     description: 'View and update the currently authenticated user\'s profile.',
@@ -137,10 +137,10 @@ const API_GROUPS = [
 
 // ── Method badge colours ─────────────────────────────────────────────────────
 const METHOD_STYLES = {
-  GET:    { bg: 'rgba(63,185,80,0.15)',  color: '#3fb950', border: 'rgba(63,185,80,0.3)' },
-  POST:   { bg: 'rgba(88,166,255,0.15)', color: '#58a6ff', border: 'rgba(88,166,255,0.3)' },
-  PUT:    { bg: 'rgba(255,166,87,0.15)', color: '#ffa657', border: 'rgba(255,166,87,0.3)' },
-  DELETE: { bg: 'rgba(248,81,73,0.15)',  color: '#f85149', border: 'rgba(248,81,73,0.3)' },
+  GET:    { bg: 'rgba(63,185,80,0.15)',  color: 'var(--success-text)', border: 'rgba(63,185,80,0.3)' },
+  POST:   { bg: 'rgba(88,166,255,0.15)', color: 'var(--info-text)', border: 'rgba(88,166,255,0.3)' },
+  PUT:    { bg: 'rgba(255,166,87,0.15)', color: 'var(--warning-text)', border: 'rgba(255,166,87,0.3)' },
+  DELETE: { bg: 'rgba(248,81,73,0.15)',  color: 'var(--danger-text)', border: 'rgba(248,81,73,0.3)' },
 };
 
 function MethodBadge({ method }) {
@@ -174,11 +174,11 @@ function EndpointRow({ endpoint }) {
       <div style={{ minWidth: 0, flex: 1 }}>
         <code style={{
           fontSize: 13, fontFamily: '"Fira Code", "Cascadia Code", monospace',
-          color: '#c9d1d9', display: 'block', marginBottom: 3,
+          color: 'var(--text-secondary)', display: 'block', marginBottom: 3,
         }}>
           {endpoint.path}
         </code>
-        <p style={{ margin: 0, fontSize: 12, color: '#8a9bb0', lineHeight: 1.4 }}>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.4 }}>
           {endpoint.desc}
         </p>
       </div>
@@ -212,15 +212,15 @@ function ApiGroup({ group, defaultOpen = false }) {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#cdd6e0' }}>{group.label}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)' }}>{group.label}</span>
             <span style={{
               fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
-              background: 'rgba(255,255,255,0.07)', color: '#8a9bb0',
+              background: 'rgba(255,255,255,0.07)', color: 'var(--text-muted)',
             }}>
               {group.endpoints.length} endpoints
             </span>
           </div>
-          <p style={{ margin: '2px 0 0', fontSize: 12, color: '#8a9bb0' }}>{group.description}</p>
+          <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{group.description}</p>
         </div>
         <span style={{ color: '#4e6275', flexShrink: 0 }}>
           {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -295,16 +295,16 @@ export function ApiCollection() {
               }}>
                 <Terminal size={18} color="#4ab8d8" />
               </div>
-              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#4ab8d8' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--cyan-text)' }}>
                 REST API Reference
               </span>
             </div>
-            <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: '#e6edf3' }}>
+            <h2 style={{ margin: '0 0 6px', fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>
               Backend API Collection
             </h2>
-            <p style={{ margin: 0, fontSize: 13, color: '#8a9bb0', maxWidth: 500, lineHeight: 1.5 }}>
-              Complete reference for all <strong style={{ color: '#cdd6e0' }}>{totalEndpoints} endpoints</strong> across{' '}
-              <strong style={{ color: '#cdd6e0' }}>{API_GROUPS.length} controllers</strong>. 
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', maxWidth: 500, lineHeight: 1.5 }}>
+              Complete reference for all <strong style={{ color: 'var(--text-secondary)' }}>{totalEndpoints} endpoints</strong> across{' '}
+              <strong style={{ color: 'var(--text-secondary)' }}>{API_GROUPS.length} controllers</strong>. 
               Use Swagger UI for interactive testing.
             </p>
           </div>
@@ -317,7 +317,7 @@ export function ApiCollection() {
                 display: 'inline-flex', alignItems: 'center', gap: 7,
                 padding: '9px 16px', borderRadius: 8, border: '1px solid rgba(23,107,135,0.5)',
                 background: swaggerMode ? 'rgba(23,107,135,0.3)' : 'rgba(23,107,135,0.1)',
-                color: '#4ab8d8', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                color: 'var(--cyan-text)', cursor: 'pointer', fontSize: 13, fontWeight: 600,
                 transition: 'all 0.2s',
               }}
             >
@@ -359,7 +359,7 @@ export function ApiCollection() {
               <div style={{ fontSize: 10, color: '#4e6275', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 2 }}>
                 {stat.label}
               </div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: '#cdd6e0' }}>{stat.value}</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-secondary)' }}>{stat.value}</div>
             </div>
           ))}
         </div>
@@ -369,7 +369,7 @@ export function ApiCollection() {
       {swaggerMode && (
         <div style={{
           borderRadius: 12, border: '1px solid rgba(23,107,135,0.3)',
-          background: '#0a1520', overflow: 'hidden', position: 'relative',
+          background: 'var(--bg-inset)', overflow: 'hidden', position: 'relative',
         }}>
           {/* iframe header */}
           <div style={{
@@ -394,7 +394,7 @@ export function ApiCollection() {
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px',
                     borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)',
-                    background: 'transparent', color: '#8a9bb0', cursor: 'pointer', fontSize: 12,
+                    background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12,
                   }}
                 >
                   <RefreshCw size={11} /> Retry
@@ -404,7 +404,7 @@ export function ApiCollection() {
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px',
                   borderRadius: 6, border: '1px solid rgba(23,107,135,0.4)',
-                  background: 'rgba(23,107,135,0.15)', color: '#4ab8d8',
+                  background: 'rgba(23,107,135,0.15)', color: 'var(--cyan-text)',
                   textDecoration: 'none', fontSize: 12,
                 }}
               >
@@ -418,14 +418,14 @@ export function ApiCollection() {
             <div style={{
               position: 'absolute', top: 41, left: 0, right: 0, bottom: 0,
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              gap: 12, background: '#0a1520', zIndex: 2,
+              gap: 12, background: 'var(--bg-inset)', zIndex: 2,
             }}>
               <div style={{
                 width: 38, height: 38, borderRadius: '50%',
-                border: '3px solid #1e3348', borderTopColor: '#176b87',
+                border: '3px solid var(--border)', borderTopColor: '#176b87',
                 animation: 'spin 0.9s linear infinite',
               }} />
-              <p style={{ color: '#8a9bb0', fontSize: 13, margin: 0 }}>Loading Swagger UI…</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>Loading Swagger UI…</p>
             </div>
           )}
 
@@ -443,10 +443,10 @@ export function ApiCollection() {
                 <AlertTriangle size={26} color="#f85149" />
               </div>
               <div>
-                <p style={{ color: '#cdd6e0', fontWeight: 700, fontSize: 14, margin: '0 0 6px' }}>
+                <p style={{ color: 'var(--text-secondary)', fontWeight: 700, fontSize: 14, margin: '0 0 6px' }}>
                   Swagger UI couldn't be embedded
                 </p>
-                <p style={{ color: '#8a9bb0', fontSize: 13, margin: 0, maxWidth: 380 }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0, maxWidth: 380 }}>
                   The backend may still be starting, or X-Frame-Options is preventing embedding.
                   Use "Open Swagger" to access it directly.
                 </p>
@@ -493,10 +493,10 @@ export function ApiCollection() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <FileText size={15} color="#4ab8d8" />
-            <span style={{ fontWeight: 700, fontSize: 14, color: '#cdd6e0' }}>Endpoint Reference</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-secondary)' }}>Endpoint Reference</span>
             <span style={{
               fontSize: 11, fontWeight: 700, padding: '1px 8px', borderRadius: 999,
-              background: 'rgba(23,107,135,0.2)', color: '#4ab8d8',
+              background: 'rgba(23,107,135,0.2)', color: 'var(--cyan-text)',
             }}>
               {filtered.reduce((s, g) => s + g.endpoints.length, 0)} / {totalEndpoints}
             </span>
@@ -519,7 +519,7 @@ export function ApiCollection() {
               placeholder="Search endpoints, methods…"
               style={{
                 background: 'transparent', border: 0, outline: 0, height: 36,
-                fontSize: 13, color: '#cdd6e0', width: '100%',
+                fontSize: 13, color: 'var(--text-secondary)', width: '100%',
               }}
             />
           </div>
@@ -548,13 +548,13 @@ export function ApiCollection() {
       }}>
         <Shield size={16} color="#e0a64a" style={{ marginTop: 1, flexShrink: 0 }} />
         <div>
-          <p style={{ margin: '0 0 3px', fontWeight: 700, fontSize: 13, color: '#e0a64a' }}>
+          <p style={{ margin: '0 0 3px', fontWeight: 700, fontSize: 13, color: 'var(--warning-text)' }}>
             Authentication Required
           </p>
-          <p style={{ margin: 0, fontSize: 12, color: '#8a9bb0', lineHeight: 1.5 }}>
-            All endpoints (except <code style={{ color: '#cdd6e0' }}>/api/auth/login</code>) require a valid{' '}
-            <code style={{ color: '#cdd6e0' }}>Authorization: Bearer &lt;token&gt;</code> header.
-            Obtain a token via <code style={{ color: '#cdd6e0' }}>POST /api/auth/login</code>.
+          <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            All endpoints (except <code style={{ color: 'var(--text-secondary)' }}>/api/auth/login</code>) require a valid{' '}
+            <code style={{ color: 'var(--text-secondary)' }}>Authorization: Bearer &lt;token&gt;</code> header.
+            Obtain a token via <code style={{ color: 'var(--text-secondary)' }}>POST /api/auth/login</code>.
           </p>
         </div>
       </div>

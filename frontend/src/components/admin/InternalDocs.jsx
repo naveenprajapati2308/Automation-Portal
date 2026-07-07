@@ -17,10 +17,10 @@ import { useState } from 'react';
 
 /* ── Seed data ──────────────────────────────────────────────────────────────── */
 const CATEGORIES = [
-  { key: 'api',      label: 'API Reference',   color: '#3b82f6' },
+  { key: 'api',      label: 'API Reference',   color: 'var(--info-text)' },
   { key: 'setup',    label: 'Setup / Config',  color: '#10b981' },
-  { key: 'auth',     label: 'Auth & Security', color: '#f59e0b' },
-  { key: 'db',       label: 'Database',        color: '#8b5cf6' },
+  { key: 'auth',     label: 'Auth & Security', color: 'var(--warning-text)' },
+  { key: 'db',       label: 'Database',        color: 'var(--accent-text)' },
   { key: 'workflow', label: 'Workflows',       color: '#06b6d4' },
   { key: 'misc',     label: 'Miscellaneous',   color: '#6b7280' },
 ];
@@ -284,7 +284,7 @@ function DocForm({ initial, onSave, onClose }) {
 
           {/* Request Body */}
           <span style={{ fontWeight: 600, fontSize: 13 }}>
-            Request Body <span style={{ color: '#8a9bb0', fontWeight: 400 }}>(JSON / optional)</span>
+            Request Body <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(JSON / optional)</span>
           </span>
           <textarea
             className="doc-textarea doc-code-textarea"
@@ -296,7 +296,7 @@ function DocForm({ initial, onSave, onClose }) {
 
           {/* Response */}
           <span style={{ fontWeight: 600, fontSize: 13 }}>
-            Response <span style={{ color: '#8a9bb0', fontWeight: 400 }}>(JSON / optional)</span>
+            Response <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(JSON / optional)</span>
           </span>
           <textarea
             className="doc-textarea doc-code-textarea"

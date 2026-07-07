@@ -14,7 +14,7 @@ import {
 import { useState } from 'react';
 import appLogo from '../../assets/MPHIDB_Logo2.png';
 import { ADMIN_WORKSPACE_NAV } from '../../constants.js';
-import { PortalLayout } from '../layout/index.jsx';
+import { PortalLayout, Breadcrumb } from '../layout/index.jsx';
 import { AdminDashboardOverview } from './AdminDashboardOverview.jsx';
 import { UserManagement } from './UserManagement.jsx';
 import { EnvironmentsConfig } from './EnvironmentsConfig.jsx';
@@ -50,7 +50,7 @@ export function AdminWorkspace({ superAdmin, logout, onBack, activePage, setActi
           </div>
         </div>
         <nav>
-          <div className="nav-section-label" style={{ color: '#e0a64a' }}>Admin Controls</div>
+          <div className="nav-section-label" style={{ color: 'var(--warning-text)' }}>Admin Controls</div>
           {ADMIN_WORKSPACE_NAV.map((item) => {
             const Icon = item._icon;
             return (
@@ -85,6 +85,11 @@ export function AdminWorkspace({ superAdmin, logout, onBack, activePage, setActi
         <header className="topbar admin-topbar">
           <div>
             <h1>{pageTitle}</h1>
+            <Breadcrumb
+              rootLabel="Admin Dashboard"
+              pageTitle={pageTitle}
+              onNavigateRoot={() => setActivePage('admin-dashboard')}
+            />
             <p className="admin-notice">{notice}</p>
           </div>
           <div className="topbar-right">

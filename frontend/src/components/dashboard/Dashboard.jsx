@@ -182,7 +182,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
 
   // Accuracy circular ring calculation
   const accuracyPercent = lastRun ? Number(lastRun.passRate ?? 0) : 0;
-  const radius = 16;
+  const radius = 24;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (accuracyPercent / 100) * circumference;
 
@@ -192,9 +192,25 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   const mixFailed = summary?.failedTests ?? 0;
   const mixSkipped = summary?.skippedTests ?? 0;
   const mixCirc = 2 * Math.PI * 36;
-  const mixOffset = mixCirc - (mixPassRate / 100) * mixCirc;
+  const mixTotal = mixPassed + mixFailed + mixSkipped;
+  const mixPct = (v) => (mixTotal > 0 ? Math.round((v / mixTotal) * 100) : 0);
+  // Donut segments (pass/fail/skip), drawn clockwise from 12 o'clock
+  const mixSegments = (() => {
+    const parts = [
+      { value: mixPassed, color: 'var(--success-text)' },
+      { value: mixFailed, color: 'var(--danger-text)' },
+      { value: mixSkipped, color: 'var(--warning-text)' },
+    ].filter((p) => p.value > 0);
+    let acc = 0;
+    return parts.map((p) => {
+      const frac = mixTotal > 0 ? p.value / mixTotal : 0;
+      const seg = { ...p, dash: frac * mixCirc, offset: -acc * mixCirc };
+      acc += frac;
+      return seg;
+    });
+  })();
 
-  const accuracyColor = (pct) => (pct >= 80 ? '#2ecc71' : pct >= 50 ? '#e0a64a' : '#f87171');
+  const accuracyColor = (pct) => (pct >= 80 ? 'var(--success-text)' : pct >= 50 ? 'var(--warning-text)' : 'var(--danger-text)');
 
   if (loading && !summary) {
     return (
@@ -231,36 +247,36 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
       <div className="db-kpi-row">
 
         {/* Card 1: Last Test Summary */}
-        <div className="db-card">
+        <div className="db-card db-tint-violet">
           <div className="db-kpi-head">
             <span className="db-kpi-label">Last Test Summary</span>
-            <FileText size={16} style={{ color: '#60a5fa' }} />
+            <FileText size={16} style={{ color: 'var(--accent-text)' }} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginTop: 14, fontSize: 13 }}>
             <div>
               <div style={{ color: '#5d7292', fontSize: 11 }}>Total Tests</div>
-              <strong style={{ color: '#eef5fc', fontSize: 18 }}>{lastRun?.totalTests ?? 0}</strong>
+              <strong style={{ color: 'var(--text-primary)', fontSize: 18 }}>{lastRun?.totalTests ?? 0}</strong>
             </div>
             <div>
-              <div style={{ color: '#2ecc71', fontSize: 11 }}>Passed</div>
-              <strong style={{ color: '#2ecc71', fontSize: 18 }}>{lastRun?.passedTests ?? 0}</strong>
+              <div style={{ color: 'var(--success-text)', fontSize: 11 }}>Passed</div>
+              <strong style={{ color: 'var(--success-text)', fontSize: 18 }}>{lastRun?.passedTests ?? 0}</strong>
             </div>
             <div>
-              <div style={{ color: '#f87171', fontSize: 11 }}>Failed</div>
-              <strong style={{ color: '#f87171', fontSize: 18 }}>{lastRun?.failedTests ?? 0}</strong>
+              <div style={{ color: 'var(--danger-text)', fontSize: 11 }}>Failed</div>
+              <strong style={{ color: 'var(--danger-text)', fontSize: 18 }}>{lastRun?.failedTests ?? 0}</strong>
             </div>
             <div>
-              <div style={{ color: '#e0a64a', fontSize: 11 }}>Skipped</div>
-              <strong style={{ color: '#e0a64a', fontSize: 18 }}>{lastRun?.skippedTests ?? 0}</strong>
+              <div style={{ color: 'var(--warning-text)', fontSize: 11 }}>Skipped</div>
+              <strong style={{ color: 'var(--warning-text)', fontSize: 18 }}>{lastRun?.skippedTests ?? 0}</strong>
             </div>
           </div>
         </div>
 
         {/* Card 2: Last Execution Started */}
-        <div className="db-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className="db-card db-tint-violet" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div className="db-kpi-head">
             <span className="db-kpi-label">Last Execution Started</span>
-            <Clock3 size={16} style={{ color: '#a78bfa' }} />
+            <Clock3 size={16} style={{ color: 'var(--accent-text)' }} />
           </div>
           <div style={{ marginTop: 16 }}>
             <strong className="db-kpi-value" style={{ fontSize: 18 }}>{startTimes.date}</strong>
@@ -269,10 +285,10 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         </div>
 
         {/* Card 3: Last Execution Ended */}
-        <div className="db-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className="db-card db-tint-red" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div className="db-kpi-head">
             <span className="db-kpi-label">Last Execution Ended</span>
-            <Hourglass size={16} style={{ color: '#f87171' }} />
+            <Hourglass size={16} style={{ color: 'var(--danger-text)' }} />
           </div>
           <div style={{ marginTop: 16 }}>
             <strong className="db-kpi-value" style={{ fontSize: 18 }}>{endTimes.date}</strong>
@@ -281,10 +297,10 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         </div>
 
         {/* Card 4: Last Duration */}
-        <div className="db-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <div className="db-card db-tint-green" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div className="db-kpi-head">
             <span className="db-kpi-label">Last Duration</span>
-            <Timer size={16} style={{ color: '#2dd4bf' }} />
+            <Timer size={16} style={{ color: 'var(--success-text)' }} />
           </div>
           <div style={{ marginTop: 12 }}>
             <span className="db-kpi-sub">Total Runtime</span>
@@ -307,20 +323,19 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
             </span>
           </div>
 
-          <div style={{ position: 'relative', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="44" height="44" viewBox="0 0 44 44">
-              <circle cx="22" cy="22" r={radius} fill="transparent" stroke="#16243a" strokeWidth="3.5" />
+          <div style={{ position: 'relative', width: 60, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="60" height="60" viewBox="0 0 60 60">
+              <circle cx="30" cy="30" r={radius} fill="transparent" style={{ stroke: 'var(--border)' }} strokeWidth="6" />
               <circle
-                cx="22" cy="22" r={radius} fill="transparent"
-                stroke={accuracyColor(accuracyPercent)}
-                strokeWidth="3.5"
+                cx="30" cy="30" r={radius} fill="transparent"
+                strokeWidth="6"
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
-                style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
+                style={{ stroke: 'var(--accent)', transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
               />
             </svg>
-            <div style={{ position: 'absolute', fontSize: 9, fontWeight: 'bold', color: '#eef5fc' }}>
+            <div style={{ position: 'absolute', fontSize: 12, fontWeight: 800, color: 'var(--text-primary)' }}>
               {Math.round(accuracyPercent)}%
             </div>
           </div>
@@ -343,34 +358,35 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flex: 1, gap: 12 }}>
             <div style={{ position: 'relative', width: 92, height: 92, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg width="92" height="92" viewBox="0 0 92 92">
-                <circle cx="46" cy="46" r="36" fill="transparent" stroke="#16243a" strokeWidth="7" />
-                <circle
-                  cx="46" cy="46" r="36" fill="transparent"
-                  stroke="#2ecc71"
-                  strokeWidth="7"
-                  strokeDasharray={mixCirc}
-                  strokeDashoffset={mixOffset}
-                  strokeLinecap="round"
-                  style={{ transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
-                />
+                <circle cx="46" cy="46" r="36" fill="transparent" style={{ stroke: 'var(--border)' }} strokeWidth="7" />
+                {mixSegments.map((seg, i) => (
+                  <circle
+                    key={i}
+                    cx="46" cy="46" r="36" fill="transparent"
+                    strokeWidth="7"
+                    strokeDasharray={`${seg.dash} ${mixCirc - seg.dash}`}
+                    strokeDashoffset={seg.offset}
+                    style={{ stroke: seg.color, transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
+                  />
+                ))}
               </svg>
               <div style={{ position: 'absolute', textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#eef5fc' }}>{mixPassRate.toFixed(1)}%</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{mixPassRate.toFixed(1)}%</div>
                 <div style={{ fontSize: 8, color: '#5d7292', fontWeight: 700, textTransform: 'uppercase', marginTop: 2 }}>Pass Rate</div>
               </div>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, maxWidth: 120 }}>
               <div className="db-mix-row db-mix-pass">
                 <span>Passed</span>
-                <strong>{mixPassed}</strong>
+                <strong>{mixPassed} ({mixPct(mixPassed)}%)</strong>
               </div>
               <div className="db-mix-row db-mix-fail">
                 <span>Failed</span>
-                <strong>{mixFailed}</strong>
+                <strong>{mixFailed} ({mixPct(mixFailed)}%)</strong>
               </div>
               <div className="db-mix-row db-mix-skip">
                 <span>Skipped</span>
-                <strong>{mixSkipped}</strong>
+                <strong>{mixSkipped} ({mixPct(mixSkipped)}%)</strong>
               </div>
             </div>
           </div>
@@ -423,9 +439,9 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
                 <tr key={row.code}>
                   <td className="db-cell-strong">{row.name}</td>
                   <td>{row.total}</td>
-                  <td style={{ color: '#2ecc71', fontWeight: 600 }}>{row.passed}</td>
-                  <td style={{ color: '#f87171', fontWeight: 600 }}>{row.failed}</td>
-                  <td style={{ color: '#e0a64a', fontWeight: 600 }}>{row.skipped}</td>
+                  <td style={{ color: 'var(--success-text)', fontWeight: 600 }}>{row.passed}</td>
+                  <td style={{ color: 'var(--danger-text)', fontWeight: 600 }}>{row.failed}</td>
+                  <td style={{ color: 'var(--warning-text)', fontWeight: 600 }}>{row.skipped}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontWeight: 800, color: accuracyColor(row.accuracy), minWidth: 40 }}>
@@ -474,7 +490,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
                     <td>
                       <span className="db-chip">{tc.module || 'ALL'}</span>
                     </td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#e0a64a' }}>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--warning-text)' }}>
                       {Number(tc.duration).toFixed(2)}s
                     </td>
                   </tr>
@@ -572,7 +588,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
                       </span>
                     </td>
                     <td style={{ fontSize: 12 }}>{exec.moduleCode || 'ALL'}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#eef5fc' }}>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--text-primary)' }}>
                       {Number(exec.passRate ?? 0).toFixed(2)}%
                     </td>
                   </tr>

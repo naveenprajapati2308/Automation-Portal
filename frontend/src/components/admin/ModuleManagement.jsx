@@ -62,12 +62,12 @@ export function ModuleManagement({ setNotice }) {
     {
       key: 'xmlFile',
       label: 'Suite XML',
-      render: (val) => val ? <code style={{ fontSize: '12px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{val}</code> : <span style={{ color: '#94a3b8' }}>—</span>
+      render: (val) => val ? <code style={{ fontSize: '12px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{val}</code> : <span style={{ color: 'var(--text-muted)' }}>—</span>
     },
     {
       key: 'reportPath',
       label: 'Report Path',
-      render: (val) => val ? <code style={{ fontSize: '12px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{val}</code> : <span style={{ color: '#94a3b8' }}>—</span>
+      render: (val) => val ? <code style={{ fontSize: '12px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{val}</code> : <span style={{ color: 'var(--text-muted)' }}>—</span>
     },
     {
       key: 'runnerType',
@@ -79,7 +79,7 @@ export function ModuleManagement({ setNotice }) {
       label: 'Environments',
       render: (val) => val
         ? <span style={{ fontSize: '12px', fontWeight: 600 }}>{val.split(',').join(', ')}</span>
-        : <span style={{ fontSize: '12px', color: '#94a3b8' }}>All</span>
+        : <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>All</span>
     },
     {
       key: 'active',
@@ -292,7 +292,7 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
             </select>
           </div>
         </label>
-        <span style={{ fontSize: '11px', color: '#94a3b8' }}>More runner types can be added here as new frameworks are integrated.</span>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>More runner types can be added here as new frameworks are integrated.</span>
       </div>
 
       <div className="form-field">
@@ -312,7 +312,7 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
             </label>
           ))}
         </div>
-        <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
           Leave all unchecked to make this module available in every environment.
         </span>
       </div>

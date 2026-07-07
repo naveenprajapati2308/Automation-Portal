@@ -17,7 +17,7 @@ export function DurationSparkline({ data = [], loading = false }) {
 
   if (loading) {
     return (
-      <div style={{ height: '70px', display: 'grid', placeItems: 'center', color: '#8a9bb0' }}>
+      <div style={{ height: '70px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)' }}>
         Loading build times...
       </div>
     );
@@ -25,7 +25,7 @@ export function DurationSparkline({ data = [], loading = false }) {
 
   if (points.length === 0) {
     return (
-      <div style={{ height: '70px', display: 'grid', placeItems: 'center', color: '#8a9bb0', fontSize: '12px' }}>
+      <div style={{ height: '70px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
         No duration data.
       </div>
     );
@@ -58,7 +58,7 @@ export function DurationSparkline({ data = [], loading = false }) {
           );
         })}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#8a9bb0', fontWeight: 600 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-muted)', fontWeight: 600 }}>
         <span>{points[0]?.date}</span>
         <span>{points[points.length - 1]?.date}</span>
       </div>
