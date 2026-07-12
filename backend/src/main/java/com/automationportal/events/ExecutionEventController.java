@@ -62,4 +62,12 @@ public class ExecutionEventController {
         log.info("Client subscribed to SSE stream for execution: {}", executionCode);
         return broadcastService.registerEmitter(executionCode);
     }
+
+    // Dashboard-wide stream: every execution's lifecycle events, not scoped to one code.
+    // Kept as a separate endpoint/path so it can't collide with the {executionCode} route above.
+    @GetMapping(value = "/dashboard/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamDashboardEvents() {
+        log.info("Client subscribed to global dashboard SSE stream");
+        return broadcastService.registerGlobalEmitter();
+    }
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
   Play,
   Clock3,
@@ -13,7 +13,7 @@ import {
   History,
   Timer
 } from 'lucide-react';
-import { api } from '../../api.js';
+import { api, auth } from '../../api.js';
 import { Loader } from '../shared/Loader.jsx';
 
 // Import child components
@@ -102,6 +102,56 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   useEffect(() => {
     loadData();
   }, [range]);
+
+  // Keep a ref to the latest loadData (it closes over `range`/`selectedEnvId`) so the SSE
+  // effect below can call the current version without re-subscribing on every render.
+  const loadDataRef = useRef(loadData);
+  useEffect(() => {
+    loadDataRef.current = loadData;
+  });
+
+  // Live updates: subscribe once to the dashboard-wide event stream (mirrors the pattern
+  // already used by ExecutionCenter.jsx for its per-execution stream) and refresh the existing
+  // REST-backed data on relevant lifecycle events. Debounced so a fast-running suite (many
+  // TEST_PASSED/FAILED events in a row) doesn't hammer the dashboard endpoints; this is purely
+  // additive on top of the existing mount/range-change load, so if the stream never connects or
+  // errors out, the page behaves exactly as it did before (initial load only, manual refresh via
+  // range change or triggering a run).
+  useEffect(() => {
+    const token = auth.get()?.accessToken;
+    const url = `/api/events/dashboard/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    const sse = new EventSource(url);
+
+    let debounceTimer = null;
+    const scheduleRefresh = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadDataRef.current();
+      }, 3000);
+    };
+
+    const liveEvents = [
+      'EXECUTION_STARTING',
+      'SUITE_STARTED',
+      'TEST_PASSED',
+      'TEST_FAILED',
+      'TEST_SKIPPED',
+      'MODULE_COMPLETED',
+      'SUITE_COMPLETED'
+    ];
+    liveEvents.forEach((eventName) => sse.addEventListener(eventName, scheduleRefresh));
+
+    sse.onerror = () => {
+      // Non-fatal: dashboard already has real data from the initial load, this stream is a
+      // best-effort live-update layer on top of it.
+      console.warn('Dashboard live-update stream lost connection');
+    };
+
+    return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      sse.close();
+    };
+  }, []);
 
   // Identify the latest execution for the top cards & system info
   const lastRun = useMemo(() => {
