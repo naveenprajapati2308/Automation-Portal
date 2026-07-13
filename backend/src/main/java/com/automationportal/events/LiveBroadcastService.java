@@ -19,8 +19,10 @@ public class LiveBroadcastService {
     // Maps executionCode -> list of active SSE emitters
     private final Map<String, List<SseEmitter>> emittersMap = new ConcurrentHashMap<>();
 
-    // Subscribers that want every execution's events regardless of code (e.g. the Dashboard),
-    // kept separate from emittersMap so per-execution behavior (Execution Center) is untouched.
+    // Subscribers that want every execution's events regardless of code (e.g. the
+    // Dashboard),
+    // kept separate from emittersMap so per-execution behavior (Execution Center)
+    // is untouched.
     private final List<SseEmitter> globalEmitters = new CopyOnWriteArrayList<>();
 
     public SseEmitter registerGlobalEmitter() {
@@ -45,9 +47,9 @@ public class LiveBroadcastService {
     public SseEmitter registerEmitter(String executionCode) {
         // 30 minutes timeout for the stream
         SseEmitter emitter = new SseEmitter(1800000L);
-        
+
         emittersMap.computeIfAbsent(executionCode, k -> new ArrayList<>()).add(emitter);
-        
+
         emitter.onCompletion(() -> removeEmitter(executionCode, emitter));
         emitter.onTimeout(() -> removeEmitter(executionCode, emitter));
         emitter.onError((e) -> removeEmitter(executionCode, emitter));
