@@ -1,0 +1,25 @@
+# Overlay for scheduler load tests (spec §5/§13): runs a SECOND backend
+# instance against the same MySQL/Redis to prove SKIP LOCKED claiming never
+# double-runs a schedule.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d api-testing-backend-2
+#   ...run the test...
+#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml stop api-testing-backend-2
+services:
+  api-testing-backend-2:
+    image: api-testing-platform-api-testing-backend
+    container_name: api-testing-backend-2
+    restart: unless-stopped
+    depends_on:
+      api-testing-mysql:
+        condition: service_healthy
+      api-testing-redis:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://api-testing-mysql:3306/api_testing_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      REDIS_HOST: api-testing-redis
+      HISTORY_BODY_STORE_DIR: /app/history-bodies
+    networks:
+      - api_testing_platform_network
