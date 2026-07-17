@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   LayoutDashboard,
   LogOut,
@@ -12,7 +13,9 @@ import {
   User,
   Settings,
   Globe2,
-  Crown
+  Crown,
+  X,
+  Send
 } from 'lucide-react';
 import appLogo from '../../assets/MPHIDB_Logo2.png';
 import { USER_NAV } from '../../constants.js';
@@ -27,6 +30,8 @@ export function Sidebar({
   isCollapsed,
   onToggle
 }) {
+  const [chatOpen, setChatOpen] = useState(false);
+
   return (
     <aside
       className="sidebar"
@@ -101,6 +106,15 @@ export function Sidebar({
 
       <div className="sidebar-footer" style={{ paddingGap: isCollapsed ? '8px' : '14px' }}>
         <button
+          onClick={() => setChatOpen((open) => !open)}
+          title="AI Support"
+          className={`ai-chat-btn ${chatOpen ? 'active' : ''}`}
+          style={{ justifyContent: isCollapsed ? 'center' : 'flex-start', padding: isCollapsed ? '0' : '0 12px' }}
+        >
+          <img src="/chaticon.png" alt="AI Support" style={{ width: '20px', height: '20px', flexShrink: 0, objectFit: 'contain' }} />
+          {!isCollapsed && <span style={{ animation: 'fadeIn 0.2s' }}>AI Support</span>}
+        </button>
+        <button
           onClick={logout}
           title="Logout"
           className="logout-btn"
@@ -112,6 +126,8 @@ export function Sidebar({
         {!isCollapsed && <p style={{ animation: 'fadeIn 0.2s', textAlign: 'center' }}>All right reserved TESTRIX 2026</p>}
       </div>
 
+      {chatOpen && <AiChatPanel isCollapsed={isCollapsed} onClose={() => setChatOpen(false)} />}
+
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: translateX(-4px); }
@@ -119,6 +135,68 @@ export function Sidebar({
         }
       `}</style>
     </aside>
+  );
+}
+
+// ── AI Support chat (dummy — real assistant will be wired in here later) ──────
+function AiChatPanel({ isCollapsed, onClose }) {
+  const [messages, setMessages] = useState([
+    { id: 1, from: 'bot', text: 'Hi! I am the TESTRIX AI assistant. I am not connected yet — this is a placeholder while the integration is in progress.' }
+  ]);
+  const [draft, setDraft] = useState('');
+  const scrollRef = React.useRef(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }, [messages]);
+
+  const sendMessage = (e) => {
+    e.preventDefault();
+    const text = draft.trim();
+    if (!text) return;
+    setDraft('');
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), from: 'user', text },
+      { id: Date.now() + 1, from: 'bot', text: 'AI support is coming soon. Your message will reach a real assistant once the integration goes live.' }
+    ]);
+  };
+
+  // Portal to <body>: the sidebar is position:sticky (its own stacking context),
+  // so a fixed panel rendered inside it would paint below the main content.
+  return createPortal(
+    <div className="ai-chat-panel" style={{ left: isCollapsed ? '82px' : '292px' }}>
+      <div className="ai-chat-header">
+        <img src="/chaticon.png" alt="" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+        <div style={{ flex: 1 }}>
+          <strong style={{ fontSize: '13px', color: 'var(--text-primary)', display: 'block' }}>AI Support</strong>
+          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Coming soon</span>
+        </div>
+        <button className="tb-icon-btn" onClick={onClose} title="Close chat">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="ai-chat-messages" ref={scrollRef}>
+        {messages.map((m) => (
+          <div key={m.id} className={`ai-chat-bubble ${m.from === 'user' ? 'ai-chat-bubble-user' : ''}`}>
+            {m.text}
+          </div>
+        ))}
+      </div>
+
+      <form className="ai-chat-input-row" onSubmit={sendMessage}>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Ask something..."
+        />
+        <button type="submit" className="tb-icon-btn" title="Send">
+          <Send size={15} />
+        </button>
+      </form>
+    </div>,
+    document.body
   );
 }
 

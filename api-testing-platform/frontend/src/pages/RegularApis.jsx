@@ -228,6 +228,11 @@ export default function RegularApis() {
             </button>
           </div>
         </div>
+        {saveMut.isError && (
+          <div className="text-xs text-red-400">
+            Save failed: {saveMut.error?.response?.data?.message ?? saveMut.error?.message ?? 'backend unreachable — is the platform running?'}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <input placeholder="Name (e.g. Get User Profile)" value={form.name}

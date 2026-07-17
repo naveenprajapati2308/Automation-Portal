@@ -183,12 +183,17 @@ export default function BaseApis() {
             </button>
           </div>
         </div>
+        {saveMut.isError && (
+          <div className="text-xs text-red-400">
+            Save failed: {saveMut.error?.response?.data?.message ?? saveMut.error?.message ?? 'backend unreachable — is the platform running?'}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <input placeholder="Name (e.g. Fetch Auth Token)" value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })} className={inputCls} />
           <select value={form.moduleId} onChange={(e) => setForm({ ...form, moduleId: e.target.value })} className={inputCls}>
-            <option value="">No module</option>
+            <option value="">-Select Module-</option>
             {flatModules.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
         </div>

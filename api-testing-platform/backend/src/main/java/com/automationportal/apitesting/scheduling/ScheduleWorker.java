@@ -10,10 +10,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Component;
 
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.temporal.TemporalAdjusters;
 
 /**
  * Executes one claimed schedule on the worker pool: runs the regular API
@@ -129,17 +132,75 @@ public class ScheduleWorker {
     }
 
     static Instant computeNextRun(Schedule schedule, Instant from) {
-        return switch (schedule.getFrequencyType()) {
-            case EVERY_X_MIN -> from.plus(Duration.ofMinutes(parseMinutes(schedule.getFrequencyValue())));
+        return computeNextRun(schedule.getFrequencyType(), schedule.getFrequencyValue(), from);
+    }
+
+    /**
+     * DAILY/WEEKLY anchor to a fixed local time-of-day when frequencyValue is
+     * set ("HH:mm" / "MON HH:mm"), so a 10:00 schedule always fires at 10:00
+     * regardless of delays, retries, or downtime — it never drifts. Without a
+     * value they fall back to the legacy fixed-interval behavior.
+     */
+    static Instant computeNextRun(Schedule.FrequencyType type, String value, Instant from) {
+        return switch (type) {
+            case EVERY_X_MIN -> from.plus(Duration.ofMinutes(parseMinutes(value)));
             case HOURLY -> from.plus(Duration.ofHours(1));
-            case DAILY -> from.plus(Duration.ofDays(1));
-            case WEEKLY -> from.plus(Duration.ofDays(7));
+            case DAILY -> {
+                LocalTime time = parseDailyTime(value);
+                if (time == null) yield from.plus(Duration.ofDays(1));
+                ZoneId zone = ZoneId.systemDefault();
+                ZonedDateTime fromZ = ZonedDateTime.ofInstant(from, zone);
+                ZonedDateTime candidate = fromZ.toLocalDate().atTime(time).atZone(zone);
+                if (!candidate.isAfter(fromZ)) candidate = candidate.plusDays(1);
+                yield candidate.toInstant();
+            }
+            case WEEKLY -> {
+                WeeklyAnchor anchor = parseWeeklyAnchor(value);
+                if (anchor == null) yield from.plus(Duration.ofDays(7));
+                ZoneId zone = ZoneId.systemDefault();
+                ZonedDateTime fromZ = ZonedDateTime.ofInstant(from, zone);
+                ZonedDateTime candidate = fromZ.toLocalDate()
+                        .with(TemporalAdjusters.nextOrSame(anchor.day()))
+                        .atTime(anchor.time()).atZone(zone);
+                if (!candidate.isAfter(fromZ)) candidate = candidate.plusWeeks(1);
+                yield candidate.toInstant();
+            }
             case CRON -> {
-                CronExpression cron = CronExpression.parse(schedule.getFrequencyValue());
+                CronExpression cron = CronExpression.parse(value);
                 ZonedDateTime next = cron.next(ZonedDateTime.ofInstant(from, ZoneId.systemDefault()));
                 yield next == null ? from.plus(Duration.ofDays(1)) : next.toInstant();
             }
         };
+    }
+
+    /** "HH:mm" (24h), or null for legacy interval behavior. */
+    static LocalTime parseDailyTime(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return LocalTime.parse(value.trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    record WeeklyAnchor(DayOfWeek day, LocalTime time) { }
+
+    /** "MON 10:00" (day-of-week + 24h time), or null for legacy behavior. */
+    static WeeklyAnchor parseWeeklyAnchor(String value) {
+        if (value == null || value.isBlank()) return null;
+        String[] parts = value.trim().split("\\s+");
+        if (parts.length != 2) return null;
+        LocalTime time = parseDailyTime(parts[1]);
+        DayOfWeek day = parseDayOfWeek(parts[0]);
+        return (day == null || time == null) ? null : new WeeklyAnchor(day, time);
+    }
+
+    private static DayOfWeek parseDayOfWeek(String s) {
+        String u = s.trim().toUpperCase();
+        for (DayOfWeek d : DayOfWeek.values()) {
+            if (d.name().equals(u) || d.name().startsWith(u) && u.length() >= 3) return d;
+        }
+        return null;
     }
 
     private static long parseMinutes(String value) {

@@ -27,6 +27,8 @@ public class ScheduleController {
     private final RegularApiRepository regularApiRepository;
     private final com.automationportal.apitesting.group.ApiGroupRepository groupRepository;
     private final com.automationportal.apitesting.audit.AuditService auditService;
+    private final ScheduleWorker scheduleWorker;
+    private final org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor scheduleWorkerExecutor;
 
     @Data
     public static class SchedulePayload {
@@ -75,6 +77,53 @@ public class ScheduleController {
 
     @PostMapping
     public Schedule create(@Valid @RequestBody SchedulePayload payload) {
+        Schedule s = new Schedule();
+        apply(s, payload);
+        s.setNextRunAt(initialNextRun(s)); // anchored types wait for their time; others run on the next poll tick
+        s = repository.save(s);
+        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, s.getId(),
+                com.automationportal.apitesting.audit.AuditLog.Action.CREATE,
+                "Created schedule '" + s.getName() + "' (" + s.getFrequencyType() + ", target " + s.getTargetType() + ")");
+        return s;
+    }
+
+    @PutMapping("/{id}")
+    public Schedule update(@PathVariable Long id, @Valid @RequestBody SchedulePayload payload) {
+        Schedule s = find(id);
+        apply(s, payload);
+        s.setRetryCount(0);
+        s.setNextRunAt(initialNextRun(s)); // re-anchor to the (possibly new) cadence
+        s = repository.save(s);
+        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
+                com.automationportal.apitesting.audit.AuditLog.Action.UPDATE,
+                "Updated schedule '" + s.getName() + "' (" + s.getFrequencyType()
+                        + (s.getFrequencyValue() != null ? " " + s.getFrequencyValue() : "") + ")");
+        return s;
+    }
+
+    /**
+     * Runs the schedule immediately on the worker pool (works even when
+     * PAUSED). The conditional lock guarantees it can't double-run against the
+     * poller; the worker recomputes the next anchored slot afterwards, so a
+     * manual run never shifts a "daily at 10:00" cadence.
+     */
+    @PostMapping("/{id}/run-now")
+    @org.springframework.transaction.annotation.Transactional
+    public Schedule runNow(@PathVariable Long id) {
+        Schedule s = find(id);
+        Instant now = Instant.now();
+        int locked = repository.tryManualLock(id, "manual-run", now.plusSeconds(300), now);
+        if (locked == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Schedule is already running");
+        }
+        scheduleWorkerExecutor.execute(() -> scheduleWorker.run(id));
+        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
+                com.automationportal.apitesting.audit.AuditLog.Action.EXECUTE,
+                "Manually triggered schedule '" + s.getName() + "'");
+        return s;
+    }
+
+    private void apply(Schedule s, SchedulePayload payload) {
         Schedule.TargetType target = payload.getTargetType() == null
                 ? Schedule.TargetType.API : payload.getTargetType();
         if (target == Schedule.TargetType.API) {
@@ -87,7 +136,6 @@ public class ScheduleController {
             }
         }
         validateFrequency(payload);
-        Schedule s = new Schedule();
         s.setName(payload.getName());
         s.setTargetType(target);
         s.setRegularApiId(target == Schedule.TargetType.API ? payload.getRegularApiId() : null);
@@ -95,12 +143,6 @@ public class ScheduleController {
         s.setFrequencyType(payload.getFrequencyType());
         s.setFrequencyValue(payload.getFrequencyValue());
         if (payload.getMaxRetries() != null) s.setMaxRetries(Math.max(0, payload.getMaxRetries()));
-        s.setNextRunAt(Instant.now()); // first run on the next poll tick
-        s = repository.save(s);
-        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, s.getId(),
-                com.automationportal.apitesting.audit.AuditLog.Action.CREATE,
-                "Created schedule '" + s.getName() + "' (" + s.getFrequencyType() + ", target " + target + ")");
-        return s;
     }
 
     @PatchMapping("/{id}/pause")
@@ -118,7 +160,7 @@ public class ScheduleController {
         Schedule s = find(id);
         s.setStatus(Schedule.Status.ACTIVE);
         if (s.getNextRunAt() == null || s.getNextRunAt().isBefore(Instant.now())) {
-            s.setNextRunAt(Instant.now());
+            s.setNextRunAt(initialNextRun(s)); // anchored types resume at their next slot, not immediately
         }
         s = repository.save(s);
         auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
@@ -141,22 +183,50 @@ public class ScheduleController {
     }
 
     private void validateFrequency(SchedulePayload p) {
+        String v = p.getFrequencyValue();
         switch (p.getFrequencyType()) {
             case EVERY_X_MIN -> {
                 try {
-                    if (Long.parseLong(p.getFrequencyValue().trim()) < 1) throw new NumberFormatException();
+                    if (Long.parseLong(v.trim()) < 1) throw new NumberFormatException();
                 } catch (Exception e) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "frequencyValue must be a positive number of minutes");
                 }
             }
             case CRON -> {
-                if (p.getFrequencyValue() == null || !CronExpression.isValidExpression(p.getFrequencyValue().trim())) {
+                if (v == null || !CronExpression.isValidExpression(v.trim())) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                             "frequencyValue must be a valid cron expression (6 fields, Spring format)");
                 }
             }
-            default -> { /* HOURLY / DAILY / WEEKLY need no value */ }
+            case DAILY -> {
+                if (v != null && !v.isBlank() && ScheduleWorker.parseDailyTime(v) == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "frequencyValue for DAILY must be a time like \"10:00\" (24h)");
+                }
+            }
+            case WEEKLY -> {
+                if (v != null && !v.isBlank() && ScheduleWorker.parseWeeklyAnchor(v) == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "frequencyValue for WEEKLY must be a day + time like \"MON 10:00\"");
+                }
+            }
+            default -> { /* HOURLY needs no value */ }
         }
+    }
+
+    /**
+     * Anchored schedules (DAILY "10:00", WEEKLY "MON 10:00", CRON) start at
+     * their next occurrence; interval types start immediately.
+     */
+    private Instant initialNextRun(Schedule s) {
+        Instant now = Instant.now();
+        boolean anchored = switch (s.getFrequencyType()) {
+            case DAILY -> ScheduleWorker.parseDailyTime(s.getFrequencyValue()) != null;
+            case WEEKLY -> ScheduleWorker.parseWeeklyAnchor(s.getFrequencyValue()) != null;
+            case CRON -> true;
+            default -> false;
+        };
+        return anchored ? ScheduleWorker.computeNextRun(s.getFrequencyType(), s.getFrequencyValue(), now) : now;
     }
 }
