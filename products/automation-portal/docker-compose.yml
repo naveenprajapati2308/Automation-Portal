@@ -1,0 +1,155 @@
+services:
+  automation-portal-mysql:
+    image: mysql:8.4
+    container_name: automation-portal-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: automation_portal
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_HOST: "%"
+    ports:
+      - "3306:3306"
+    volumes:
+      - automation_portal_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - automation_portal_network
+
+  automation-portal-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: automation-portal-backend
+    restart: unless-stopped
+    depends_on:
+      automation-portal-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://automation-portal-mysql:3306/automation_portal?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      PORTAL_AUTOMATION_ARTIFACTS_ROOT: /app/artifacts
+      PORTAL_AUTOMATION_REPOSITORY_PATH: /app/framework
+      PORTAL_EXECUTION_MANAGER_URL: http://automation-execution-manager:8090
+      PORTAL_ARTIFACT_SERVICE_URL: http://automation-report-artifacts:9091
+      LOGGING_FILE_NAME: /app/logs/automation-portal.log
+      PORTAL_FRONTEND_URL: http://localhost:15173
+      PORTAL_MAIL_CONSOLE_ONLY: "true"
+      PORTAL_JWT_EXPIRATION_MINUTES: 30
+      PORTAL_JWT_REFRESH_EXPIRATION_DAYS: 14
+    ports:
+      - "18080:8080"
+    volumes:
+      - automation_portal_backend_logs:/app/logs
+      - automation_portal_artifacts:/app/artifacts
+      - "D:/New folder/MPHIDB:/app/framework"
+    networks:
+      - automation_portal_network
+
+  automation-execution-manager:
+    build:
+      context: ./execution-manager
+      dockerfile: Dockerfile
+    container_name: automation-execution-manager
+    restart: unless-stopped
+    depends_on:
+      automation-portal-mysql:
+        condition: service_healthy
+    environment:
+      EM_DB_URL: jdbc:mysql://automation-portal-mysql:3306/automation_portal?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      EM_DB_USER: root
+      EM_DB_PASS: root
+      EM_RUNNER_URL: http://automation-framework-runner:9090
+      EM_PORTAL_BACKEND_URL: http://automation-portal-backend:8080
+      EM_MAX_CONCURRENT: 1
+      EM_TIMEOUT_MINUTES: 120
+    ports:
+      - "8090:8090"
+    networks:
+      - automation_portal_network
+
+  automation-framework-runner:
+    build:
+      context: ./framework-runner
+      dockerfile: Dockerfile
+    container_name: automation-framework-runner
+    restart: unless-stopped
+    depends_on:
+      - automation-portal-backend
+    # MPHIDB's test code launches real (non-headless, non-sandboxed-off) Chrome by design, so
+    # it keeps working unchanged on a Windows desktop with a real display. Chrome's own sandbox
+    # needs to create Linux namespaces to do that safely, which Docker blocks by default even
+    # for a non-root user (see the framework-runner Dockerfile's non-root user) — SYS_ADMIN is
+    # the standard, narrowly-scoped capability grant for exactly this, without disabling
+    # Chrome's sandbox via --no-sandbox in the framework's own code.
+    cap_add:
+      - SYS_ADMIN
+    # Docker's default /dev/shm is 64MB, which is too small for Chrome's renderer process and
+    # causes intermittent "WebDriver tab crashed" errors mid-test (distinct from the launch
+    # issues above — this only shows up once tests are actually running real pages).
+    shm_size: '2gb'
+    environment:
+      FRAMEWORK_PATH: /app/framework
+      MAVEN_CMD: mvn
+      RUNNER_PORT: 9090
+      EXECUTION_MANAGER_URL: http://automation-execution-manager:8090
+    ports:
+      - "9090:9090"
+    volumes:
+      - "D:/New folder/MPHIDB:/app/framework"
+    networks:
+      - automation_portal_network
+
+  automation-report-artifacts:
+    build:
+      context: ./report-artifact-service
+      dockerfile: Dockerfile
+    container_name: automation-report-artifacts
+    restart: unless-stopped
+    depends_on:
+      - automation-portal-backend
+    environment:
+      ARTIFACTS_ROOT: /app/artifacts
+      ARTIFACTS_PORT: 9091
+    ports:
+      - "9091:9091"
+    volumes:
+      - automation_portal_artifacts:/app/artifacts:ro
+    networks:
+      - automation_portal_network
+
+  automation-portal-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: automation-portal-frontend
+    restart: unless-stopped
+    depends_on:
+      automation-portal-backend:
+        condition: service_healthy
+    ports:
+      - "15173:80"
+    networks:
+      - automation_portal_network
+
+networks:
+  automation_portal_network:
+    name: automation_portal_network
+
+volumes:
+  automation_portal_mysql_data:
+    name: automation_portal_mysql_data
+  automation_portal_backend_logs:
+    name: automation_portal_backend_logs
+  automation_portal_artifacts:
+    name: automation_portal_artifacts

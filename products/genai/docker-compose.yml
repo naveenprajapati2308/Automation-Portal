@@ -1,0 +1,18 @@
+services:
+  genai-service:
+    build:
+      context: ./service
+      dockerfile: Dockerfile
+    container_name: testrix-genai
+    restart: unless-stopped
+    # Groq/Tavily API keys live in service/.env (never committed).
+    env_file:
+      - ./service/.env
+    ports:
+      - "3000:3000"
+    networks:
+      - testrix_genai_network
+
+networks:
+  testrix_genai_network:
+    name: testrix_genai_network
