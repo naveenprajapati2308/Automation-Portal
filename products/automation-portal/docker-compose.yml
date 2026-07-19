@@ -53,8 +53,6 @@ services:
       EM_PORTAL_BACKEND_URL: http://automation-portal-backend:8080
       EM_MAX_CONCURRENT: 1
       EM_TIMEOUT_MINUTES: 120
-    ports:
-      - "8090:8090"
     networks:
       - testrix
 
@@ -83,8 +81,6 @@ services:
       MAVEN_CMD: mvn
       RUNNER_PORT: 9090
       EXECUTION_MANAGER_URL: http://automation-execution-manager:8090
-    ports:
-      - "9090:9090"
     volumes:
       - "D:/New folder/MPHIDB:/app/framework"
     networks:
@@ -101,8 +97,6 @@ services:
     environment:
       ARTIFACTS_ROOT: /app/artifacts
       ARTIFACTS_PORT: 9091
-    ports:
-      - "9091:9091"
     volumes:
       - automation_portal_artifacts:/app/artifacts:ro
     networks:

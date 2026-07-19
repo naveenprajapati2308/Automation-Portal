@@ -39,8 +39,6 @@ services:
       HISTORY_BODY_STORE_DIR: /app/history-bodies
     volumes:
       - api_testing_history_bodies:/app/history-bodies
-    ports:
-      - "8081:8080"
     networks:
       - testrix
 

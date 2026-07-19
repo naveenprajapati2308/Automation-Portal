@@ -8,8 +8,6 @@ services:
     # Groq/Tavily API keys live in service/.env (never committed).
     env_file:
       - ./service/.env
-    ports:
-      - "3000:3000"
     networks:
       - testrix
 

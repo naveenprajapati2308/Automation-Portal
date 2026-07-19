@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Activity, Bot, ChevronRight, FlaskConical, Gauge, Globe2, LayoutDashboard,
-  Play, Send, TimerReset, X, Zap
+  LogOut, Play, Send, TimerReset, X, Zap
 } from 'lucide-react';
+
+const SESSION_KEY = 'automationPortalAuth';
+const session = {
+  get: () => JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'),
+  set: (s) => localStorage.setItem(SESSION_KEY, JSON.stringify(s)),
+  clear: () => localStorage.removeItem(SESSION_KEY)
+};
 
 const PRODUCTS = [
   {
@@ -31,8 +38,13 @@ const PRODUCTS = [
   }
 ];
 
+const authHeader = () => {
+  const s = session.get();
+  return s?.accessToken ? { Authorization: `Bearer ${s.accessToken}` } : {};
+};
+
 const fetchJson = async (url, headers) => {
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers: { ...authHeader(), ...headers } });
   if (!res.ok) throw new Error(`${res.status}`);
   return res.json();
 };
@@ -48,6 +60,61 @@ function Stat({ label, value, tone }) {
     <div className="stat">
       <div className={`stat-value ${tone || ''}`}>{value}</div>
       <div className="stat-label">{label}</div>
+    </div>
+  );
+}
+
+function Login({ onDone }) {
+  const [form, setForm] = useState({ username: '', password: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch('/automation/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, rememberMe: true })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Invalid username or password');
+      session.set(data);
+      onDone(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="login-wrap">
+      <form className="login-card" onSubmit={submit}>
+        <div className="brand login-brand">
+          <FlaskConical size={26} />
+          <span className="brand-name">TESTRIX</span>
+        </div>
+        <p className="login-sub">Sign in to the unified testing platform</p>
+        <input
+          placeholder="Username or email"
+          value={form.username}
+          onChange={(e) => setForm({ ...form, username: e.target.value })}
+          autoFocus
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
+        {error && <div className="login-error">{error}</div>}
+        <button className="open-btn login-btn" disabled={busy || !form.username || !form.password}>
+          {busy ? 'Signing in…' : 'Sign in'}
+        </button>
+      </form>
     </div>
   );
 }
@@ -73,8 +140,8 @@ function ChatPanel({ onClose }) {
     try {
       const r = await fetch('/genai/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, userId: 'testrix-shell' })
+        headers: { 'Content-Type': 'application/json', ...authHeader() },
+        body: JSON.stringify({ message: text, userId: session.get()?.user?.username || 'testrix' })
       });
       const data = await r.json();
       setMessages((m) => [...m, { id: Date.now() + 1, from: 'bot', text: data.message || 'No response.' }]);
@@ -112,13 +179,40 @@ function ChatPanel({ onClose }) {
 }
 
 export default function App() {
+  const [authed, setAuthed] = useState(null);
   const [health, setHealth] = useState({});
   const [autoSummary, setAutoSummary] = useState(null);
   const [apiSummary, setApiSummary] = useState(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const autoSession = JSON.parse(localStorage.getItem('automationPortalAuth') || 'null');
 
   useEffect(() => {
+    const s = session.get();
+    if (!s?.accessToken) {
+      setAuthed(false);
+      return;
+    }
+    fetch('/automation/api/auth/me', { headers: authHeader() })
+      .then(async (r) => {
+        if (r.ok) return setAuthed(true);
+        if (s.refreshToken) {
+          const rr = await fetch('/automation/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: s.refreshToken })
+          });
+          if (rr.ok) {
+            session.set(await rr.json());
+            return setAuthed(true);
+          }
+        }
+        session.clear();
+        setAuthed(false);
+      })
+      .catch(() => setAuthed(true));
+  }, []);
+
+  useEffect(() => {
+    if (!authed) return;
     PRODUCTS.filter((p) => p.health).forEach((p) => {
       fetchJson(p.health)
         .then(() => setHealth((h) => ({ ...h, [p.key]: 'up' })))
@@ -127,16 +221,14 @@ export default function App() {
     fetch('/health/genai')
       .then((r) => setHealth((h) => ({ ...h, genai: r.ok ? 'up' : 'down' })))
       .catch(() => setHealth((h) => ({ ...h, genai: 'down' })));
+    fetchJson('/automation/api/dashboard/summary').then(setAutoSummary).catch(() => setAutoSummary(null));
+    fetchJson('/apitest/api/v1/dashboard/summary').then(setApiSummary).catch(() => setApiSummary(null));
+  }, [authed]);
 
-    if (autoSession?.accessToken) {
-      fetchJson('/automation/api/dashboard/summary', { Authorization: `Bearer ${autoSession.accessToken}` })
-        .then(setAutoSummary)
-        .catch(() => setAutoSummary(null));
-    }
-    fetchJson('/apitest/api/v1/dashboard/summary')
-      .then(setApiSummary)
-      .catch(() => setApiSummary(null));
-  }, []);
+  if (authed === null) return null;
+  if (!authed) return <Login onDone={() => setAuthed(true)} />;
+
+  const user = session.get()?.user;
 
   return (
     <div className="shell">
@@ -149,6 +241,14 @@ export default function App() {
         <div className="topbar-right">
           <HealthDot state={health.genai} />
           <span className="topbar-label">AI Service</span>
+          <span className="topbar-user">{user?.fullName || user?.username || ''}</span>
+          <button
+            className="icon-btn logout-btn"
+            title="Sign out"
+            onClick={() => { session.clear(); setAuthed(false); }}
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       </header>
 
@@ -189,11 +289,7 @@ export default function App() {
                 <Stat label="Queued" value={autoSummary.queuedExecutions ?? 0} />
               </div>
             ) : (
-              <p className="panel-empty">
-                {autoSession?.accessToken
-                  ? 'Stats unavailable — open the Automation Portal to check.'
-                  : 'Sign in to the Automation Portal once to see live stats here.'}
-              </p>
+              <p className="panel-empty">Automation stats unavailable.</p>
             )}
           </div>
 

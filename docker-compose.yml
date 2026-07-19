@@ -5,6 +5,8 @@
 # Each product's stack is still fully standalone — you can also run
 # `docker compose up` inside any products/<name>/ folder to start just
 # that product, exactly as before the restructure.
+name: testrix
+
 include:
   - platform/docker-compose.yml
   - products/automation-portal/docker-compose.yml
