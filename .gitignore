@@ -1,10 +1,9 @@
-﻿# Node
-frontend/node_modules/
-loveable.ai/automation-hub/node_modules/
+# Node (any product)
+node_modules/
+dist/
 
-# Build outputs
-frontend/dist/
-backend/target/
+# Java build output (any service)
+target/
 
 # Logs
 *.log
@@ -24,6 +23,8 @@ logs/
 .DS_Store
 Thumbs.db
 
-loveable.ai/
-
+# Automation execution artifacts
+products/automation-portal/backend/artifacts/
 backend/artifacts/
+
+loveable.ai/
