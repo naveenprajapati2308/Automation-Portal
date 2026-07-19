@@ -55,7 +55,7 @@ export async function generate(userMessage, userId) {
   });
 
   const maxRetry = 10;
-  const count = 0;
+  let count = 0;
 
   while (true) {
     if (count > maxRetry) {

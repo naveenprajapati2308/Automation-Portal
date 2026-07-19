@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api`,
   timeout: 15000,
 });
 

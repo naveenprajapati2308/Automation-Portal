@@ -11,8 +11,8 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - testrix_genai_network
+      - testrix
 
 networks:
-  testrix_genai_network:
-    name: testrix_genai_network
+  testrix:
+    name: testrix_network

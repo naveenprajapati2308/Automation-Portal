@@ -1,24 +1,4 @@
 services:
-  api-testing-mysql:
-    image: mysql:8.4
-    container_name: api-testing-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: api_testing_platform
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_ROOT_HOST: "%"
-    ports:
-      - "3307:3306"
-    volumes:
-      - api_testing_platform_mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    networks:
-      - api_testing_platform_network
-
   api-testing-redis:
     image: redis:7-alpine
     container_name: api-testing-redis
@@ -29,7 +9,7 @@ services:
       timeout: 3s
       retries: 10
     networks:
-      - api_testing_platform_network
+      - testrix
 
   api-testing-backend:
     build:
@@ -38,7 +18,7 @@ services:
     container_name: api-testing-backend
     restart: unless-stopped
     depends_on:
-      api-testing-mysql:
+      testrix-mysql:
         condition: service_healthy
       api-testing-redis:
         condition: service_healthy
@@ -51,39 +31,23 @@ services:
     environment:
       # Schedule times ("daily at 10:00") and cron expressions are interpreted in this zone.
       TZ: ${SCHEDULER_TZ:-Asia/Kolkata}
-      DB_URL: jdbc:mysql://api-testing-mysql:3306/api_testing_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_URL: jdbc:mysql://testrix-mysql:3306/api_testing_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       DB_USERNAME: root
       DB_PASSWORD: root
       REDIS_HOST: api-testing-redis
-      FRONTEND_URL: http://localhost:15174
+      FRONTEND_URL: http://localhost:15000
       HISTORY_BODY_STORE_DIR: /app/history-bodies
     volumes:
       - api_testing_history_bodies:/app/history-bodies
     ports:
       - "8081:8080"
     networks:
-      - api_testing_platform_network
-
-  api-testing-frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: api-testing-frontend
-    restart: unless-stopped
-    depends_on:
-      api-testing-backend:
-        condition: service_healthy
-    ports:
-      - "15174:80"
-    networks:
-      - api_testing_platform_network
+      - testrix
 
 networks:
-  api_testing_platform_network:
-    name: api_testing_platform_network
+  testrix:
+    name: testrix_network
 
 volumes:
-  api_testing_platform_mysql_data:
-    name: api_testing_platform_mysql_data
   api_testing_history_bodies:
     name: api_testing_history_bodies

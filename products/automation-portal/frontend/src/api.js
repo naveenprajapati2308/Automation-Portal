@@ -1,3 +1,7 @@
+// Behind the Testrix gateway this app is served at /automation/, so every
+// backend call must carry that prefix; in dev (vite proxy) BASE_URL is '/'.
+export const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+
 const authStore = {
   get: () => JSON.parse(localStorage.getItem('automationPortalAuth') || 'null'),
   set: (session) => localStorage.setItem('automationPortalAuth', JSON.stringify(session)),
@@ -84,7 +88,7 @@ let inFlightRefresh = null;
 
 const refreshSession = (refreshToken) => {
   if (!inFlightRefresh) {
-    inFlightRefresh = fetch('/api/auth/refresh', {
+    inFlightRefresh = fetch(`${API_BASE}/api/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken })
@@ -104,7 +108,7 @@ const request = async (path, options = {}, retryCount = 0) => {
   };
   let response;
   try {
-    response = await fetch(path, { ...options, headers });
+    response = await fetch(API_BASE + path, { ...options, headers });
   } catch (error) {
     const msg = 'Unable to connect to the server. Please check that the backend is running and try again.';
     const detail = `Request Endpoint: ${path}\nHTTP Method: ${options.method || 'GET'}\nError Type: ${error.name || 'NetworkError'}\nSystem Message: ${error.message}\n\nTroubleshooting:\n- Verify that the backend docker containers are running.\n- Check if there is an active internet connection.\n- Ensure the port 8080 is accessible.`;

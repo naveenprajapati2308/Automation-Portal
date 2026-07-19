@@ -1,0 +1,8 @@
+.git
+.backups
+docs
+**/node_modules
+**/dist
+**/target
+**/*.log
+products/automation-portal/backend/artifacts

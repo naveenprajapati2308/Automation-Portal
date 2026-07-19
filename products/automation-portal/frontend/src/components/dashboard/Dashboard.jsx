@@ -13,7 +13,7 @@ import {
   History,
   Timer
 } from 'lucide-react';
-import { api, auth } from '../../api.js';
+import { api, auth, API_BASE } from '../../api.js';
 import { Loader } from '../shared/Loader.jsx';
 
 // Import child components
@@ -119,7 +119,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   // range change or triggering a run).
   useEffect(() => {
     const token = auth.get()?.accessToken;
-    const url = `/api/events/dashboard/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    const url = `${API_BASE}/api/events/dashboard/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
     const sse = new EventSource(url);
 
     let debounceTimer = null;

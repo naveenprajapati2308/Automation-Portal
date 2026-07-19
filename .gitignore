@@ -28,3 +28,6 @@ products/automation-portal/backend/artifacts/
 backend/artifacts/
 
 loveable.ai/
+
+# Local DB dumps (contain user data)
+.backups/

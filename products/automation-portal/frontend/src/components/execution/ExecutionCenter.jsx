@@ -11,7 +11,7 @@ import {
   Trash2,
   AlertTriangle
 } from 'lucide-react';
-import { api, auth } from '../../api.js';
+import { api, auth, API_BASE } from '../../api.js';
 import { DataTable, Modal } from '../shared/index.jsx';
 import './execution.css';
 
@@ -133,7 +133,7 @@ export function ExecutionCenter({
 
     // Subscribe to SSE endpoint
     const token = auth.get()?.accessToken;
-    const url = `/api/events/execution/${execution.executionCode}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    const url = `${API_BASE}/api/events/execution/${execution.executionCode}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
     console.log("Connecting to SSE stream:", url);
 
     const sse = new EventSource(url);

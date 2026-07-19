@@ -1,0 +1,3 @@
+CREATE DATABASE IF NOT EXISTS testrix_platform;
+CREATE DATABASE IF NOT EXISTS automation_portal;
+CREATE DATABASE IF NOT EXISTS api_testing_platform;
