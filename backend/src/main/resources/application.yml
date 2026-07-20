@@ -48,7 +48,7 @@ portal:
     expiration-minutes: ${PORTAL_JWT_EXPIRATION_MINUTES:30}
     refresh-expiration-days: ${PORTAL_JWT_REFRESH_EXPIRATION_DAYS:14}
   automation:
-    repository-path: "D:/New folder/MPHIDB"
+    repository-path: ${PORTAL_AUTOMATION_REPOSITORY_PATH:../MPHIDB}
     maven-command: "mvn test -DsuiteXmlFile={suiteXml} -DopenReport=false"
     artifacts-root: "artifacts"
     suites:

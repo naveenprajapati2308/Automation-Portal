@@ -1,9 +1,18 @@
 /* ── Reports Center (dark target theme) ──────────────────────────────────────
    Self-contained styles for ReportsCenter.jsx — kept out of styles.css. */
 
+:root {
+  --rc-transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --rc-transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --rc-glow-accent: rgba(124, 58, 237, 0.15);
+  --rc-glow-cyan: rgba(45, 212, 191, 0.15);
+  --rc-glow-blue: rgba(96, 165, 250, 0.15);
+}
+
 .rc-page {
   display: grid;
   gap: 20px;
+  animation: rcFadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .rc-card {
@@ -12,6 +21,12 @@
   border-radius: 14px;
   padding: 20px;
   margin-top: 15px;
+  transition: var(--rc-transition-smooth);
+}
+
+.rc-card:hover {
+  border-color: #2b3e57;
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5);
 }
 
 .rc-card-title {
@@ -22,6 +37,14 @@
   font-size: 15.5px;
   font-weight: 700;
   color: var(--text-primary);
+}
+
+.rc-card-title svg {
+  transition: var(--rc-transition-bounce);
+}
+
+.rc-card:hover .rc-card-title svg {
+  transform: scale(1.1) rotate(5deg);
 }
 
 .rc-title-cyan svg {
@@ -58,6 +81,7 @@
   font-weight: 600;
   color: var(--text-muted);
   margin-bottom: 6px;
+  transition: var(--rc-transition-smooth);
 }
 
 .rc-input,
@@ -72,12 +96,20 @@
   font-size: 13px;
   outline: none;
   color-scheme: dark;
-  /* native date-picker icon renders light-on-dark */
+  transition: var(--rc-transition-smooth);
+}
+
+.rc-input:hover,
+.rc-select:hover {
+  border-color: #2e4b70;
+  background: #13243d;
 }
 
 .rc-input:focus,
 .rc-select:focus {
   border-color: #4f6ef7;
+  box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.15);
+  background: #101d31;
 }
 
 .rc-input::placeholder {
@@ -91,11 +123,16 @@
 
 /* Search / module / status get the violet accent border like the target */
 .rc-accent {
-  border-color: rgba(124, 58, 237, 0.5);
+  border-color: rgba(124, 58, 237, 0.4);
+}
+
+.rc-accent:hover {
+  border-color: rgba(124, 58, 237, 0.6);
 }
 
 .rc-accent:focus {
   border-color: #a78bfa;
+  box-shadow: 0 0 0 3px var(--rc-glow-accent);
 }
 
 .rc-search-wrap {
@@ -104,15 +141,21 @@
 
 .rc-search-wrap svg {
   position: absolute;
-  left: 10px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
   color: #5d7292;
   pointer-events: none;
+  transition: var(--rc-transition-smooth);
+}
+
+.rc-search-wrap:focus-within svg {
+  color: #a78bfa;
+  transform: translateY(-50%) scale(1.05);
 }
 
 .rc-search-wrap .rc-input {
-  padding-left: 32px;
+  padding-left: 34px;
 }
 
 /* Gradient action buttons (Apply Filters / Compare Runs) */
@@ -129,19 +172,28 @@
   font-weight: 700;
   color: var(--text-primary);
   cursor: pointer;
-  background: linear-gradient(90deg, #2563eb, var(--accent));
-  transition: filter 0.15s;
+  background: linear-gradient(90deg, #2563eb, #7c3aed, #2563eb);
+  background-size: 200% auto;
+  transition: var(--rc-transition-smooth);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
   white-space: nowrap;
 }
 
-.rc-gradient-btn:hover {
-  filter: brightness(1.12);
+.rc-gradient-btn:hover:not(:disabled) {
+  background-position: right center;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+}
+
+.rc-gradient-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 .rc-gradient-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
-  filter: none;
+  box-shadow: none;
+  transform: none;
 }
 
 /* ── Table cell helpers ────────────────────────────────────────────────────── */
@@ -152,12 +204,15 @@
   cursor: pointer;
   font: inherit;
   font-weight: 600;
-  color: var(--indigo-text);
+  color: #7c8ffa;
+  transition: var(--rc-transition-smooth);
+  display: inline-block;
 }
 
 .rc-code-link:hover {
-  color: var(--indigo-text-soft);
-  text-decoration: underline;
+  color: #a5b4fc;
+  text-decoration: none;
+  transform: translateX(2px);
 }
 
 .rc-act-btn {
@@ -170,11 +225,18 @@
   background: var(--bg-surface);
   color: var(--text-muted);
   cursor: pointer;
+  transition: var(--rc-transition-bounce);
 }
 
 .rc-act-btn:hover {
   border-color: #4f6ef7;
-  color: var(--indigo-text-soft);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(79, 110, 247, 0.2);
+}
+
+.rc-act-btn:active {
+  transform: translateY(0) scale(0.95);
 }
 
 /* ── Comparison result ─────────────────────────────────────────────────────── */
@@ -191,6 +253,7 @@
   border-radius: 12px;
   padding: 20px;
   margin-top: 14px;
+  animation: rcFadeIn 0.35s ease forwards;
 }
 
 .rc-cmp-result-head {
@@ -220,6 +283,12 @@
   font-weight: 700;
   font-size: 12.5px;
   cursor: pointer;
+  transition: var(--rc-transition-smooth);
+}
+
+.rc-clear-btn:hover {
+  color: #ff8787;
+  opacity: 0.9;
 }
 
 .rc-kpi-grid {
@@ -234,6 +303,13 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 14px;
+  transition: var(--rc-transition-bounce);
+}
+
+.rc-kpi:hover {
+  transform: translateY(-3px);
+  border-color: #314d73;
+  background: #13243d;
 }
 
 .rc-kpi span {
@@ -247,6 +323,11 @@
 
 .rc-kpi strong {
   font-size: 22px;
+  transition: var(--rc-transition-smooth);
+}
+
+.rc-kpi:hover strong {
+  color: #ffffff;
 }
 
 .rc-list-card {
@@ -254,6 +335,11 @@
   padding: 16px;
   margin-bottom: 16px;
   border: 1px solid;
+  transition: var(--rc-transition-smooth);
+}
+
+.rc-list-card:hover {
+  transform: translateX(4px);
 }
 
 .rc-list-card h4 {
@@ -265,8 +351,14 @@
 }
 
 .rc-list-fail {
-  background: rgba(239, 68, 68, 0.05);
-  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.04);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.rc-list-fail:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.08);
 }
 
 .rc-list-fail h4 {
@@ -274,8 +366,14 @@
 }
 
 .rc-list-fixed {
-  background: rgba(46, 204, 113, 0.05);
-  border-color: rgba(46, 204, 113, 0.25);
+  background: rgba(46, 204, 113, 0.04);
+  border-color: rgba(46, 204, 113, 0.2);
+}
+
+.rc-list-fixed:hover {
+  background: rgba(46, 204, 113, 0.08);
+  border-color: rgba(46, 204, 113, 0.4);
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.08);
 }
 
 .rc-list-fixed h4 {
@@ -288,7 +386,12 @@
   border-radius: 6px;
   border-left: 3px solid #f87171;
   font-size: 12px;
-  color: var(--text-primary);
+  color: #dbe4ee;
+  margin-bottom: 8px;
+}
+
+.rc-fail-item:last-child {
+  margin-bottom: 0;
 }
 
 .rc-fail-item p {
@@ -303,7 +406,12 @@
   border-radius: 6px;
   border-left: 3px solid #2ecc71;
   font-size: 12px;
-  color: var(--text-primary);
+  color: #dbe4ee;
+  margin-bottom: 8px;
+}
+
+.rc-fixed-item:last-child {
+  margin-bottom: 0;
 }
 
 .rc-muted-note {
@@ -312,14 +420,18 @@
   text-align: center;
   padding: 10px 0;
 }
+
 /* ── Delete confirmation (mirrors the Screenshots gallery pattern) ──────────── */
 .rc-act-danger {
   color: var(--danger-text) !important;
   border-color: rgba(239, 68, 68, 0.4) !important;
+  transition: var(--rc-transition-bounce) !important;
 }
 
 .rc-act-danger:hover {
   background: rgba(239, 68, 68, 0.15) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
 }
 
 .rc-confirm-body {
@@ -329,10 +441,12 @@
   gap: 12px;
   text-align: center;
   padding: 6px 4px;
+  animation: rcFadeIn 0.3s ease-out forwards;
 }
 
 .rc-confirm-body svg {
-  color: var(--danger-text);
+  color: #f87171;
+  animation: rcPulse 2s infinite ease-in-out;
 }
 
 .rc-confirm-text {
@@ -362,6 +476,13 @@
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
+  transition: var(--rc-transition-smooth);
+}
+
+.rc-btn-cancel:hover {
+  background: #15263f;
+  border-color: #2e4a6e;
+  color: #ffffff;
 }
 
 .rc-btn-delete {
@@ -374,8 +495,53 @@
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
+  transition: var(--rc-transition-smooth);
 }
 
 .rc-btn-delete:hover {
   background: rgba(239, 68, 68, 0.28);
+  border-color: #f87171;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.rc-btn-delete:active,
+.rc-btn-cancel:active {
+  transform: scale(0.97);
+}
+
+/* ── Animation Frames ──────────────────────────────────────────────────────── */
+@keyframes rcFadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rcFadeIn {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes rcPulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
 }

@@ -151,7 +151,7 @@ export function ExecutionDetailPage({ executionId, onClose }) {
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,25,35,0.7)', zIndex: 1000, display: 'flex', justifyContent: 'flex-end' }}>
-      <div className="xd-drawer" style={{ width: '85%', maxWidth: '1200px', height: '100%', background: 'var(--bg-inset)', display: 'flex', flexDirection: 'column', boxShadow: '-5px 0 25px rgba(0,0,0,0.3)', animation: 'slideIn 0.3s ease-out' }}>
+      <div className="xd-drawer" style={{ width: '85%', maxWidth: '1200px', height: '100%', background: '#0a1322', display: 'flex', flexDirection: 'column', boxShadow: '-5px 0 25px rgba(0,0,0,0.3)' }}>
 
         {/* Header */}
         <div style={{ padding: '20px 24px', background: 'var(--bg-inset)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
