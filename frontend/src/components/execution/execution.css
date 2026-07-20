@@ -4,6 +4,8 @@
 .xc-page {
   display: grid;
   gap: 20px;
+  /* Entry animation for the entire layout */
+  animation: xcFadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .xc-card {
@@ -12,7 +14,13 @@
   border-radius: 14px;
   padding: 20px;
   margin-top: 15px;
+  /* Smooth response if cards shift or adjust */
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
 
+.xc-card:hover {
+  border-color: #223a59;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
 
 /* Controls card with decorative illustration on the right */
@@ -32,31 +40,11 @@
   object-fit: contain;
   pointer-events: none;
   user-select: none;
-  /* The radial mask fades the hard rectangular edges away so the artwork
-     reads as part of the card, not a pasted image. */
+  mix-blend-mode: screen;
   -webkit-mask-image: radial-gradient(75% 75% at 50% 50%, #000 55%, transparent 82%);
   mask-image: radial-gradient(75% 75% at 50% 50%, #000 55%, transparent 82%);
-  transition: opacity 0.2s;
-}
-
-/* Bright and dark variants share the position above and are stacked exactly
-   on top of one another; only opacity decides which one is visible, so the
-   theme toggle swaps them instantly without re-mounting the component. */
-.xc-controls-art-bright {
-  /* White-background artwork: `multiply` drops the white into the light card. */
-  mix-blend-mode: multiply;
-  opacity: 1;
-}
-.xc-controls-art-dark {
-  /* Near-black-background artwork: `screen` drops the black into the dark card. */
-  mix-blend-mode: screen;
-  opacity: 0;
-}
-:root[data-theme="dark"] .xc-controls-art-bright {
-  opacity: 0;
-}
-:root[data-theme="dark"] .xc-controls-art-dark {
-  opacity: 1;
+  /* Gentle breathing animation for background artwork */
+  animation: xcPulseArt 8s ease-in-out infinite alternate;
 }
 
 @media (max-width: 1100px) {
@@ -87,7 +75,12 @@
 }
 
 .xc-card-title svg {
-  color: var(--indigo-text);
+  color: #7c8ffa;
+  transition: transform 0.3s ease;
+}
+
+.xc-card:hover .xc-card-title svg {
+  transform: rotate(15deg) scale(1.05);
 }
 
 .xc-label {
@@ -96,6 +89,7 @@
   font-weight: 600;
   color: var(--text-muted);
   margin-bottom: 7px;
+  transition: color 0.2s ease;
 }
 
 .xc-select {
@@ -108,10 +102,17 @@
   padding: 0 12px;
   font-size: 13.5px;
   outline: none;
+  /* Smooth transitions for focus rings and states */
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.xc-select:hover:not(:disabled) {
+  border-color: #314d73;
 }
 
 .xc-select:focus {
   border-color: #4f6ef7;
+  box-shadow: 0 0 0 3px rgba(79, 110, 247, 0.15);
 }
 
 .xc-select:disabled {
@@ -129,13 +130,16 @@
   border-color: rgba(124, 58, 237, 0.55);
 }
 
+.xc-select-primary:hover:not(:disabled) {
+  border-color: rgba(124, 58, 237, 0.8);
+}
+
 .xc-select-primary:focus {
   border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
 }
 
 .xc-advanced-toggle {
-  /* Block-level flex so it always drops to its own line under the run picker
-     instead of flowing inline beside it. */
   display: flex;
   align-items: center;
   gap: 5px;
@@ -146,17 +150,33 @@
   padding: 0;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--accent-text);
+  color: #a78bfa;
+  transition: color 0.2s ease, transform 0.2s ease;
 }
 
 .xc-advanced-toggle:hover {
   color: var(--accent-text-soft);
 }
 
+.xc-advanced-toggle:active {
+  transform: scale(0.97);
+}
+
+.xc-advanced-toggle svg {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* If you dynamically add an '.expanded' class to the button rotation flips smoothly */
+.xc-advanced-toggle.expanded svg {
+  transform: rotate(180deg);
+}
+
 .xc-advanced-row {
   display: flex;
   gap: 10px;
   margin-top: 10px;
+  /* Entry transition for the sliding advanced options */
+  animation: xcSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .xc-icon-btn {
@@ -169,11 +189,18 @@
   background: var(--bg-surface);
   color: var(--text-muted);
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .xc-icon-btn:hover {
-  border-color: var(--border-strong);
-  color: var(--text-secondary);
+  border-color: #34517a;
+  color: #c7d6e6;
+  background: #14243d;
+  transform: translateY(-1px);
+}
+
+.xc-icon-btn:active {
+  transform: translateY(0) scale(0.95);
 }
 
 .xc-launch {
@@ -190,12 +217,21 @@
   font-weight: 700;
   color: var(--text-primary);
   cursor: pointer;
-  background: linear-gradient(90deg, #2563eb, var(--accent));
-  transition: filter 0.15s;
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  background-size: 120% auto;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
 }
 
-.xc-launch:hover {
+.xc-launch:hover:not(:disabled) {
   filter: brightness(1.12);
+  background-position: right center;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(124, 58, 237, 0.3);
+}
+
+.xc-launch:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 .xc-launch:disabled {
@@ -215,6 +251,7 @@
   font-weight: 700;
   border: 1px solid;
   white-space: nowrap;
+  transition: all 0.2s ease;
 }
 
 .xc-status .xc-dot {
@@ -235,6 +272,11 @@
   color: var(--danger-text);
   border-color: rgba(239, 68, 68, 0.35);
   background: rgba(239, 68, 68, 0.08);
+}
+
+/* Pop/Shake subtle entry for structural failures */
+.xc-status-failed {
+  animation: xcPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .xc-status-running {
@@ -260,18 +302,6 @@
   background: rgba(143, 162, 184, 0.08);
 }
 
-@keyframes xcBlink {
-
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.25;
-  }
-}
-
 /* ── Metrics cell ──────────────────────────────────────────────────────────── */
 .xc-metrics {
   display: inline-flex;
@@ -286,6 +316,11 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  transition: transform 0.2s ease;
+}
+
+.xc-metric:hover {
+  transform: scale(1.05);
 }
 
 .xc-metric-pass {
@@ -303,6 +338,7 @@
 .xc-metrics-idle {
   color: #4a5f78;
   letter-spacing: 3px;
+  animation: xcPulseIdle 2s ease-in-out infinite;
 }
 
 .xc-runcode {
@@ -312,12 +348,14 @@
   padding: 0;
   font-weight: 600;
   font-size: 13px;
-  color: var(--indigo-text);
+  color: #7c8ffa;
+  transition: color 0.15s ease, text-shadow 0.15s ease;
 }
 
 .xc-runcode:hover {
   color: var(--indigo-text-soft);
   text-decoration: underline;
+  text-shadow: 0 0 8px rgba(165, 180, 252, 0.3);
 }
 
 .xc-eye-btn {
@@ -330,15 +368,21 @@
   background: var(--bg-surface);
   color: var(--indigo-text);
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .xc-eye-btn:hover {
   border-color: #4f6ef7;
-  color: var(--indigo-text-soft);
+  color: #a5b4fc;
+  background: #14253f;
+  transform: scale(1.05);
+}
+
+.xc-eye-btn:active {
+  transform: scale(0.95);
 }
 
 /* ── Live monitor ──────────────────────────────────────────────────────────── */
-/* Monitor + logs side by side between the controls card and the queue table */
 .xc-live-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -383,8 +427,8 @@
 .xc-progress-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #2563eb, var(--accent));
-  transition: width 0.3s ease-out;
+  background: linear-gradient(90deg, #2563eb, #7c3aed);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .xc-progress-meta {
@@ -407,6 +451,12 @@
   border-radius: 10px;
   border: 1px solid;
   padding: 10px;
+  transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.25s ease;
+}
+
+/* Elevate counters when the values alter or when card gets hovered */
+.xc-counter:hover {
+  transform: translateY(-2px);
 }
 
 .xc-counter span {
@@ -418,7 +468,10 @@
 }
 
 .xc-counter strong {
+  display: inline-block;
   font-size: 20px;
+  /* Triggers a fluid pop scale if metrics update dynamically */
+  animation: xcPopCount 0.3s ease-out;
 }
 
 .xc-counter-pass {
@@ -427,16 +480,28 @@
   background: rgba(46, 204, 113, 0.07);
 }
 
+.xc-counter-pass:hover {
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.15);
+}
+
 .xc-counter-fail {
   color: var(--danger-text);
   border-color: rgba(239, 68, 68, 0.3);
   background: rgba(239, 68, 68, 0.07);
 }
 
+.xc-counter-fail:hover {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
 .xc-counter-skip {
   color: var(--warning-text);
   border-color: rgba(224, 166, 74, 0.3);
   background: rgba(224, 166, 74, 0.07);
+}
+
+.xc-counter-skip:hover {
+  box-shadow: 0 4px 12px rgba(224, 166, 74, 0.15);
 }
 
 .xc-cancel-btn {
@@ -454,10 +519,17 @@
   font-weight: 700;
   font-size: 13px;
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .xc-cancel-btn:hover {
   background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.6);
+  transform: translateY(-1px);
+}
+
+.xc-cancel-btn:active {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Live logs / screenshots tabs */
@@ -492,25 +564,41 @@
   color: var(--text-muted);
   border-bottom: 3px solid transparent;
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.xc-tab:hover:not(.active) {
+  color: #c7d6e6;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .xc-tab.active {
   color: var(--text-primary);
   font-weight: 700;
-  border-bottom-color: var(--accent);
+  border-bottom-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.03);
 }
 
 .xc-tab-body {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
+  /* Smooth entry animation for content switching tabs */
+  animation: xcFadeIn 0.2s ease-out both;
 }
 
 .xc-shot-card {
   border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  background: var(--bg-surface);
+  background: #101d31;
+  transition: all 0.25s ease;
+}
+
+.xc-shot-card:hover {
+  border-color: #3b5980;
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 .xc-shot-card .xc-shot-name {
@@ -521,4 +609,107 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── Animation Keyframes ────────────────────────────────────────────────────── */
+
+@keyframes xcBlink {
+
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.25;
+    transform: scale(0.9);
+  }
+}
+
+@keyframes xcFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes xcFadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes xcSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes xcPop {
+  0% {
+    transform: scale(0.9);
+  }
+
+  70% {
+    transform: scale(1.04);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes xcPopCount {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.15);
+    color: #fff;
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes xcPulseIdle {
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes xcPulseArt {
+  0% {
+    opacity: 0.7;
+    transform: translateY(-50%) scale(0.98);
+  }
+
+  100% {
+    opacity: 0.95;
+    transform: translateY(-50%) scale(1.02);
+  }
 }

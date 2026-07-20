@@ -10,9 +10,7 @@ RUN mvn -q package
 FROM maven:3.9.9-eclipse-temurin-21
 WORKDIR /app
 
-# Install Chrome + a virtual display (Xvfb). MPHIDB's test code launches Chrome in normal,
-# non-headless mode (by design, so it also works unchanged on a Windows desktop with a real
-# display) — Xvfb gives it a virtual display to render to inside this container instead.
+# Install Chrome for Selenium headless tests
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg2 \
@@ -20,8 +18,6 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     curl \
     unzip \
-    xvfb \
-    fluxbox \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
     && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \

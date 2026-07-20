@@ -1,33 +1,172 @@
-/* Execution Detail drawer — dark-theme helpers. Layout stays in the component's
-   inline styles; this only covers what inline styles can't reach. */
+/* ── Execution Detail drawer (Premium Dark Theme Customization) ── */
+
+.xd-drawer {
+  /* Hardware acceleration for the entire drawer content layer */
+  will-change: transform, opacity;
+  /* Smooth drawer sliding and fade physics if toggling classes */
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Base structural drawer helper classes (if implemented via JS toggle) */
+.xd-drawer.is-hidden {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.xd-drawer.is-visible {
+  transform: translateX(0);
+  opacity: 1;
+}
 
 .xd-drawer input,
 .xd-drawer select {
-  color: var(--text-secondary);
+  color: #c7d6e6;
+  background-color: #101d31;
+  border: 1px solid #223650;
+  border-radius: 8px;
+  padding: 8px 12px;
+  outline: none;
+  /* Ensures smooth backdrop matching and layout state changes */
+  transition: border-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.15s ease;
+}
+
+.xd-drawer input:hover:not(:focus),
+.xd-drawer select:hover:not(:focus) {
+  border-color: #314d73;
+  background-color: #122137;
+}
+
+/* Enhanced interactive states for inputs and select fields */
+.xd-drawer input:focus,
+.xd-drawer select:focus {
+  color: #fff;
+  border-color: #7c3aed !important;
+  /* Matches the global purple theme accent */
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18), 0 8px 16px rgba(0, 0, 0, 0.3);
+  background-color: #13233c;
+  transform: translateY(-1px);
 }
 
 .xd-drawer select option {
-  background: var(--bg-surface);
-  color: var(--text-secondary);
+  background: #101d31;
+  color: #c7d6e6;
+  padding: 8px;
+  /* Extra breathing room inside native dropdowns */
 }
 
+/* Beautiful cinematic table headers */
 .xd-drawer table th {
   color: var(--text-muted);
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  transition: color 0.3s ease, text-shadow 0.3s ease, transform 0.3s ease;
+  position: relative;
 }
+
+/* Subtle glowing accent line underneath headers on hover */
+.xd-drawer table tr:hover th {
+  color: #a78bfa;
+  text-shadow: 0 0 8px rgba(167, 139, 250, 0.25);
+  transform: translateY(-0.5px);
+}
+
+/* Table body row hover transformations */
+.xd-drawer table tbody tr {
+  /* Smooth fade-in animation for rows inside the detail view drawer */
+  animation: xd-row-entrance 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: background-color 0.2s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.xd-drawer table tbody tr:hover {
+  background-color: rgba(28, 43, 64, 0.35);
+  transform: scale(1.005) translateX(2px);
+}
+
+/* Dynamic CSS staggering trick to animate rows one after the other naturally */
+.xd-drawer table tbody tr:nth-child(1) {
+  animation-delay: 0.04s;
+}
+
+.xd-drawer table tbody tr:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.xd-drawer table tbody tr:nth-child(3) {
+  animation-delay: 0.12s;
+}
+
+.xd-drawer table tbody tr:nth-child(4) {
+  animation-delay: 0.16s;
+}
+
+.xd-drawer table tbody tr:nth-child(5) {
+  animation-delay: 0.20s;
+}
+
+/* ── Interactive Icons & Action Buttons inside Drawer ─────────────────────── */
+.xd-action-btn {
+  border: 1px solid #223650;
+  background: #101d31;
+  color: #8fa2b8;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.xd-action-btn:hover {
+  border-color: #7c3aed;
+  color: #fff;
+  background: #14243d;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
+}
+
+.xd-action-btn:active {
+  transform: translateY(0) scale(0.96);
+}
+
+/* ── Custom Premium Scrollbars ───────────────────────────────────────────── */
 
 .xd-drawer ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-.xd-drawer ::-webkit-scrollbar-thumb {
-  background: var(--bg-surface-2);
-  border-radius: 6px;
-}
-
 .xd-drawer ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+.xd-drawer ::-webkit-scrollbar-thumb {
+  background: #1c2b40;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  /* Gives it a neat padding effect inside track */
+  background-clip: padding-box;
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Glow and expand visual weight on scrollbar drag hover */
+.xd-drawer ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(#2563eb, #7c3aed);
+  background-clip: padding-box;
+  border: 1px solid transparent;
+}
+
+/* ── Performance Advanced Animation Keyframes ───────────────────────── */
+
+@keyframes xd-row-entrance {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

@@ -8,7 +8,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_ROOT_HOST: "%"
     ports:
-      - "3306:3306"
+      - "13306:3306"
     volumes:
       - automation_portal_mysql_data:/var/lib/mysql
     healthcheck:
@@ -52,7 +52,7 @@ services:
     volumes:
       - automation_portal_backend_logs:/app/logs
       - automation_portal_artifacts:/app/artifacts
-      - "D:/New folder/MPHIDB:/app/framework"
+      - "../MPHIDB:/app/framework"
     networks:
       - automation_portal_network
 
@@ -79,6 +79,7 @@ services:
       - automation_portal_network
 
   automation-framework-runner:
+    platform: linux/amd64
     build:
       context: ./framework-runner
       dockerfile: Dockerfile
@@ -106,7 +107,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - "D:/New folder/MPHIDB:/app/framework"
+      - "../MPHIDB:/app/framework"
     networks:
       - automation_portal_network
 

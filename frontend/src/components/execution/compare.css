@@ -4,6 +4,8 @@
 .cp-page {
   display: grid;
   gap: 20px;
+  /* Smooth layout entry */
+  animation: cpFadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .cp-card {
@@ -12,8 +14,12 @@
   border-radius: 14px;
   padding: 24px;
   margin-top: -5px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
 
-
+.cp-card:hover {
+  border-color: #223a59;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Hero ──────────────────────────────────────────────────────────────────── */
@@ -24,12 +30,18 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background: radial-gradient(600px 260px at 8% 20%, rgba(124, 58, 237, 0.10), transparent 60%),
-    var(--bg-inset);
-  border: 1px solid var(--border);
+  background:
+    radial-gradient(600px 260px at 8% 20%, rgba(124, 58, 237, 0.12), transparent 60%),
+    #0d1727;
+  border: 1px solid #1c2b40;
   border-radius: 14px;
   padding: 30px 34px;
   margin-top: 15px;
+  transition: border-color 0.3s ease;
+}
+
+.cp-hero:hover {
+  border-color: #2b3e56;
 }
 
 .cp-hero-eyebrow {
@@ -39,6 +51,7 @@
   letter-spacing: 0.18em;
   text-transform: uppercase;
   margin-bottom: 8px;
+  animation: cpTrackingIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .cp-hero-title {
@@ -67,31 +80,11 @@
   object-fit: contain;
   pointer-events: none;
   user-select: none;
-  /* The radial mask fades the hard rectangular edges away so the artwork
-     reads as part of the card, not a pasted image. */
+  mix-blend-mode: screen;
   -webkit-mask-image: radial-gradient(75% 75% at 50% 50%, #000 55%, transparent 82%);
   mask-image: radial-gradient(75% 75% at 50% 50%, #000 55%, transparent 82%);
-  transition: opacity 0.2s;
-}
-
-/* Bright and dark variants share the position above and are stacked exactly
-   on top of one another; only opacity decides which one is visible, so the
-   theme toggle swaps them instantly without re-mounting the component. */
-.cp-hero-art-bright {
-  /* White-background artwork: `multiply` drops the white into the light card. */
-  mix-blend-mode: multiply;
-  opacity: 1;
-}
-.cp-hero-art-dark {
-  /* Near-black-background artwork: `screen` drops the black into the dark card. */
-  mix-blend-mode: screen;
-  opacity: 0;
-}
-:root[data-theme="dark"] .cp-hero-art-bright {
-  opacity: 0;
-}
-:root[data-theme="dark"] .cp-hero-art-dark {
-  opacity: 1;
+  /* Breathing visual effect for the background graphics */
+  animation: cpHeroArtPulse 10s ease-in-out infinite alternate;
 }
 
 @media (max-width: 1000px) {
@@ -149,6 +142,8 @@
   display: grid;
   place-items: center;
   pointer-events: none;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.25s ease;
+  z-index: 2;
 }
 
 .cp-chip-violet {
@@ -171,6 +166,11 @@
   font-size: 13.5px;
   outline: none;
   border: 1px solid;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cp-select:hover:not(:disabled) {
+  background-color: #13243d;
 }
 
 .cp-select option {
@@ -179,19 +179,36 @@
 }
 
 .cp-select-violet {
-  border-color: rgba(139, 92, 246, 0.55);
+  border-color: rgba(139, 92, 246, 0.4);
+}
+
+.cp-select-violet:hover:not(:disabled) {
+  border-color: rgba(139, 92, 246, 0.65);
 }
 
 .cp-select-violet:focus {
   border-color: #a78bfa;
+  background-color: #13233c;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.15), 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
 .cp-select-cyan {
-  border-color: rgba(34, 211, 238, 0.45);
+  border-color: rgba(34, 211, 238, 0.35);
+}
+
+.cp-select-cyan:hover:not(:disabled) {
+  border-color: rgba(34, 211, 238, 0.6);
 }
 
 .cp-select-cyan:focus {
   border-color: #22d3ee;
+  background-color: #13233c;
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12), 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Transform internal chip icons dynamically when dropdown maps focus */
+.cp-select:focus+.cp-select-chip {
+  transform: translateY(-50%) scale(1.05);
 }
 
 /* Circular arrow between the two pickers */
@@ -206,8 +223,15 @@
   color: var(--accent-text);
   background: var(--bg-inset);
   border: 1px solid rgba(139, 92, 246, 0.45);
-  box-shadow: 0 0 18px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 0 18px rgba(124, 58, 237, 0.15);
   margin-top: 22px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cp-pick-row:hover .cp-arrow {
+  transform: rotate(180deg);
+  border-color: rgba(167, 139, 250, 0.8);
+  box-shadow: 0 0 24px rgba(124, 58, 237, 0.3);
 }
 
 .cp-compare-btn {
@@ -223,13 +247,22 @@
   font-weight: 700;
   color: var(--text-primary);
   cursor: pointer;
-  background: linear-gradient(90deg, var(--accent), #2563eb);
-  transition: filter 0.15s;
+  background: linear-gradient(90deg, #7c3aed, #2563eb);
+  background-size: 120% auto;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(124, 58, 237, 0.2);
 }
 
 .cp-compare-btn:hover:not(:disabled) {
   filter: brightness(1.12);
+  background-position: right center;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(124, 58, 237, 0.35);
+}
+
+.cp-compare-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 .cp-compare-btn:disabled {
@@ -249,11 +282,17 @@
   padding: 14px 16px;
   color: var(--text-muted);
   font-size: 13px;
+  transition: border-color 0.2s ease;
+}
+
+.cp-tip:hover {
+  border-color: #2b3e56;
 }
 
 .cp-tip svg {
   color: var(--cyan-text);
   flex-shrink: 0;
+  animation: cpPulseIdle 2.5s infinite ease-in-out;
 }
 
 .cp-tip strong {
@@ -269,6 +308,7 @@
   border-radius: 10px;
   font-size: 13px;
   margin-top: 15px;
+  animation: cpPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.15);
 }
 
 .cp-kpi-grid {
@@ -283,7 +323,15 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.cp-kpi:hover {
+  border-color: #2b425f;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px -5px rgba(0, 0, 0, 0.4);
+}
+
 .cp-kpi span {
   display: block;
   font-size: 11px;
@@ -292,11 +340,18 @@
   letter-spacing: 0.05em;
   font-weight: 700;
 }
+
 .cp-kpi strong {
   display: block;
   font-size: 28px;
   margin-top: 6px;
+  transition: color 0.2s ease;
 }
+
+.cp-kpi:hover strong {
+  color: #fff;
+}
+
 .cp-kpi em {
   display: block;
   font-style: normal;
@@ -313,12 +368,13 @@
   align-items: start;
   margin-top: 15px;
 }
+
 @media (max-width: 1000px) {
   .cp-result-grid {
     grid-template-columns: 1fr;
   }
 }
-/* Cards inside the result grid get spacing from the grid itself */
+
 .cp-result-grid .cp-card {
   margin-top: 0;
 }
@@ -332,13 +388,21 @@
   font-weight: 700;
   color: var(--text-primary);
 }
+
 .cp-result-title svg {
-  color: var(--indigo-text);
+  color: #7c8ffa;
+  transition: transform 0.2s ease;
 }
+
+.cp-card:hover .cp-result-title svg {
+  transform: scale(1.08);
+}
+
 .cp-result-title-fail,
 .cp-result-title-fail svg {
   color: var(--danger-text);
 }
+
 .cp-result-title-fixed,
 .cp-result-title-fixed svg {
   color: var(--success-text);
@@ -354,21 +418,31 @@
 
 .cp-fail-item {
   padding: 12px;
-  background: rgba(239, 68, 68, 0.05);
+  background: rgba(239, 68, 68, 0.04);
   border-left: 4px solid #f87171;
   border-radius: 6px;
+  margin-bottom: 10px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.cp-fail-item:hover {
+  background: rgba(239, 68, 68, 0.07);
+  transform: translateX(3px);
+}
+
 .cp-fail-item strong {
   font-size: 13px;
   color: var(--danger-text);
   display: block;
 }
-.cp-fail-item > span {
+
+.cp-fail-item>span {
   font-size: 11px;
   color: var(--text-muted);
   display: block;
   margin: 2px 0 6px;
 }
+
 .cp-fail-item pre {
   margin: 0;
   padding: 8px;
@@ -380,19 +454,33 @@
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  transition: border-color 0.2s ease;
+}
+
+.cp-fail-item:hover pre {
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .cp-fixed-item {
   padding: 10px 12px;
-  background: rgba(46, 204, 113, 0.05);
+  background: rgba(46, 204, 113, 0.04);
   border-left: 4px solid #2ecc71;
   border-radius: 6px;
+  margin-bottom: 10px;
   font-size: 13px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.cp-fixed-item:hover {
+  background: rgba(46, 204, 113, 0.07);
+  transform: translateX(3px);
+}
+
 .cp-fixed-item strong {
   color: var(--success-text);
   display: block;
 }
+
 .cp-fixed-item span {
   font-size: 11px;
   color: var(--text-muted);
@@ -404,6 +492,7 @@
   font-size: 13px;
   border-collapse: collapse;
 }
+
 .cp-table th {
   text-align: left;
   padding: 10px 12px;
@@ -415,20 +504,111 @@
   letter-spacing: 0.05em;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
+  transition: color 0.2s ease;
 }
+
+.cp-table tr:hover th {
+  color: #a78bfa;
+}
+
 .cp-table td {
   padding: 10px 12px;
-  border-bottom: 1px solid var(--border-soft);
-  color: var(--text-primary);
+  border-bottom: 1px solid #16243a;
+  color: #dbe4ee;
+  transition: color 0.15s ease;
 }
+
+.cp-table tbody tr {
+  transition: background-color 0.15s ease, transform 0.2s ease;
+}
+
+.cp-table tbody tr:hover {
+  background-color: rgba(28, 43, 64, 0.25);
+}
+
+.cp-table tbody tr:hover td {
+  color: #fff;
+}
+
 .cp-table tr:last-child td {
   border-bottom: none;
 }
+
 .cp-table td strong {
-  color: var(--text-primary);
+  color: #eef5fc;
+  transition: color 0.15s ease;
 }
+
+.cp-table tbody tr:hover td strong {
+  color: #a5b4fc;
+}
+
 .cp-table td span:not([class]) {
   display: block;
   font-size: 11px;
-  color: var(--text-muted);
+  color: #8fa2b8;
+}
+
+/* ── Animation Keyframes ────────────────────────────────────────────────────── */
+
+@keyframes cpFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cpTrackingIn {
+  from {
+    letter-spacing: -0.05em;
+    opacity: 0;
+  }
+
+  to {
+    letter-spacing: 0.18em;
+    opacity: 1;
+  }
+}
+
+@keyframes cpPop {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes cpPulseIdle {
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes cpHeroArtPulse {
+  0% {
+    opacity: 0.65;
+    transform: translateY(-50%) scale(0.99);
+  }
+
+  100% {
+    opacity: 0.9;
+    transform: translateY(-50%) scale(1.02);
+  }
 }
