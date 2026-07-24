@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 
 export function DurationSparkline({ data = [], loading = false }) {
   const points = useMemo(() => {
@@ -17,8 +18,8 @@ export function DurationSparkline({ data = [], loading = false }) {
 
   if (loading) {
     return (
-      <div style={{ height: '70px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)' }}>
-        Loading build times...
+      <div style={{ height: '70px', display: 'grid', placeItems: 'center' }}>
+        <Loader size={20} label="Loading build times..." />
       </div>
     );
   }

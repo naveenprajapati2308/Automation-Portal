@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5174,
+    fs: { allow: ['..', '../../../shared'] },
     proxy: {
       // Backend listens on 8080 whether run locally (mvn) or inside its
       // container; only the docker-compose host mapping (8081) differs.

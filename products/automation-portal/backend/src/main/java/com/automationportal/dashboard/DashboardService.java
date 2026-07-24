@@ -30,6 +30,8 @@ public class DashboardService {
         List<Execution> executions = executionRepository.findAll();
 
         long totalExecutions = executions.size();
+        long runningExecutions = executions.stream().filter(e -> e.getStatus() == ExecutionStatus.RUNNING).count();
+        long queuedExecutions = executions.stream().filter(e -> e.getStatus() == ExecutionStatus.QUEUED).count();
         long totalTests = 0;
         long passedTests = 0;
         long failedTests = 0;
@@ -71,6 +73,8 @@ public class DashboardService {
         summary.put("failRate", BigDecimal.valueOf(failRate).setScale(1, RoundingMode.HALF_UP));
         summary.put("averageDuration", avgDuration);
         summary.put("lastExecutionStatus", lastStatus);
+        summary.put("runningExecutions", runningExecutions);
+        summary.put("queuedExecutions", queuedExecutions);
 
         return summary;
     }

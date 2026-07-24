@@ -1,15 +1,19 @@
 import { useState } from 'react';
-import Editor from '@monaco-editor/react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Play, Plus, Trash2, Save, Database, X, FolderPlus } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 import KeyValueEditor from '../components/KeyValueEditor.jsx';
 import AuthEditor, { EMPTY_AUTH } from '../components/AuthEditor.jsx';
 import JsonTree from '../components/JsonTree.jsx';
+import { ThemedEditor } from '../components/ThemedEditor.jsx';
+import ModuleApiTree from '../components/ModuleApiTree.jsx';
+import { Button } from '../components/Button.jsx';
+import { ModalOverlay } from '../components/ModalOverlay.jsx';
+import { INPUT_CLASS as inputCls } from '../lib/statusColors.js';
 
-const inputCls = 'bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm outline-none placeholder-zinc-600 focus:border-emerald-500';
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 const BODY_TYPES = ['NONE', 'JSON', 'XML', 'TEXT', 'FORM_URLENCODED'];
+const OPERATORS = ['EQUALS', 'NOT_EQUALS', 'CONTAINS', 'REGEX', 'EXISTS', 'TYPE_IS', 'RANGE'];
 
 const emptyForm = {
   name: '', method: 'GET', url: '', moduleId: '', headers: [],
@@ -26,6 +30,7 @@ export default function BaseApis() {
   const [extractPrompt, setExtractPrompt] = useState(null); // {path, name}
   const [addToCollection, setAddToCollection] = useState('');
   const [addedMessage, setAddedMessage] = useState('');
+  const [newRule, setNewRule] = useState({ jsonPath: '', operator: 'EQUALS', expectedValue: '' });
 
   const { data: apis = [] } = useQuery({
     queryKey: ['base-apis'],
@@ -42,6 +47,11 @@ export default function BaseApis() {
   const { data: tree } = useQuery({
     queryKey: ['base-api-tree', selectedId],
     queryFn: async () => (await apiClient.get(`/v1/base-apis/${selectedId}/response-tree`)).data,
+    enabled: !!selectedId,
+  });
+  const { data: rules = [] } = useQuery({
+    queryKey: ['rules', 'BASE', selectedId],
+    queryFn: async () => (await apiClient.get('/v1/validation-rules', { params: { apiType: 'BASE', apiId: selectedId } })).data,
     enabled: !!selectedId,
   });
 
@@ -83,6 +93,23 @@ export default function BaseApis() {
   const deleteExtractionMut = useMutation({
     mutationFn: (bindingId) => apiClient.delete(`/v1/base-apis/${selectedId}/bindings/${bindingId}`),
     onSuccess: invalidate,
+  });
+
+  const addRuleMut = useMutation({
+    mutationFn: () => apiClient.post('/v1/validation-rules', {
+      apiType: 'BASE', apiId: selectedId,
+      jsonPath: newRule.jsonPath, operator: newRule.operator,
+      expectedValue: newRule.operator === 'EXISTS' ? null : newRule.expectedValue,
+    }),
+    onSuccess: () => {
+      setNewRule({ jsonPath: '', operator: 'EQUALS', expectedValue: '' });
+      qc.invalidateQueries({ queryKey: ['rules', 'BASE', selectedId] });
+    },
+  });
+
+  const deleteRuleMut = useMutation({
+    mutationFn: (id) => apiClient.delete(`/v1/validation-rules/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['rules', 'BASE', selectedId] }),
   });
 
   const addToCollectionMut = useMutation({
@@ -127,64 +154,68 @@ export default function BaseApis() {
   const flatModules = flattenModules(modules);
 
   return (
-    <div className="flex-1 flex min-h-0">
+    <div className="h-screen flex overflow-hidden">
       {/* List */}
-      <div className="w-60 shrink-0 border-r border-zinc-800 flex flex-col">
-        <div className="flex items-center justify-between px-3 py-2.5 border-b border-zinc-800">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Base APIs</span>
+      <div className="w-60 shrink-0 border-r border-[var(--border)] flex flex-col">
+        <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--border)]">
+          <span className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Base APIs</span>
           <button onClick={() => { setSelectedId(null); setForm(emptyForm); setRunResult(null); }}
-            className="text-emerald-400 hover:text-emerald-300" title="New base API">
+            className="text-[var(--accent-text)] hover:text-[var(--accent-hover)]" title="New base API">
             <Plus size={15} />
           </button>
         </div>
         <div className="flex-1 overflow-auto">
-          {apis.map((a) => (
-            <button key={a.id} onClick={() => select(a)}
-              className={`w-full text-left px-3 py-2 text-xs border-b border-zinc-900 hover:bg-zinc-900/60 ${selectedId === a.id ? 'bg-emerald-600/10 text-emerald-300' : 'text-zinc-300'}`}>
-              <span className="font-semibold text-emerald-400 mr-1.5">{a.method}</span>{a.name}
-              <div className="text-zinc-600 truncate">{a.url}</div>
-            </button>
-          ))}
-          {apis.length === 0 && <div className="p-3 text-xs text-zinc-600">No base APIs yet — create a token/lookup supplier API.</div>}
+          <ModuleApiTree
+            modules={modules}
+            apis={apis}
+            selectedId={selectedId}
+            onSelect={select}
+            emptyMessage="No base APIs yet — create a token/lookup supplier API."
+            renderItem={(a) => (
+              <>
+                <span className="font-semibold text-[var(--accent-text)] mr-1.5">{a.method}</span>{a.name}
+                <div className="text-[var(--text-muted)] truncate">{a.url}</div>
+              </>
+            )}
+          />
         </div>
       </div>
 
       {/* Editor */}
       <div className="flex-1 overflow-auto p-4 flex flex-col gap-3 min-w-0">
         <div className="flex items-center gap-2">
-          <Database size={16} className="text-emerald-400" />
+          <Database size={16} className="text-[var(--accent-text)]" />
           <h1 className="text-base font-semibold">{selectedId ? 'Edit Base API' : 'New Base API'}</h1>
           <div className="ml-auto flex gap-2 items-center">
             {selectedId && (
               <>
-                {addedMessage && <span className="text-xs text-emerald-400">{addedMessage}</span>}
+                {addedMessage && <span className="text-xs text-[var(--success-text)]">{addedMessage}</span>}
                 <div className="flex items-center gap-1" title="Copy this base API into a tester collection">
-                  <FolderPlus size={13} className="text-zinc-500" />
+                  <FolderPlus size={13} className="text-[var(--text-muted)]" />
                   <select value={addToCollection}
                     onChange={(e) => { setAddToCollection(e.target.value); if (e.target.value) addToCollectionMut.mutate(e.target.value); }}
-                    className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-xs outline-none focus:border-emerald-500">
+                    className="bg-[var(--bg-surface-2)] border border-[var(--border)] rounded px-2 py-1.5 text-xs outline-none focus:border-[var(--accent)]">
                     <option value="">Add to collection…</option>
                     {collections.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
-                <button onClick={run} disabled={running}
-                  className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3 py-1.5 text-xs font-semibold text-white">
+                <Button onClick={run} disabled={running} className="!px-3 !py-1.5 !text-xs">
                   <Play size={12} /> {running ? 'Running…' : 'Run'}
-                </button>
+                </Button>
                 <button onClick={() => deleteMut.mutate(selectedId)}
-                  className="flex items-center gap-1.5 rounded border border-red-800 text-red-400 hover:bg-red-600/10 px-3 py-1.5 text-xs font-semibold">
+                  className="flex items-center gap-1.5 rounded border border-[var(--danger-border-soft)] text-[var(--danger-text)] hover:bg-[var(--danger-bg-soft)] px-3 py-1.5 text-xs font-semibold">
                   <Trash2 size={12} /> Delete
                 </button>
               </>
             )}
             <button onClick={() => saveMut.mutate()} disabled={!form.name || !form.url || saveMut.isPending}
-              className="flex items-center gap-1.5 rounded border border-emerald-700 text-emerald-300 hover:bg-emerald-600/10 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold">
+              className="flex items-center gap-1.5 rounded border border-[var(--accent-border-soft)] text-[var(--accent-text)] hover:bg-[var(--accent-bg-soft)] disabled:opacity-40 px-3 py-1.5 text-xs font-semibold">
               <Save size={12} /> {selectedId ? 'Update' : 'Create'}
             </button>
           </div>
         </div>
         {saveMut.isError && (
-          <div className="text-xs text-red-400">
+          <div className="text-xs text-[var(--danger-text)]">
             Save failed: {saveMut.error?.response?.data?.message ?? saveMut.error?.message ?? 'backend unreachable — is the platform running?'}
           </div>
         )}
@@ -207,7 +238,7 @@ export default function BaseApis() {
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <label className="flex flex-col gap-1 text-xs text-zinc-500">
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Cache strategy
             <select value={form.cacheStrategy} onChange={(e) => setForm({ ...form, cacheStrategy: e.target.value })} className={inputCls}>
               <option value="PER_CALL">Per call (always fresh)</option>
@@ -216,13 +247,13 @@ export default function BaseApis() {
             </select>
           </label>
           {form.cacheStrategy === 'CACHED_TTL' && (
-            <label className="flex flex-col gap-1 text-xs text-zinc-500">
+            <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
               TTL seconds
               <input type="number" min="1" value={form.cacheTtlSeconds}
                 onChange={(e) => setForm({ ...form, cacheTtlSeconds: e.target.value })} className={inputCls} />
             </label>
           )}
-          <label className="flex flex-col gap-1 text-xs text-zinc-500">
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Timeout ms
             <input type="number" min="100" value={form.timeoutMs}
               onChange={(e) => setForm({ ...form, timeoutMs: e.target.value })} className={inputCls} />
@@ -230,7 +261,7 @@ export default function BaseApis() {
         </div>
 
         <div>
-          <div className="text-xs text-zinc-500 mb-1.5">Headers</div>
+          <div className="text-xs text-[var(--text-muted)] mb-1.5">Headers</div>
           <KeyValueEditor items={form.headers} onChange={(headers) => setForm({ ...form, headers })} keyPlaceholder="Header" />
         </div>
 
@@ -238,14 +269,14 @@ export default function BaseApis() {
           <div className="flex gap-1 mb-1.5">
             {BODY_TYPES.map((bt) => (
               <button key={bt} onClick={() => setForm({ ...form, bodyType: bt })}
-                className={`px-2.5 py-1 rounded text-[11px] ${form.bodyType === bt ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700' : 'text-zinc-500 border border-zinc-800 hover:text-zinc-300'}`}>
+                className={`px-2.5 py-1 rounded text-[11px] ${form.bodyType === bt ? 'bg-[var(--accent-bg-soft)] text-[var(--accent-text)] border border-[var(--accent-border-soft)]' : 'text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text-secondary)]'}`}>
                 {bt}
               </button>
             ))}
           </div>
           {form.bodyType !== 'NONE' && (
-            <div className="h-32 border border-zinc-800 rounded overflow-hidden">
-              <Editor height="100%" theme="vs-dark"
+            <div className="h-32 border border-[var(--border)] rounded overflow-hidden">
+              <ThemedEditor height="100%"
                 language={form.bodyType === 'JSON' ? 'json' : 'plaintext'}
                 value={form.body} onChange={(v) => setForm({ ...form, body: v ?? '' })}
                 options={{ minimap: { enabled: false }, fontSize: 12, scrollBeyondLastLine: false }} />
@@ -254,63 +285,107 @@ export default function BaseApis() {
         </div>
 
         <div>
-          <div className="text-xs text-zinc-500 mb-1.5">Authorization</div>
+          <div className="text-xs text-[var(--text-muted)] mb-1.5">Authorization</div>
           <AuthEditor auth={form.auth} onChange={(auth) => setForm({ ...form, auth })} />
         </div>
 
+        {selectedId && (
+          <div>
+            <div className="text-xs text-[var(--text-muted)] mb-1.5">
+              Validation Rules {rules.length > 0 && <span className="text-[var(--success-text)]">({rules.length})</span>}
+            </div>
+            <div className="flex flex-col gap-2 max-w-3xl">
+              <div className="flex gap-2 items-end">
+                <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)] flex-1">
+                  JSONPath
+                  <input placeholder="$.status" value={newRule.jsonPath}
+                    onChange={(e) => setNewRule({ ...newRule, jsonPath: e.target.value })} className={`${inputCls} font-mono`} />
+                </label>
+                <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+                  Operator
+                  <select value={newRule.operator} onChange={(e) => setNewRule({ ...newRule, operator: e.target.value })} className={inputCls}>
+                    {OPERATORS.map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                </label>
+                {newRule.operator !== 'EXISTS' && (
+                  <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)] flex-1">
+                    Expected {newRule.operator === 'RANGE' ? '(min,max)' : newRule.operator === 'TYPE_IS' ? '(string/number/boolean/array/object)' : ''}
+                    <input value={newRule.expectedValue}
+                      onChange={(e) => setNewRule({ ...newRule, expectedValue: e.target.value })} className={inputCls} />
+                  </label>
+                )}
+                <button onClick={() => addRuleMut.mutate()} disabled={!newRule.jsonPath}
+                  className="rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 px-3 py-2 text-xs font-semibold text-white">
+                  Add Rule
+                </button>
+              </div>
+              <div className="border border-[var(--border)] rounded divide-y divide-[var(--border-soft)]">
+                {rules.map((r) => (
+                  <div key={r.id} className="flex items-center gap-3 px-3 py-2 text-xs">
+                    <span className="font-mono text-[var(--info-text)] flex-1 truncate">{r.jsonPath}</span>
+                    <span className="text-[var(--text-secondary)]">{r.operator}</span>
+                    <span className="font-mono text-[var(--text-secondary)]">{r.expectedValue ?? ''}</span>
+                    <button onClick={() => deleteRuleMut.mutate(r.id)} className="text-[var(--text-muted)] hover:text-[var(--danger-text)]"><Trash2 size={13} /></button>
+                  </div>
+                ))}
+                {rules.length === 0 && <div className="px-3 py-3 text-xs text-[var(--text-muted)]">No rules — every run counts as passed unless HTTP fails.</div>}
+              </div>
+            </div>
+          </div>
+        )}
+
         {runResult && (
-          <div className={`rounded border p-3 text-xs ${runResult.success ? 'border-emerald-800 bg-emerald-600/5' : 'border-red-800 bg-red-600/5'}`}>
+          <div className={`rounded border p-3 text-xs ${runResult.success ? 'border-[var(--success-border-soft)] bg-[var(--success-bg-soft)]' : 'border-[var(--danger-border-soft)] bg-[var(--danger-bg-soft)]'}`}>
             {runResult.success
-              ? <span className="text-emerald-300">✓ {runResult.statusCode} {runResult.statusText} · {runResult.durationMs} ms — snapshot refreshed, pick fields on the right</span>
-              : <span className="text-red-400">✗ {runResult.errorMessage}</span>}
+              ? <span className="text-[var(--success-text)]">✓ {runResult.statusCode} {runResult.statusText} · {runResult.durationMs} ms — snapshot refreshed, pick fields on the right</span>
+              : <span className="text-[var(--danger-text)]">✗ {runResult.errorMessage}</span>}
           </div>
         )}
       </div>
 
       {/* Response tree + extractions */}
       {selectedId && (
-        <div className="w-96 shrink-0 border-l border-zinc-800 flex flex-col min-h-0">
-          <div className="px-3 py-2.5 border-b border-zinc-800 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+        <div className="w-96 shrink-0 border-l border-[var(--border)] flex flex-col min-h-0">
+          <div className="px-3 py-2.5 border-b border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
             Response Fields → Variables
           </div>
-          <div className="p-3 border-b border-zinc-800">
-            <div className="text-[11px] text-zinc-500 mb-1.5">Extracted variables (usable as {'{{name}}'} in Regular APIs)</div>
+          <div className="p-3 border-b border-[var(--border)]">
+            <div className="text-[11px] text-[var(--text-muted)] mb-1.5">Extracted variables (usable as {'{{name}}'} in Regular APIs)</div>
             {(tree?.extractions ?? []).map((x) => (
               <div key={x.id} className="flex items-center gap-2 text-xs py-1">
-                <span className="text-emerald-300 font-mono">{'{{' + x.variableName + '}}'}</span>
-                <span className="text-zinc-600 font-mono truncate flex-1">{x.sourceJsonPath}</span>
-                <button onClick={() => deleteExtractionMut.mutate(x.id)} className="text-zinc-600 hover:text-red-400"><Trash2 size={12} /></button>
+                <span className="text-[var(--success-text)] font-mono">{'{{' + x.variableName + '}}'}</span>
+                <span className="text-[var(--text-muted)] font-mono truncate flex-1">{x.sourceJsonPath}</span>
+                <button onClick={() => deleteExtractionMut.mutate(x.id)} className="text-[var(--text-muted)] hover:text-[var(--danger-text)]"><Trash2 size={12} /></button>
               </div>
             ))}
-            {(tree?.extractions ?? []).length === 0 && <div className="text-xs text-zinc-600">None yet — click + on a field below.</div>}
+            {(tree?.extractions ?? []).length === 0 && <div className="text-xs text-[var(--text-muted)]">None yet — click + on a field below.</div>}
           </div>
           <div className="flex-1 overflow-auto min-h-0">
             {tree?.snapshot
               ? <JsonTree json={tree.snapshot} onExtract={(path, name) => setExtractPrompt({ path, name })} />
-              : <div className="p-3 text-xs text-zinc-600">Run the API once to load its response here.</div>}
+              : <div className="p-3 text-xs text-[var(--text-muted)]">Run the API once to load its response here.</div>}
           </div>
         </div>
       )}
 
       {/* Extract-variable prompt */}
       {extractPrompt && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#1c1c1e] border border-zinc-700 rounded-lg p-4 w-96">
+        <ModalOverlay onClose={() => setExtractPrompt(null)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 w-96">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold">Extract as variable</span>
-              <button onClick={() => setExtractPrompt(null)} className="text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+              <button onClick={() => setExtractPrompt(null)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} /></button>
             </div>
-            <div className="text-xs text-zinc-500 font-mono mb-2">{extractPrompt.path}</div>
+            <div className="text-xs text-[var(--text-muted)] font-mono mb-2">{extractPrompt.path}</div>
             <input autoFocus value={extractPrompt.name}
               onChange={(e) => setExtractPrompt({ ...extractPrompt, name: e.target.value })}
               onKeyDown={(e) => e.key === 'Enter' && extractMut.mutate(extractPrompt)}
               className={`${inputCls} w-full mb-3`} placeholder="variableName" />
-            <button onClick={() => extractMut.mutate(extractPrompt)} disabled={!extractPrompt.name}
-              className="w-full rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 py-2 text-sm font-semibold text-white">
+            <Button className="w-full" onClick={() => extractMut.mutate(extractPrompt)} disabled={!extractPrompt.name}>
               Create {'{{' + (extractPrompt.name || '…') + '}}'}
-            </button>
+            </Button>
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

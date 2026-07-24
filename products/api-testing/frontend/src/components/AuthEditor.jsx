@@ -1,4 +1,4 @@
-const inputCls = 'bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm outline-none placeholder-zinc-600 focus:border-emerald-500';
+import { INPUT_CLASS as inputCls } from '../lib/statusColors.js';
 
 export const EMPTY_AUTH = { type: 'NONE', username: '', password: '', token: '', keyName: '', keyValue: '', addTo: 'HEADER' };
 

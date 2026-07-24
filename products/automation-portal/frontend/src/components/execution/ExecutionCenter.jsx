@@ -58,7 +58,44 @@ export function ExecutionCenter({
   const [activeTab, setActiveTab] = useState('logs');
 
   const sseRef = useRef(null);
-  const terminalEndRef = useRef(null);
+  const terminalBodyRef = useRef(null);
+
+  // This page is normally viewed embedded in the Testrix shell's auto-height iframe (matches
+  // its own content height exactly, no internal scroll — the OUTER page scrolls instead). So
+  // `100vh`/`window.innerHeight` measured from in here would reflect the iframe's own
+  // (potentially huge, content-driven) box, not the physical screen — useless for sizing
+  // something to "roughly a laptop screen's height". `window.top.innerHeight` is the actual
+  // outermost browsing context's real viewport height and isn't affected by how tall this
+  // iframe has grown; same-origin (everything under one gateway), so it's readable without a
+  // cross-origin error. Falls back to this window's own height if `window.top` is ever
+  // inaccessible (e.g. genuinely standalone, not embedded).
+  const getPhysicalWindowHeight = () => {
+    try {
+      return window.top.innerHeight || window.innerHeight;
+    } catch {
+      return window.innerHeight;
+    }
+  };
+  const [windowHeight, setWindowHeight] = useState(getPhysicalWindowHeight());
+  useEffect(() => {
+    const onResize = () => setWindowHeight(getPhysicalWindowHeight());
+    window.addEventListener('resize', onResize);
+    let topWindow = null;
+    try {
+      topWindow = window.top;
+      if (topWindow !== window) topWindow.addEventListener('resize', onResize);
+    } catch { /* cross-origin top, ignore */ }
+    return () => {
+      window.removeEventListener('resize', onResize);
+      if (topWindow && topWindow !== window) {
+        try { topWindow.removeEventListener('resize', onResize); } catch { /* ignore */ }
+      }
+    };
+  }, []);
+  // Requested: the live log panel should be sized to roughly a normal laptop window's height
+  // (minus 20px), not an arbitrary fixed value — so it reads as a proper terminal-sized view
+  // regardless of the viewer's actual screen size, while still never growing the page.
+  const logPanelHeight = Math.max(320, windowHeight - 20);
 
   // Fetch dynamic runner suites on mount
   const fetchSuites = async () => {
@@ -78,13 +115,24 @@ export function ExecutionCenter({
     fetchSuites();
   }, []);
 
-  // Listen to execution queue changes to attach SSE stream to any active run
-  useEffect(() => {
-    const running = executions.find(e => e.status === 'RUNNING' || e.status === 'QUEUED');
+  // Prefer an actually-RUNNING execution over a QUEUED one — the backend only ever runs one at
+  // a time, but the list can contain both (a newly queued run sorts before an older
+  // still-running one), and .find() would otherwise latch onto the queued-but-not-started one.
+  const trackedExecution = executions.find(e => e.status === 'RUNNING')
+    || executions.find(e => e.status === 'QUEUED')
+    || null;
 
-    if (running) {
-      if (!activeExec || activeExec.executionCode !== running.executionCode) {
-        setupSseConnection(running);
+  // Listen for the tracked execution actually changing to attach/detach the SSE stream.
+  // Deliberately keyed on just its executionCode (a stable primitive), NOT the `executions`
+  // array itself — `executions` gets a brand-new array reference on every periodic poll (App.jsx
+  // refreshes it every 10s), and an object-reference dependency would re-run this effect's
+  // cleanup (closing the live connection) on every single poll tick even though nothing
+  // meaningful changed, permanently killing the stream a few seconds after every connection
+  // (the "same execution, don't reconnect" guard below then blocks it from ever reopening).
+  useEffect(() => {
+    if (trackedExecution) {
+      if (!activeExec || activeExec.executionCode !== trackedExecution.executionCode) {
+        setupSseConnection(trackedExecution);
       }
     } else {
       // Nothing running
@@ -96,12 +144,14 @@ export function ExecutionCenter({
     }
 
     return () => cleanupSse();
-  }, [executions]);
+  }, [trackedExecution?.executionCode]);
 
-  // Scroll terminal to bottom as logs append
+  // Scroll terminal to bottom as logs append — scrolls only this local
+  // container's scrollTop, never scrollIntoView, which can escalate up
+  // through the embedding iframe and scroll the whole Testrix shell page.
   useEffect(() => {
-    if (terminalEndRef.current) {
-      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (terminalBodyRef.current) {
+      terminalBodyRef.current.scrollTop = terminalBodyRef.current.scrollHeight;
     }
   }, [liveLogs]);
 
@@ -111,6 +161,39 @@ export function ExecutionCenter({
       sseRef.current = null;
     }
   };
+
+  // Browsers throttle/drop long-lived connections (SSE included) on backgrounded tabs, so
+  // switching tabs mid-run can silently kill the stream — the UI then just sits frozen on
+  // whatever it last received (e.g. still "QUEUED") even though the execution keeps
+  // progressing server-side. Pulls the authoritative current state via a plain REST call and
+  // re-establishes the stream if the execution is still active, so returning to the tab
+  // always self-heals instead of staying stuck. Takes an explicit id rather than reading
+  // `activeExec` from closure — this is called from inside setupSseConnection's `onerror`,
+  // which closes over whatever `activeExec` was at the time that specific SSE connection was
+  // opened (often null, for the very first connection) and never sees later updates; the
+  // `execution` parameter of the enclosing call is always the correct, current one.
+  const resyncActiveExec = async (execId) => {
+    if (!execId) return;
+    try {
+      const fresh = await api.executionDetails(execId);
+      if (fresh.status === 'RUNNING' || fresh.status === 'QUEUED') {
+        setupSseConnection(fresh);
+      } else {
+        cleanupSse();
+        setActiveExec(fresh);
+      }
+    } catch (e) {
+      console.error('Failed to resync active execution', e);
+    }
+  };
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') resyncActiveExec(activeExec?.id);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [activeExec]);
 
   const setupSseConnection = (execution) => {
     cleanupSse();
@@ -227,8 +310,12 @@ export function ExecutionCenter({
 
     sse.onerror = (err) => {
       console.error("SSE stream error", err);
-      appendLog('ERROR', 'EventSource connection closed or lost');
+      appendLog('ERROR', 'Live stream connection lost — resyncing...');
       cleanupSse();
+      // Don't just leave the UI frozen on stale data (e.g. still "QUEUED" after a tab was
+      // backgrounded and the browser dropped the connection) — pull the real current state
+      // and reconnect if the execution is still active.
+      setTimeout(() => resyncActiveExec(execution.id), 2000);
     };
   };
 
@@ -490,7 +577,7 @@ export function ExecutionCenter({
           </div>
 
           {/* Console Output and screenshots tabs */}
-          <div className="xc-tabs-card">
+          <div className="xc-tabs-card" style={{ maxHeight: logPanelHeight, height: logPanelHeight }}>
             <div className="xc-tabs-bar">
               <button
                 className={`xc-tab${activeTab === 'logs' ? ' active' : ''}`}
@@ -506,7 +593,7 @@ export function ExecutionCenter({
               </button>
             </div>
 
-            <div className="xc-tab-body" style={{ background: activeTab === 'logs' ? 'var(--bg-inset)' : undefined }}>
+            <div className="xc-tab-body" ref={activeTab === 'logs' ? terminalBodyRef : null} style={{ background: activeTab === 'logs' ? 'var(--bg-inset)' : undefined }}>
               {activeTab === 'logs' ? (
                 // Console Terminal
                 <pre style={{ margin: 0, color: 'var(--text-muted)', fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'pre-wrap' }}>
@@ -529,7 +616,6 @@ export function ExecutionCenter({
                       );
                     })
                   )}
-                  <div ref={terminalEndRef}></div>
                 </pre>
               ) : (
                 // screenshots

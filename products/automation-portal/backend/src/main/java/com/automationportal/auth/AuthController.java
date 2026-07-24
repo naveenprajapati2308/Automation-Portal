@@ -37,7 +37,7 @@ public class AuthController {
 
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest servletRequest) {
-        User user = userRepository.findByUsername(request.username()).orElse(null);
+        User user = userRepository.findByUsernameOrEmail(request.username(), request.username()).orElse(null);
         if (user == null || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             auditService.record(user, AuditAction.FAILED_LOGIN, "Invalid username or password", servletRequest);
             throw new IllegalArgumentException("Invalid username or password");

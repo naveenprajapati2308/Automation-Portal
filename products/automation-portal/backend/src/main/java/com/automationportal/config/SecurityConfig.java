@@ -65,6 +65,7 @@ public class SecurityConfig {
                     "/swagger-ui.html",
                     "/api/events/execution",
                     "/api/executions/*/state",
+                    "/api/executions/*/job-finished",
                     "/error"
                 ).permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
@@ -85,7 +86,7 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:15173", "http://localhost:3000"));
+        configuration.setAllowedOrigins(List.of("http://localhost:15000", "http://localhost:5173", "http://localhost:5170", "http://localhost:15173", "http://localhost:3000"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

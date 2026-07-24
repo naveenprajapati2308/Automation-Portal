@@ -11,4 +11,7 @@ public interface ApiVariableBindingRepository extends JpaRepository<ApiVariableB
 
     /** Bindings a regular API consumes. */
     List<ApiVariableBinding> findByRegularApiId(Long regularApiId);
+
+    /** Bindings sourcing their value from a given Regular API (used to block deleting an API others depend on). */
+    List<ApiVariableBinding> findBySourceRegularApiId(Long sourceRegularApiId);
 }

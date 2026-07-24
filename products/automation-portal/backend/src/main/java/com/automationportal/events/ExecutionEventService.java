@@ -152,18 +152,21 @@ public class ExecutionEventService {
             case TEST_PASSED:
                 if (data != null) {
                     updateTestCaseStatus(execution.getId(), data, "PASS");
+                    updateLiveCounts(execution);
                 }
                 break;
 
             case TEST_FAILED:
                 if (data != null) {
                     updateTestCaseStatus(execution.getId(), data, "FAIL");
+                    updateLiveCounts(execution);
                 }
                 break;
 
             case TEST_SKIPPED:
                 if (data != null) {
                     updateTestCaseStatus(execution.getId(), data, "SKIP");
+                    updateLiveCounts(execution);
                 }
                 break;
 
@@ -289,8 +292,11 @@ public class ExecutionEventService {
         notifyExecutionManagerCompleted(execution.getExecutionCode());
     }
 
-    private void recomputeExecutionTotals(Execution execution, Map<String, Object> data) {
-        List<ExecutionTestCase> testCases = testCaseRepository.findByExecutionId(execution.getId());
+    private record Counts(int total, int passed, int failed, int skipped, long totalDurationMs) {
+    }
+
+    private Counts computeCounts(Long executionId) {
+        List<ExecutionTestCase> testCases = testCaseRepository.findByExecutionId(executionId);
 
         int total = 0, passed = 0, failed = 0, skipped = 0;
         long totalDurationMs = 0;
@@ -309,6 +315,31 @@ public class ExecutionEventService {
                     skipped++;
             }
         }
+
+        return new Counts(total, passed, failed, skipped, totalDurationMs);
+    }
+
+    // Called after every individual TEST_PASSED/FAILED/SKIPPED event so the execution's
+    // counts (and therefore the dashboard/execution list) reflect live progress instead of
+    // sitting at 0/0/0 for the whole run — a 149-test suite can legitimately take 10+ minutes,
+    // and with no live counts that looked indistinguishable from being stuck. Deliberately
+    // does NOT touch status/endTime/durationSeconds/rates — those stay exclusively owned by
+    // recomputeExecutionTotals() at SUITE_COMPLETED, so this can never mark a still-running
+    // execution as terminal or interfere with the single-concurrency queue gate.
+    private void updateLiveCounts(Execution execution) {
+        Counts c = computeCounts(execution.getId());
+        execution.setTotalTests(c.total());
+        execution.setPassedTests(c.passed());
+        execution.setFailedTests(c.failed());
+        execution.setSkippedTests(c.skipped());
+        execution.setTotalDurationMs(c.totalDurationMs());
+        executionRepository.save(execution);
+    }
+
+    private void recomputeExecutionTotals(Execution execution, Map<String, Object> data) {
+        Counts c = computeCounts(execution.getId());
+        int total = c.total(), passed = c.passed(), failed = c.failed(), skipped = c.skipped();
+        long totalDurationMs = c.totalDurationMs();
 
         execution.setTotalTests(total);
         execution.setPassedTests(passed);

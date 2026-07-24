@@ -3,6 +3,8 @@ import { api } from '../../api.js';
 import { Panel } from '../shared/index.jsx';
 import { TestStepPanel } from './TestStepPanel.jsx';
 import './execution-detail.css';
+import { lockParentScroll } from '../../../../../../shared/ui/iframe-scroll-lock.js';
+import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 import {
   X,
   Play,
@@ -39,6 +41,19 @@ export function ExecutionDetailPage({ executionId, onClose }) {
   const [comparisonResult, setComparisonResult] = useState(null);
 
   const [expandedTcIds, setExpandedTcIds] = useState(new Set());
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const unlockParent = lockParentScroll();
+    const onKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      unlockParent();
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [onClose]);
 
   const toggleTcExpand = (id) => {
     const next = new Set(expandedTcIds);
@@ -143,8 +158,8 @@ export function ExecutionDetailPage({ executionId, onClose }) {
 
   if (loading && !summary) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <p>Loading execution details...</p>
+      <div style={{ padding: '40px', display: 'grid', placeItems: 'center' }}>
+        <Loader size={32} label="Loading execution details..." />
       </div>
     );
   }

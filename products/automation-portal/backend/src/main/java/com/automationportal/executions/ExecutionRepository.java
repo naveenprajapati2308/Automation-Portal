@@ -13,6 +13,7 @@ public interface ExecutionRepository extends JpaRepository<Execution, Long> {
     List<Execution> findTop25ByOrderByCreatedAtDesc();
     List<Execution> findByStatus(ExecutionStatus status);
     List<Execution> findByExecutionCode(String executionCode);
+    List<Execution> findByStatusAndStartTimeBefore(ExecutionStatus status, Instant cutoff);
 
     @Query(value = "SELECT DATE(created_at) as date, AVG(pass_percentage) as passRate, AVG(fail_percentage) as failRate, COUNT(*) as execCount FROM executions WHERE created_at >= :since GROUP BY DATE(created_at) ORDER BY date ASC", nativeQuery = true)
     List<Object[]> findDailyTrend(@Param("since") Instant since);

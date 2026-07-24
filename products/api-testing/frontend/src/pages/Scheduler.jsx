@@ -4,8 +4,9 @@ import { Trash2, Play, Pause, Plus, CheckCircle2, XCircle, Clock, Layers, Pencil
 import { apiClient } from '../api/client.js';
 import { flattenModules } from './BaseApis.jsx';
 import GroupsPanel, { ActionBtn, MemberRow, HistoryDetailPanel } from './GroupsPanel.jsx';
-
-const inputCls = 'bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm outline-none placeholder-zinc-600 focus:border-emerald-500';
+import { Pagination } from '../components/Pagination.jsx';
+import { INPUT_CLASS as inputCls } from '../lib/statusColors.js';
+import { Loader } from '../../../../../shared/ui/Loader.jsx';
 
 const FREQ_LABEL = {
   EVERY_X_MIN: (v) => `Every ${v} min`,
@@ -129,24 +130,24 @@ export default function Scheduler() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-lg font-semibold">Scheduler</h1>
-          <p className="text-xs text-zinc-500">Distributed-safe scheduling — claimed with row locks, bounded worker pool, retry with backoff</p>
+          <p className="text-xs text-[var(--text-muted)]">Distributed-safe scheduling — claimed with row locks, bounded worker pool, retry with backoff</p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex rounded-md border border-zinc-700 overflow-hidden text-xs">
+          <div className="flex rounded-md border border-[var(--border)] overflow-hidden text-xs">
             <button onClick={() => setView('groups')}
-              className={`px-3 py-1.5 flex items-center gap-1.5 ${view === 'groups' ? 'bg-emerald-600/20 text-emerald-300' : 'text-zinc-400 hover:text-zinc-200'}`}>
+              className={`px-3 py-1.5 flex items-center gap-1.5 ${view === 'groups' ? 'bg-[var(--accent-bg-soft)] text-[var(--accent-text)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
               <Layers size={12} /> Groups
             </button>
             <button onClick={() => setView('schedules')}
-              className={`px-3 py-1.5 flex items-center gap-1.5 ${view === 'schedules' ? 'bg-emerald-600/20 text-emerald-300' : 'text-zinc-400 hover:text-zinc-200'}`}>
+              className={`px-3 py-1.5 flex items-center gap-1.5 ${view === 'schedules' ? 'bg-[var(--accent-bg-soft)] text-[var(--accent-text)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
               <Clock size={12} /> Schedules
             </button>
           </div>
           {view === 'schedules' && (
-            <div className="flex rounded-md border border-zinc-700 overflow-hidden text-xs">
+            <div className="flex rounded-md border border-[var(--border)] overflow-hidden text-xs">
               {['module', 'cadence'].map((g) => (
                 <button key={g} onClick={() => setGroupBy(g)}
-                  className={`px-3 py-1.5 capitalize ${groupBy === g ? 'bg-emerald-600/20 text-emerald-300' : 'text-zinc-400 hover:text-zinc-200'}`}>
+                  className={`px-3 py-1.5 capitalize ${groupBy === g ? 'bg-[var(--accent-bg-soft)] text-[var(--accent-text)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}>
                   By {g}
                 </button>
               ))}
@@ -159,13 +160,13 @@ export default function Scheduler() {
 
       {view === 'schedules' && (<>
         {/* Create */}
-        <div className="rounded-lg border border-zinc-800 bg-[#1c1c1e] p-4 flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs text-zinc-500">
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Schedule name
             <input className={inputCls} placeholder="e.g. Profile health check" value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-zinc-500">
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Target
             <select className={inputCls} value={form.targetType}
               onChange={(e) => setForm({ ...form, targetType: e.target.value })}>
@@ -174,7 +175,7 @@ export default function Scheduler() {
             </select>
           </label>
           {form.targetType === 'API' ? (
-            <label className="flex flex-col gap-1 text-xs text-zinc-500">
+            <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
               Regular API
               <select className={inputCls} value={form.regularApiId}
                 onChange={(e) => setForm({ ...form, regularApiId: e.target.value })}>
@@ -183,7 +184,7 @@ export default function Scheduler() {
               </select>
             </label>
           ) : (
-            <label className="flex flex-col gap-1 text-xs text-zinc-500">
+            <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
               Group
               <select className={inputCls} value={form.groupId}
                 onChange={(e) => setForm({ ...form, groupId: e.target.value })}>
@@ -194,7 +195,7 @@ export default function Scheduler() {
               </select>
             </label>
           )}
-          <label className="flex flex-col gap-1 text-xs text-zinc-500">
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Frequency
             <select className={inputCls} value={form.frequencyType}
               onChange={(e) => setForm({ ...form, frequencyType: e.target.value, frequencyValue: e.target.value === 'CRON' ? '0 0 * * * *' : '5' })}>
@@ -206,14 +207,14 @@ export default function Scheduler() {
             </select>
           </label>
           {form.frequencyType === 'EVERY_X_MIN' && (
-            <label className="flex flex-col gap-1 text-xs text-zinc-500">
+            <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
               Minutes
               <input type="number" min="1" className={`${inputCls} w-24`} value={form.frequencyValue}
                 onChange={(e) => setForm({ ...form, frequencyValue: e.target.value })} />
             </label>
           )}
           {form.frequencyType === 'DAILY' && (
-            <label className="flex flex-col gap-1 text-xs text-zinc-500">
+            <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
               Run at (every day)
               <input type="time" className={`${inputCls} w-32`} value={form.dailyTime}
                 onChange={(e) => setForm({ ...form, dailyTime: e.target.value })} />
@@ -221,14 +222,14 @@ export default function Scheduler() {
           )}
           {form.frequencyType === 'WEEKLY' && (
             <>
-              <label className="flex flex-col gap-1 text-xs text-zinc-500">
+              <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
                 Day of week
                 <select className={inputCls} value={form.weeklyDay}
                   onChange={(e) => setForm({ ...form, weeklyDay: e.target.value })}>
                   {WEEK_DAYS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
                 </select>
               </label>
-              <label className="flex flex-col gap-1 text-xs text-zinc-500">
+              <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
                 Run at
                 <input type="time" className={`${inputCls} w-32`} value={form.weeklyTime}
                   onChange={(e) => setForm({ ...form, weeklyTime: e.target.value })} />
@@ -236,116 +237,137 @@ export default function Scheduler() {
             </>
           )}
           {form.frequencyType === 'CRON' && (
-            <label className="flex flex-col gap-1 text-xs text-zinc-500">
+            <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
               Cron (sec min hour day month weekday)
               <input className={`${inputCls} w-52 font-mono`} value={form.frequencyValue}
                 onChange={(e) => setForm({ ...form, frequencyValue: e.target.value })} />
             </label>
           )}
           <button disabled={!canCreate || createMut.isPending} onClick={() => createMut.mutate()}
-            className="flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">
+            className="flex items-center gap-2 rounded-md bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">
             {editingId ? <><Pencil size={14} /> Update Schedule</> : <><Plus size={14} /> Create Schedule</>}
           </button>
           {editingId && (
             <button onClick={() => { setForm(emptyForm); setEditingId(null); }}
-              className="rounded-md border border-zinc-700 text-zinc-400 hover:text-zinc-200 px-3 py-2 text-sm">
+              className="rounded-md border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3 py-2 text-sm">
               Cancel
             </button>
           )}
           {createMut.isError && (
-            <span className="text-xs text-red-400">{createMut.error?.response?.data?.message ?? 'Failed to save'}</span>
+            <span className="text-xs text-[var(--danger-text)]">{createMut.error?.response?.data?.message ?? 'Failed to save'}</span>
           )}
           {runNowMut.isError && (
-            <span className="text-xs text-red-400">{runNowMut.error?.response?.data?.message ?? 'Failed to trigger run'}</span>
+            <span className="text-xs text-[var(--danger-text)]">{runNowMut.error?.response?.data?.message ?? 'Failed to trigger run'}</span>
           )}
           {regularApis.length === 0 && (
-            <p className="w-full text-xs text-amber-400">No Regular APIs yet — create one on the Regular APIs page first.</p>
+            <p className="w-full text-xs text-[var(--warning-text)]">No Regular APIs yet — create one on the Regular APIs page first.</p>
           )}
         </div>
 
         {/* Grouped list */}
         {groups.map(([groupName, items]) => (
-          <div key={groupName} className="rounded-lg border border-zinc-800 bg-[#1c1c1e]">
-            <div className="px-4 py-2 border-b border-zinc-800 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-              {groupName} <span className="text-zinc-600 normal-case">({items.length})</span>
-            </div>
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="text-zinc-500 border-b border-zinc-800">
-                  <th className="text-left px-4 py-2 font-medium">Name</th>
-                  <th className="text-left px-4 py-2 font-medium">API</th>
-                  <th className="text-left px-4 py-2 font-medium">Frequency</th>
-                  <th className="text-left px-4 py-2 font-medium">Status</th>
-                  <th className="text-left px-4 py-2 font-medium">Last Run</th>
-                  <th className="text-left px-4 py-2 font-medium">Result</th>
-                  <th className="text-left px-4 py-2 font-medium">Next Run</th>
-                  <th className="text-left px-4 py-2 font-medium">Retries</th>
-                  <th className="text-center px-4 py-2 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map(({ schedule: s, apiName, groupName }) => (<Fragment key={s.id}>
-                  <tr onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                    className={`border-b border-zinc-900 hover:bg-zinc-900/40 cursor-pointer ${expandedId === s.id ? 'bg-zinc-900/30' : ''}`}>
-                    <td className="px-4 py-2.5 text-zinc-200">
-                      <span className="flex items-center gap-1.5">
-                        <ChevronRight size={12} className={`shrink-0 text-zinc-600 transition-transform ${expandedId === s.id ? 'rotate-90' : ''}`} />
-                        {s.name}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-zinc-400">
-                      {s.targetType === 'GROUP'
-                        ? <span className="inline-flex items-center gap-1 text-emerald-300"><Layers size={11} /> {groupName}</span>
-                        : apiName}
-                    </td>
-                    <td className="px-4 py-2.5 text-zinc-400">{FREQ_LABEL[s.frequencyType]?.(s.frequencyValue)}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.status === 'ACTIVE' ? 'bg-emerald-600/15 text-emerald-300'
-                        : s.status === 'PAUSED' ? 'bg-zinc-800 text-zinc-400' : 'bg-red-600/15 text-red-300'
-                        }`}>{s.status}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-zinc-500">{s.lastRunAt ? new Date(s.lastRunAt).toLocaleString() : '—'}</td>
-                    <td className="px-4 py-2.5">
-                      {s.lastRunStatus == null ? <span className="text-zinc-600">—</span>
-                        : s.lastRunStatus === 'SUCCESS'
-                          ? <span className="inline-flex items-center gap-1 text-emerald-400"><CheckCircle2 size={12} /> SUCCESS</span>
-                          : s.lastRunStatus === 'TIMEOUT'
-                            ? <span className="inline-flex items-center gap-1 text-amber-400"><Clock size={12} /> TIMEOUT</span>
-                            : <span className="inline-flex items-center gap-1 text-red-400"><XCircle size={12} /> FAILED</span>}
-                    </td>
-                    <td className="px-4 py-2.5 text-zinc-500">{s.status === 'ACTIVE' && s.nextRunAt ? new Date(s.nextRunAt).toLocaleString() : '—'}</td>
-                    <td className="px-4 py-2.5 text-zinc-500">{s.retryCount}/{s.maxRetries}</td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
-                        <ActionBtn icon={Zap} label="Run Now" tone="run"
-                          onClick={() => runNowMut.mutate(s.id)} disabled={runNowMut.isPending} />
-                        <ActionBtn icon={Pencil} label="Edit" tone="edit" active={editingId === s.id}
-                          onClick={() => startEdit(s)} />
-                        {s.status === 'ACTIVE'
-                          ? <ActionBtn icon={Pause} label="Pause" tone="warn" onClick={() => pauseMut.mutate(s.id)} />
-                          : <ActionBtn icon={Play} label="Resume" tone="run" onClick={() => resumeMut.mutate(s.id)} />}
-                        <ActionBtn icon={Trash2} label="Delete" tone="danger" onClick={() => deleteMut.mutate(s.id)} />
-                      </div>
-                    </td>
-                  </tr>
-                  {expandedId === s.id && (
-                    <tr className="border-b border-zinc-900">
-                      <td colSpan={9} className="p-0">
-                        {s.targetType === 'GROUP'
-                          ? <ScheduleGroupExpand groupId={s.groupId} regularApis={regularApis} />
-                          : <ScheduleApiExpand apiId={s.regularApiId} regularApis={regularApis} />}
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>))}
-              </tbody>
-            </table>
-          </div>
+          <ScheduleGroupTable key={groupName} groupName={groupName} items={items}
+            expandedId={expandedId} setExpandedId={setExpandedId} editingId={editingId}
+            startEdit={startEdit} runNowMut={runNowMut} pauseMut={pauseMut} resumeMut={resumeMut}
+            deleteMut={deleteMut} regularApis={regularApis} />
         ))}
         {schedules.length === 0 && (
-          <div className="text-center text-zinc-600 text-sm py-8">No schedules yet</div>
+          <div className="text-center text-[var(--text-muted)] text-sm py-8">No schedules yet</div>
         )}
       </>)}
+    </div>
+  );
+}
+
+/** One group's schedule table, with its own page/size — mirrors the platform-wide
+ * "Showing X to Y of Z" pagination pattern (hides itself at <=5 rows), scoped per
+ * group rather than flattening every schedule into one long table. */
+function ScheduleGroupTable({ groupName, items, expandedId, setExpandedId, editingId, startEdit, runNowMut, pauseMut, resumeMut, deleteMut, regularApis }) {
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+  const pagedItems = items.slice(page * pageSize, page * pageSize + pageSize);
+
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+      <div className="px-4 py-2 border-b border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+        {groupName} <span className="text-[var(--text-muted)] normal-case">({items.length})</span>
+      </div>
+      <table className="w-full text-xs">
+        <thead>
+          <tr className="text-[var(--text-muted)] border-b border-[var(--border)]">
+            <th className="text-left px-4 py-2 font-medium">Name</th>
+            <th className="text-left px-4 py-2 font-medium">API</th>
+            <th className="text-left px-4 py-2 font-medium">Frequency</th>
+            <th className="text-left px-4 py-2 font-medium">Status</th>
+            <th className="text-left px-4 py-2 font-medium">Last Run</th>
+            <th className="text-left px-4 py-2 font-medium">Result</th>
+            <th className="text-left px-4 py-2 font-medium">Next Run</th>
+            <th className="text-left px-4 py-2 font-medium">Retries</th>
+            <th className="text-center px-4 py-2 font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pagedItems.map(({ schedule: s, apiName, groupName: itemGroupName }) => (<Fragment key={s.id}>
+            <tr onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+              className={`border-b border-[var(--border-soft)] hover:bg-[var(--bg-hover)] cursor-pointer ${expandedId === s.id ? 'bg-[var(--bg-hover)]' : ''}`}>
+              <td className="px-4 py-2.5 text-[var(--text-primary)]">
+                <span className="flex items-center gap-1.5">
+                  <ChevronRight size={12} className={`shrink-0 text-[var(--text-muted)] transition-transform ${expandedId === s.id ? 'rotate-90' : ''}`} />
+                  {s.name}
+                </span>
+              </td>
+              <td className="px-4 py-2.5 text-[var(--text-secondary)]">
+                {s.targetType === 'GROUP'
+                  ? <span className="inline-flex items-center gap-1 text-[var(--accent-text)]"><Layers size={11} /> {itemGroupName}</span>
+                  : apiName}
+              </td>
+              <td className="px-4 py-2.5 text-[var(--text-secondary)]">{FREQ_LABEL[s.frequencyType]?.(s.frequencyValue)}</td>
+              <td className="px-4 py-2.5">
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${s.status === 'ACTIVE' ? 'bg-[var(--success-bg-soft)] text-[var(--success-text)]'
+                  : s.status === 'PAUSED' ? 'bg-[var(--bg-surface-2)] text-[var(--text-muted)]' : 'bg-[var(--danger-bg-soft)] text-[var(--danger-text)]'
+                  }`}>{s.status}</span>
+              </td>
+              <td className="px-4 py-2.5 text-[var(--text-muted)]">{s.lastRunAt ? new Date(s.lastRunAt).toLocaleString() : '—'}</td>
+              <td className="px-4 py-2.5">
+                {s.lastRunStatus == null ? <span className="text-[var(--text-muted)]">—</span>
+                  : s.lastRunStatus === 'SUCCESS'
+                    ? <span className="inline-flex items-center gap-1 text-[var(--success-text)]"><CheckCircle2 size={12} /> SUCCESS</span>
+                    : s.lastRunStatus === 'TIMEOUT'
+                      ? <span className="inline-flex items-center gap-1 text-[var(--warning-text)]"><Clock size={12} /> TIMEOUT</span>
+                      : <span className="inline-flex items-center gap-1 text-[var(--danger-text)]"><XCircle size={12} /> FAILED</span>}
+              </td>
+              <td className="px-4 py-2.5 text-[var(--text-muted)]">{s.status === 'ACTIVE' && s.nextRunAt ? new Date(s.nextRunAt).toLocaleString() : '—'}</td>
+              <td className="px-4 py-2.5 text-[var(--text-muted)]">{s.retryCount}/{s.maxRetries}</td>
+              <td className="px-4 py-2.5">
+                <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
+                  <ActionBtn icon={Zap} label="Run Now" tone="run"
+                    onClick={() => runNowMut.mutate(s.id)} disabled={runNowMut.isPending} />
+                  <ActionBtn icon={Pencil} label="Edit" tone="edit" active={editingId === s.id}
+                    onClick={() => startEdit(s)} />
+                  {s.status === 'ACTIVE'
+                    ? <ActionBtn icon={Pause} label="Pause" tone="warn" onClick={() => pauseMut.mutate(s.id)} />
+                    : <ActionBtn icon={Play} label="Resume" tone="run" onClick={() => resumeMut.mutate(s.id)} />}
+                  <ActionBtn icon={Trash2} label="Delete" tone="danger" onClick={() => deleteMut.mutate(s.id)} />
+                </div>
+              </td>
+            </tr>
+            {expandedId === s.id && (
+              <tr className="border-b border-[var(--border-soft)]">
+                <td colSpan={9} className="p-0">
+                  {s.targetType === 'GROUP'
+                    ? <ScheduleGroupExpand groupId={s.groupId} regularApis={regularApis} />
+                    : <ScheduleApiExpand apiId={s.regularApiId} regularApis={regularApis} />}
+                </td>
+              </tr>
+            )}
+          </Fragment>))}
+        </tbody>
+      </table>
+      <div className="px-4">
+        <Pagination page={page + 1} pageSize={pageSize} totalRecords={items.length}
+          onPageChange={(p) => setPage(p - 1)}
+          onPageSizeChange={(n) => { setPageSize(n); setPage(0); }} />
+      </div>
     </div>
   );
 }
@@ -366,22 +388,22 @@ function ScheduleApiExpand({ apiId, regularApis }) {
   const latestId = latest?.content?.[0]?.id;
 
   return (
-    <div className="bg-zinc-950/40">
-      <div className="px-4 pt-2.5 pb-1 text-[11px] text-zinc-500">
+    <div className="bg-[var(--bg-inset)]">
+      <div className="px-4 pt-2.5 pb-1 text-[11px] text-[var(--text-muted)]">
         This schedule runs 1 API — latest run data below.
       </div>
       {api && (
         <div className="px-4 py-1.5 flex items-center gap-2 text-xs">
-          <span className="font-semibold text-emerald-400">{api.method}</span>
-          <span className="text-zinc-200">{api.name}</span>
-          <span className="text-zinc-600 truncate">{api.urlTemplate}</span>
+          <span className="font-semibold text-[var(--accent-text)]">{api.method}</span>
+          <span className="text-[var(--text-primary)]">{api.name}</span>
+          <span className="text-[var(--text-muted)] truncate">{api.urlTemplate}</span>
         </div>
       )}
       {isLoading
-        ? <div className="px-4 pb-3 text-xs text-zinc-500">Loading last run…</div>
+        ? <div className="px-4 pb-3"><Loader size={16} label="Loading last run…" /></div>
         : latestId
           ? <HistoryDetailPanel historyId={latestId} />
-          : <div className="px-4 pb-3 text-xs text-zinc-600">This API has never run yet — no data to show.</div>}
+          : <div className="px-4 pb-3 text-xs text-[var(--text-muted)]">This API has never run yet — no data to show.</div>}
     </div>
   );
 }
@@ -412,19 +434,19 @@ function ScheduleGroupExpand({ groupId, regularApis }) {
   });
   const memberIds = new Set((detail?.members ?? []).map((m) => m.regularApiId));
 
-  if (isLoading) return <div className="px-4 py-3 text-xs text-zinc-500 bg-zinc-950/40">Loading group…</div>;
-  if (!detail) return <div className="px-4 py-3 text-xs text-red-400 bg-zinc-950/40">Group not found (deleted?)</div>;
+  if (isLoading) return <div className="px-4 py-3 bg-[var(--bg-inset)]"><Loader size={16} label="Loading group…" /></div>;
+  if (!detail) return <div className="px-4 py-3 text-xs text-[var(--danger-text)] bg-[var(--bg-inset)]">Group not found (deleted?)</div>;
 
   return (
-    <div className="bg-zinc-950/40">
-      <div className="px-4 pt-2.5 pb-1 text-[11px] text-zinc-500">
+    <div className="bg-[var(--bg-inset)]">
+      <div className="px-4 pt-2.5 pb-1 text-[11px] text-[var(--text-muted)]">
         This schedule runs group "{detail.group.name}" — {detail.members.length} API(s). Click any API for its latest run data.
       </div>
       {detail.members.map((m) => (
         <MemberRow key={m.regularApiId} m={m} onRemove={() => removeMemberMut.mutate(m.regularApiId)} />
       ))}
       {detail.members.length === 0 && (
-        <div className="px-4 py-2 text-xs text-zinc-600">No APIs in this group yet — add one below.</div>
+        <div className="px-4 py-2 text-xs text-[var(--text-muted)]">No APIs in this group yet — add one below.</div>
       )}
       <div className="px-4 py-2.5">
         <select className={`${inputCls} py-1.5 w-full max-w-md`} value=""

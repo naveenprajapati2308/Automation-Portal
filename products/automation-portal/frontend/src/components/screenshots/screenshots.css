@@ -382,6 +382,38 @@
   padding: 0 6px;
 }
 
+.sg-page-number {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.sg-page-number:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.sg-page-number.active {
+  background: #176b87;
+  border-color: #176b87;
+  color: #fff;
+  cursor: default;
+}
+
+.sg-page-gap {
+  padding: 0 2px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 /* ── Delete confirm modal body ─────────────────────────────────────────────── */
 .sg-confirm-body {
   display: flex;

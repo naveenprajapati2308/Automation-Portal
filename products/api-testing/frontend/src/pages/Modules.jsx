@@ -2,17 +2,17 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Trash2, Plus, FolderTree, CornerDownRight } from 'lucide-react';
 import { apiClient } from '../api/client.js';
-
-const inputCls = 'bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm outline-none placeholder-zinc-600 focus:border-emerald-500';
+import { Button } from '../components/Button.jsx';
+import { INPUT_CLASS as inputCls } from '../lib/statusColors.js';
 
 function ModuleNode({ node, depth, onDelete }) {
   return (
     <>
-      <div className="flex items-center gap-2 py-1.5 border-b border-zinc-900 text-sm" style={{ paddingLeft: depth * 20 }}>
-        {depth > 0 && <CornerDownRight size={13} className="text-zinc-600" />}
-        <span className="text-zinc-200">{node.name}</span>
-        {node.description && <span className="text-xs text-zinc-600">{node.description}</span>}
-        <button onClick={() => onDelete(node.id)} className="ml-auto text-zinc-600 hover:text-red-400 pr-2"><Trash2 size={13} /></button>
+      <div className="flex items-center gap-2 py-1.5 border-b border-[var(--border-soft)] text-sm" style={{ paddingLeft: depth * 20 }}>
+        {depth > 0 && <CornerDownRight size={13} className="text-[var(--text-muted)]" />}
+        <span className="text-[var(--text-primary)]">{node.name}</span>
+        {node.description && <span className="text-xs text-[var(--text-muted)]">{node.description}</span>}
+        <button onClick={() => onDelete(node.id)} className="ml-auto text-[var(--text-muted)] hover:text-[var(--danger-text)] pr-2"><Trash2 size={13} /></button>
       </div>
       {(node.children ?? []).map((c) => <ModuleNode key={c.id} node={c} depth={depth + 1} onDelete={onDelete} />)}
     </>
@@ -53,17 +53,17 @@ export default function Modules() {
   return (
     <div className="flex-1 overflow-auto p-6 flex flex-col gap-5 max-w-3xl">
       <div>
-        <h1 className="text-lg font-semibold flex items-center gap-2"><FolderTree size={18} className="text-emerald-400" /> Modules</h1>
-        <p className="text-xs text-zinc-500">Group Base/Regular APIs (Login, Dashboard, Analytics…). Supports nesting.</p>
+        <h1 className="text-lg font-semibold flex items-center gap-2"><FolderTree size={18} className="text-[var(--accent-text)]" /> Modules</h1>
+        <p className="text-xs text-[var(--text-muted)]">Group Base/Regular APIs (Login, Dashboard, Analytics…). Supports nesting.</p>
       </div>
 
-      <div className="rounded-lg border border-zinc-800 bg-[#1c1c1e] p-4 flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-zinc-500">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
           Name
           <input className={inputCls} placeholder="e.g. Login" value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-500">
+        <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
           Parent (optional)
           <select className={inputCls} value={form.parentModuleId}
             onChange={(e) => setForm({ ...form, parentModuleId: e.target.value })}>
@@ -71,22 +71,21 @@ export default function Modules() {
             {flat.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-500 flex-1">
+        <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)] flex-1">
           Description
           <input className={inputCls} value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </label>
-        <button onClick={() => createMut.mutate()} disabled={!form.name.trim() || createMut.isPending}
-          className="flex items-center gap-2 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">
+        <Button onClick={() => createMut.mutate()} disabled={!form.name.trim() || createMut.isPending}>
           <Plus size={14} /> Add
-        </button>
+        </Button>
       </div>
 
-      {error && <div className="text-xs text-red-400">{error}</div>}
+      {error && <div className="text-xs text-[var(--danger-text)]">{error}</div>}
 
-      <div className="rounded-lg border border-zinc-800 bg-[#1c1c1e] px-3 py-1">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-1">
         {modules.map((m) => <ModuleNode key={m.id} node={m} depth={0} onDelete={(id) => deleteMut.mutate(id)} />)}
-        {modules.length === 0 && <div className="py-4 text-center text-xs text-zinc-600">No modules yet</div>}
+        {modules.length === 0 && <div className="py-4 text-center text-xs text-[var(--text-muted)]">No modules yet</div>}
       </div>
     </div>
   );

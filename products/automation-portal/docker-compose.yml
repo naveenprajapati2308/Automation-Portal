@@ -15,7 +15,7 @@ services:
       retries: 12
       start_period: 30s
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://testrix-mysql:3306/automation_portal?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_URL: jdbc:mysql://testrix-mysql:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
       PORTAL_AUTOMATION_ARTIFACTS_ROOT: /app/artifacts
@@ -46,7 +46,7 @@ services:
       testrix-mysql:
         condition: service_healthy
     environment:
-      EM_DB_URL: jdbc:mysql://testrix-mysql:3306/automation_portal?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      EM_DB_URL: jdbc:mysql://testrix-mysql:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       EM_DB_USER: root
       EM_DB_PASS: root
       EM_RUNNER_URL: http://automation-framework-runner:9090

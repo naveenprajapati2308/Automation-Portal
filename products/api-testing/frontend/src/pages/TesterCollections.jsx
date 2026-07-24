@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FolderOpen, Plus, Upload, X, Trash2, FileUp, CheckCircle2, XCircle } from 'lucide-react';
 import { apiClient } from '../api/client.js';
-
-const inputCls = 'bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm outline-none placeholder-zinc-600 focus:border-emerald-500';
+import { Panel } from '../components/Panel.jsx';
+import { Button } from '../components/Button.jsx';
+import { ModalOverlay } from '../components/ModalOverlay.jsx';
+import { Pagination } from '../components/Pagination.jsx';
+import { INPUT_CLASS as inputCls } from '../lib/statusColors.js';
 
 /** Sniffs whether a collection file is Postman or OpenAPI/Swagger, without asking the user. */
 function detectFormat(text) {
@@ -47,6 +50,8 @@ export default function TesterCollections() {
   const [pasteText, setPasteText] = useState('');
   const [dragOver, setDragOver] = useState(false);
   const [importResults, setImportResults] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const { data: collections = [] } = useQuery({
     queryKey: ['collections'],
@@ -113,75 +118,75 @@ export default function TesterCollections() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-lg font-semibold">API Tester</h1>
-          <p className="text-xs text-zinc-500">Choose a collection to see its requests, or start a new one</p>
+          <p className="text-xs text-[var(--text-muted)]">Choose a collection to see its requests, or start a new one</p>
         </div>
         <button onClick={() => { setImportOpen(true); setImportResults(null); setImportMode('file'); }}
-          className="flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 px-3 py-1.5 text-xs font-semibold">
+          className="flex items-center gap-1.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-3 py-1.5 text-xs font-semibold">
           <Upload size={12} /> Import Collection
         </button>
       </div>
 
-      <div className="rounded-lg border border-zinc-800 bg-[#1c1c1e] p-4 flex items-center gap-3">
+      <Panel className="flex items-center gap-3">
         <input value={newName} onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && newName.trim() && createMut.mutate()}
           placeholder="New collection name" className={`${inputCls} flex-1`} />
-        <button onClick={() => createMut.mutate()} disabled={!newName.trim() || createMut.isPending}
-          className="flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">
+        <Button onClick={() => createMut.mutate()} disabled={!newName.trim() || createMut.isPending}>
           <Plus size={14} /> Create Collection
-        </button>
-      </div>
+        </Button>
+      </Panel>
 
-      <div className="rounded-lg border border-zinc-800 bg-[#1c1c1e] divide-y divide-zinc-900">
-        {collections.map((c) => (
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] divide-y divide-[var(--border-soft)]">
+        {collections.slice((page - 1) * pageSize, page * pageSize).map((c) => (
           <div key={c.id} onClick={() => navigate(`/tester/${c.id}`)}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900/60 cursor-pointer group">
-            <FolderOpen size={16} className="text-emerald-400" />
+            className="flex items-center gap-3 px-4 py-3 hover:bg-[var(--bg-hover)] cursor-pointer group">
+            <FolderOpen size={16} className="text-[var(--accent-text)]" />
             <div className="flex-1 min-w-0">
-              <div className="text-sm text-zinc-100">{c.name}</div>
-              {c.description && <div className="text-xs text-zinc-500 truncate">{c.description}</div>}
+              <div className="text-sm text-[var(--text-primary)]">{c.name}</div>
+              {c.description && <div className="text-xs text-[var(--text-muted)] truncate">{c.description}</div>}
             </div>
-            <span className="text-xs text-zinc-500">{c.requestCount} request{c.requestCount === 1 ? '' : 's'}</span>
+            <span className="text-xs text-[var(--text-muted)]">{c.requestCount} request{c.requestCount === 1 ? '' : 's'}</span>
             <button onClick={(e) => { e.stopPropagation(); deleteMut.mutate(c.id); }}
-              className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-opacity">
+              className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--danger-text)] transition-opacity">
               <Trash2 size={14} />
             </button>
           </div>
         ))}
         {collections.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm text-zinc-600">No collections yet — create one above or import an existing one.</div>
+          <div className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">No collections yet — create one above or import an existing one.</div>
         )}
       </div>
+      <Pagination page={page} pageSize={pageSize} totalRecords={collections.length}
+        onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1); }} />
 
       {importOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-[#1c1c1e] border border-zinc-700 rounded-lg p-4 w-[620px] max-h-[80vh] flex flex-col gap-3">
+        <ModalOverlay onClose={() => setImportOpen(false)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 w-[620px] max-h-[80vh] flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">Import Collection</span>
-              <button onClick={() => setImportOpen(false)} className="text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+              <button onClick={() => setImportOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} /></button>
             </div>
 
             {importResults ? (
               <div className="text-sm flex flex-col gap-2">
                 {importResults.map((r, i) => (
-                  <div key={i} className={`flex items-start gap-2 rounded p-2 text-xs ${r.success ? 'bg-emerald-600/5' : 'bg-red-600/10'}`}>
-                    {r.success ? <CheckCircle2 size={14} className="text-emerald-400 shrink-0 mt-0.5" /> : <XCircle size={14} className="text-red-400 shrink-0 mt-0.5" />}
+                  <div key={i} className={`flex items-start gap-2 rounded p-2 text-xs ${r.success ? 'bg-[var(--success-bg-soft)]' : 'bg-[var(--danger-bg-soft)]'}`}>
+                    {r.success ? <CheckCircle2 size={14} className="text-[var(--success-text)] shrink-0 mt-0.5" /> : <XCircle size={14} className="text-[var(--danger-text)] shrink-0 mt-0.5" />}
                     <div>
-                      <div className="text-zinc-300">{r.filename} <span className="text-zinc-600">({r.format})</span></div>
+                      <div className="text-[var(--text-secondary)]">{r.filename} <span className="text-[var(--text-muted)]">({r.format})</span></div>
                       {r.success
-                        ? <div className="text-emerald-300">Imported "{r.data.collection.name}" — {r.data.importedRequests} request(s)
-                            {r.data.warnings?.length > 0 && <span className="text-amber-400"> · {r.data.warnings.length} warning(s)</span>}
+                        ? <div className="text-[var(--success-text)]">Imported "{r.data.collection.name}" — {r.data.importedRequests} request(s)
+                            {r.data.warnings?.length > 0 && <span className="text-[var(--warning-text)]"> · {r.data.warnings.length} warning(s)</span>}
                           </div>
-                        : <div className="text-red-400">{r.error}</div>}
+                        : <div className="text-[var(--danger-text)]">{r.error}</div>}
                     </div>
                   </div>
                 ))}
                 <div className="flex gap-2 mt-1">
                   {importResults.length === 1 && importResults[0].success && (
-                    <button onClick={() => navigate(`/tester/${importResults[0].data.collection.id}`)}
-                      className="rounded bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white">Open Collection</button>
+                    <Button onClick={() => navigate(`/tester/${importResults[0].data.collection.id}`)}>Open Collection</Button>
                   )}
                   <button onClick={() => setImportOpen(false)}
-                    className="rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 px-4 py-2 text-sm font-semibold">Close</button>
+                    className="rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-4 py-2 text-sm font-semibold">Close</button>
                 </div>
               </div>
             ) : (
@@ -189,7 +194,7 @@ export default function TesterCollections() {
                 <div className="flex gap-1">
                   {[['file', 'Upload File(s)'], ['paste', 'Paste Text']].map(([v, label]) => (
                     <button key={v} onClick={() => setImportMode(v)}
-                      className={`px-3 py-1.5 rounded text-xs ${importMode === v ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700' : 'text-zinc-500 border border-zinc-800 hover:text-zinc-300'}`}>
+                      className={`px-3 py-1.5 rounded text-xs ${importMode === v ? 'bg-[var(--accent-bg-soft)] text-[var(--accent-text)] border border-[var(--accent-border-soft)]' : 'text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text-secondary)]'}`}>
                       {label}
                     </button>
                   ))}
@@ -202,11 +207,11 @@ export default function TesterCollections() {
                     onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
                     onClick={() => fileInputRef.current?.click()}
                     className={`flex-1 min-h-[220px] border-2 border-dashed rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
-                      dragOver ? 'border-emerald-500 bg-emerald-600/5' : 'border-zinc-700 hover:border-zinc-600'
+                      dragOver ? 'border-[var(--accent)] bg-[var(--accent-bg-soft)]' : 'border-[var(--border)] hover:border-[var(--border-strong)]'
                     }`}>
-                    <FileUp size={28} className="text-zinc-500" />
-                    <div className="text-sm text-zinc-300">Drop Postman or OpenAPI/Swagger file(s) here</div>
-                    <div className="text-xs text-zinc-600">or click to browse — .json, .yaml, .yml — multiple files supported</div>
+                    <FileUp size={28} className="text-[var(--text-muted)]" />
+                    <div className="text-sm text-[var(--text-secondary)]">Drop Postman or OpenAPI/Swagger file(s) here</div>
+                    <div className="text-xs text-[var(--text-muted)]">or click to browse — .json, .yaml, .yml — multiple files supported</div>
                     <input ref={fileInputRef} type="file" accept=".json,.yaml,.yml" multiple
                       className="hidden" onChange={(e) => e.target.files.length && handleFiles(e.target.files)} />
                   </div>
@@ -215,7 +220,7 @@ export default function TesterCollections() {
                     <div className="flex gap-1">
                       {[['postman', 'Postman Collection'], ['openapi', 'OpenAPI / Swagger']].map(([v, label]) => (
                         <button key={v} onClick={() => setPasteFormat(v)}
-                          className={`px-3 py-1.5 rounded text-xs ${pasteFormat === v ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700' : 'text-zinc-500 border border-zinc-800 hover:text-zinc-300'}`}>
+                          className={`px-3 py-1.5 rounded text-xs ${pasteFormat === v ? 'bg-[var(--accent-bg-soft)] text-[var(--accent-text)] border border-[var(--accent-border-soft)]' : 'text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text-secondary)]'}`}>
                           {label}
                         </button>
                       ))}
@@ -224,24 +229,23 @@ export default function TesterCollections() {
                       placeholder={pasteFormat === 'postman'
                         ? 'Paste the exported Postman collection JSON here ({"info": {...}, "item": [...]})'
                         : 'Paste an OpenAPI 3.x / Swagger 2.0 spec here (JSON or YAML)'}
-                      className="flex-1 min-h-[220px] bg-zinc-900 border border-zinc-700 rounded p-3 text-xs font-mono outline-none placeholder-zinc-600 focus:border-emerald-500" />
+                      className="flex-1 min-h-[220px] bg-[var(--bg-surface-2)] border border-[var(--border)] rounded p-3 text-xs font-mono outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]" />
                   </>
                 )}
 
                 {(importFilesMut.isError || pasteImportMut.isError) && (
-                  <div className="text-xs text-red-400">Import failed</div>
+                  <div className="text-xs text-[var(--danger-text)]">Import failed</div>
                 )}
                 {importMode === 'paste' && (
-                  <button onClick={() => pasteImportMut.mutate()} disabled={!pasteText.trim() || pasteImportMut.isPending}
-                    className="rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">
+                  <Button onClick={() => pasteImportMut.mutate()} disabled={!pasteText.trim() || pasteImportMut.isPending}>
                     {pasteImportMut.isPending ? 'Importing…' : 'Import'}
-                  </button>
+                  </Button>
                 )}
-                {importFilesMut.isPending && <div className="text-xs text-zinc-400">Importing…</div>}
+                {importFilesMut.isPending && <div className="text-xs text-[var(--text-secondary)]">Importing…</div>}
               </>
             )}
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

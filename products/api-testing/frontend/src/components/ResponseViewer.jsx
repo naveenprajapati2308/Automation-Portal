@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
-import Editor from '@monaco-editor/react';
-import { Clock, HardDrive, AlertTriangle, Loader2 } from 'lucide-react';
+import { Clock, HardDrive, AlertTriangle } from 'lucide-react';
+import { ThemedEditor } from './ThemedEditor.jsx';
+import { Loader } from '../../../../../shared/ui/Loader.jsx';
 
 function statusColor(code) {
-  if (!code) return 'text-zinc-400';
-  if (code < 300) return 'text-emerald-400';
-  if (code < 400) return 'text-amber-400';
-  return 'text-red-400';
+  if (!code) return 'text-[var(--text-secondary)]';
+  if (code < 300) return 'text-[var(--success-text)]';
+  if (code < 400) return 'text-[var(--warning-text)]';
+  return 'text-[var(--danger-text)]';
 }
 
 function formatSize(bytes) {
@@ -49,15 +50,15 @@ export default function ResponseViewer({ response, loading }) {
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center text-zinc-500 gap-2">
-        <Loader2 className="animate-spin" size={18} /> Sending request…
+      <div className="h-[360px] shrink-0 flex items-center justify-center">
+        <Loader size={32} label="Sending request…" />
       </div>
     );
   }
 
   if (!response) {
     return (
-      <div className="flex-1 flex items-center justify-center text-zinc-600 text-sm">
+      <div className="h-[360px] shrink-0 flex items-center justify-center text-[var(--text-muted)] text-sm">
         Send a request to see the response here
       </div>
     );
@@ -65,25 +66,25 @@ export default function ResponseViewer({ response, loading }) {
 
   if (!response.success) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-red-400 px-6 text-center">
+      <div className="h-[360px] shrink-0 flex flex-col items-center justify-center gap-2 text-[var(--danger-text)] px-6 text-center">
         <AlertTriangle size={22} />
         <div className="text-sm font-medium">Request failed</div>
-        <div className="text-xs text-zinc-400 max-w-xl break-all">{response.errorMessage}</div>
-        <div className="text-xs text-zinc-600">after {response.durationMs} ms</div>
+        <div className="text-xs text-[var(--text-secondary)] max-w-xl break-all">{response.errorMessage}</div>
+        <div className="text-xs text-[var(--text-muted)]">after {response.durationMs} ms</div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex items-center gap-5 px-4 py-2 border-b border-zinc-800 text-xs">
+    <div className="h-[360px] shrink-0 flex flex-col min-h-0">
+      <div className="flex items-center gap-5 px-4 py-2 border-b border-[var(--border)] text-xs">
         <span className={`font-semibold ${statusColor(response.statusCode)}`}>
           {response.statusCode} {response.statusText}
         </span>
-        <span className="flex items-center gap-1 text-zinc-400">
+        <span className="flex items-center gap-1 text-[var(--text-secondary)]">
           <Clock size={12} /> {response.durationMs} ms
         </span>
-        <span className="flex items-center gap-1 text-zinc-400">
+        <span className="flex items-center gap-1 text-[var(--text-secondary)]">
           <HardDrive size={12} /> {formatSize(response.sizeBytes)}
         </span>
         <div className="ml-auto flex gap-1">
@@ -91,7 +92,7 @@ export default function ResponseViewer({ response, loading }) {
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-3 py-1 rounded ${tab === t ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+              className={`px-3 py-1 rounded ${tab === t ? 'bg-[var(--bg-hover)] text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}
             >
               {t}
             </button>
@@ -103,25 +104,24 @@ export default function ResponseViewer({ response, loading }) {
         {tab === 'Headers' ? (
           <div className="h-full overflow-auto p-4 text-xs font-mono">
             {Object.entries(response.headers || {}).map(([k, vals]) => (
-              <div key={k} className="flex gap-2 py-1 border-b border-zinc-900">
-                <span className="text-emerald-400 shrink-0">{k}:</span>
-                <span className="text-zinc-300 break-all">{vals.join(', ')}</span>
+              <div key={k} className="flex gap-2 py-1 border-b border-[var(--border-soft)]">
+                <span className="text-[var(--success-text)] shrink-0">{k}:</span>
+                <span className="text-[var(--text-secondary)] break-all">{vals.join(', ')}</span>
               </div>
             ))}
           </div>
         ) : tab === 'Cookies' ? (
           <div className="h-full overflow-auto p-4 text-xs font-mono">
             {cookies.map((c, i) => (
-              <div key={i} className="py-2 border-b border-zinc-900">
-                <div><span className="text-emerald-400">{c.name}</span> = <span className="text-zinc-300 break-all">{c.value}</span></div>
-                {c.attrs.length > 0 && <div className="text-zinc-600 mt-0.5">{c.attrs.join(' · ')}</div>}
+              <div key={i} className="py-2 border-b border-[var(--border-soft)]">
+                <div><span className="text-[var(--success-text)]">{c.name}</span> = <span className="text-[var(--text-secondary)] break-all">{c.value}</span></div>
+                {c.attrs.length > 0 && <div className="text-[var(--text-muted)] mt-0.5">{c.attrs.join(' · ')}</div>}
               </div>
             ))}
           </div>
         ) : (
-          <Editor
+          <ThemedEditor
             height="100%"
-            theme="vs-dark"
             language={tab === 'Pretty' && isJson ? 'json' : 'plaintext'}
             value={tab === 'Pretty' ? prettyBody : response.body}
             options={{

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 
 const ENV_COLORS = {
   dev: '#06b6d4',      // Cyan
@@ -35,8 +36,8 @@ export function EnvDistribution({ data = [], environments = [], loading = false 
 
   if (loading) {
     return (
-      <div style={{ height: '100px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
-        Loading environment mix...
+      <div style={{ height: '100px', display: 'grid', placeItems: 'center' }}>
+        <Loader size={22} label="Loading environment mix..." />
       </div>
     );
   }

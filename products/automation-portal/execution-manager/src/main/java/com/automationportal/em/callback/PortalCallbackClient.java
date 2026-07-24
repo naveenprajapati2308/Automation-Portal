@@ -20,6 +20,12 @@ public class PortalCallbackClient {
     @Value("${em.portal-backend-url:http://localhost:8080}")
     private String portalBackendUrl;
 
+    // Matches portal.events.api-key on the backend side — these two callback endpoints are
+    // permitAll at the Spring Security layer (the runner isn't a logged-in user, so it has no
+    // JWT) and rely on this shared secret instead, same as ExecutionEventController.
+    @Value("${em.portal-api-key:shared-secret}")
+    private String portalApiKey;
+
     public PortalCallbackClient() {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
@@ -39,6 +45,7 @@ public class PortalCallbackClient {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
+                    .header("X-API-Key", portalApiKey)
                     .POST(HttpRequest.BodyPublishers.noBody())
                     .timeout(Duration.ofSeconds(5))
                     .build();
@@ -63,6 +70,7 @@ public class PortalCallbackClient {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
+                    .header("X-API-Key", portalApiKey)
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .timeout(Duration.ofSeconds(5))
                     .build();

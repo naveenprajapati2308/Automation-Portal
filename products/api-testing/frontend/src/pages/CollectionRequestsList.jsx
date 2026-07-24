@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -7,22 +7,18 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 import KeyValueEditor from '../components/KeyValueEditor.jsx';
+import { Button } from '../components/Button.jsx';
+import { ModalOverlay } from '../components/ModalOverlay.jsx';
+import { Pagination } from '../components/Pagination.jsx';
+import { INPUT_CLASS as inputCls, methodColor, CLASS_COLORS } from '../lib/statusColors.js';
 
-const inputCls = 'bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm outline-none placeholder-zinc-600 focus:border-emerald-500';
 const GRID_COLS = 'grid grid-cols-[1fr_90px_1.2fr_140px_160px_90px] gap-2 items-center';
 
-function methodColor(m) {
-  return {
-    GET: 'text-emerald-400', POST: 'text-amber-400', PUT: 'text-blue-400',
-    PATCH: 'text-teal-300', DELETE: 'text-red-400', OPTIONS: 'text-purple-400', HEAD: 'text-pink-400',
-  }[m] || 'text-zinc-400';
-}
-
 function statusPillClass(cls) {
-  if (cls === '2xx' || cls === '3xx') return 'text-emerald-400';
-  if (cls === '4xx' || cls === '5xx') return 'text-red-400';
-  if (cls === 'TIMEOUT') return 'text-amber-400';
-  return 'text-zinc-500';
+  if (cls === '2xx' || cls === '3xx') return CLASS_COLORS['2xx'];
+  if (cls === '4xx' || cls === '5xx') return CLASS_COLORS['4xx'];
+  if (cls === 'TIMEOUT') return CLASS_COLORS.TIMEOUT;
+  return 'text-[var(--text-muted)]';
 }
 
 async function downloadFrom(url, fallbackName) {
@@ -64,6 +60,10 @@ export default function CollectionRequestsList() {
   const [envMenuOpen, setEnvMenuOpen] = useState(false);
   const [envManageOpen, setEnvManageOpen] = useState(false);
   const [editingEnv, setEditingEnv] = useState(null); // {id?, name, variables}
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => { setPage(0); }, [collectionId]);
 
   const { data: collections = [] } = useQuery({
     queryKey: ['collections'],
@@ -179,12 +179,12 @@ export default function CollectionRequestsList() {
   const activeEnv = environments.find((e) => e.id === collection?.activeEnvironmentId);
 
   const RequestRow = ({ r, depth }) => (
-    <div className={`${GRID_COLS} px-4 py-2.5 border-b border-zinc-900 hover:bg-zinc-900/60 cursor-pointer text-xs`}
+    <div className={`${GRID_COLS} px-4 py-2.5 border-b border-[var(--border-soft)] hover:bg-[var(--bg-hover)] cursor-pointer text-xs`}
       style={{ paddingLeft: 16 + depth * 20 }}
       onClick={() => navigate(`/tester/${collectionId}/${r.id}`)}>
-      <span className="text-zinc-100 truncate">{r.name}</span>
+      <span className="text-[var(--text-primary)] truncate">{r.name}</span>
       <span className={`font-semibold ${methodColor(r.method)}`}>{r.method}</span>
-      <span className="text-zinc-400 truncate" title={r.url}>{r.url}</span>
+      <span className="text-[var(--text-secondary)] truncate" title={r.url}>{r.url}</span>
       <span className={`font-semibold ${statusPillClass(r.lastStatusClass)}`}>
         {r.lastStatusCode
           ? <span className="inline-flex items-center gap-1">
@@ -193,17 +193,17 @@ export default function CollectionRequestsList() {
             </span>
           : r.lastStatusClass
             ? <span className="inline-flex items-center gap-1"><XCircle size={12} /> {r.lastStatusClass}</span>
-            : <span className="text-zinc-700">never run</span>}
+            : <span className="text-[var(--text-muted)]">never run</span>}
       </span>
-      <span className="text-zinc-500">{r.lastExecutedAt ? new Date(r.lastExecutedAt).toLocaleString() : '—'}</span>
+      <span className="text-[var(--text-muted)]">{r.lastExecutedAt ? new Date(r.lastExecutedAt).toLocaleString() : '—'}</span>
       <span className="flex items-center gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
         <select value={r.folderId ?? ''} onChange={(e) => moveMut.mutate({ requestId: r.id, folderId: e.target.value ? Number(e.target.value) : null })}
-          className="bg-zinc-900 border border-zinc-800 rounded text-[10px] px-1 py-0.5 outline-none max-w-[70px]" title="Move to folder">
+          className="bg-[var(--bg-surface-2)] border border-[var(--border)] rounded text-[10px] px-1 py-0.5 outline-none max-w-[70px]" title="Move to folder">
           <option value="">Root</option>
           {flatFolders.map((f) => <option key={f.id} value={f.id}>{'—'.repeat(f.depth)} {f.name}</option>)}
         </select>
-        <button onClick={() => duplicateMut.mutate(r)} title="Duplicate" className="text-zinc-600 hover:text-emerald-400"><Copy size={13} /></button>
-        <button onClick={() => deleteMut.mutate(r.id)} title="Delete" className="text-zinc-600 hover:text-red-400"><Trash2 size={13} /></button>
+        <button onClick={() => duplicateMut.mutate(r)} title="Duplicate" className="text-[var(--text-muted)] hover:text-[var(--accent-text)]"><Copy size={13} /></button>
+        <button onClick={() => deleteMut.mutate(r.id)} title="Delete" className="text-[var(--text-muted)] hover:text-[var(--danger-text)]"><Trash2 size={13} /></button>
       </span>
     </div>
   );
@@ -214,20 +214,20 @@ export default function CollectionRequestsList() {
     const childRequests = requestsByFolder.get(folder.id) ?? [];
     return (
       <>
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-zinc-900 bg-zinc-900/30 text-xs"
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--border-soft)] bg-[var(--bg-hover)] text-xs"
           style={{ paddingLeft: 16 + folder.depth * 20 }}>
-          <button onClick={() => toggleFolder(folder.id)} className="text-zinc-400 hover:text-zinc-200">
+          <button onClick={() => toggleFolder(folder.id)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
             {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
           </button>
-          <Folder size={13} className="text-amber-400" />
-          <span className="text-zinc-200 font-medium">{folder.name}</span>
-          <span className="text-zinc-600">({childRequests.length})</span>
+          <Folder size={13} className="text-[var(--warning-text)]" />
+          <span className="text-[var(--text-primary)] font-medium">{folder.name}</span>
+          <span className="text-[var(--text-muted)]">({childRequests.length})</span>
           <button onClick={() => { setNewFolderParent(folder.id); setNewFolderName(''); }}
-            className="ml-2 text-zinc-600 hover:text-emerald-400" title="New sub-folder"><FolderPlus size={13} /></button>
+            className="ml-2 text-[var(--text-muted)] hover:text-[var(--accent-text)]" title="New sub-folder"><FolderPlus size={13} /></button>
           <button onClick={() => navigate(`/tester/${collectionId}/new`)}
-            className="text-zinc-600 hover:text-emerald-400" title="New request here"><Plus size={13} /></button>
+            className="text-[var(--text-muted)] hover:text-[var(--accent-text)]" title="New request here"><Plus size={13} /></button>
           <button onClick={() => deleteFolderMut.mutate(folder.id)}
-            className="ml-auto text-zinc-600 hover:text-red-400" title="Delete folder"><Trash2 size={13} /></button>
+            className="ml-auto text-[var(--text-muted)] hover:text-[var(--danger-text)]" title="Delete folder"><Trash2 size={13} /></button>
         </div>
         {!isCollapsed && (
           <>
@@ -241,127 +241,129 @@ export default function CollectionRequestsList() {
 
   const rootFolders = foldersByParent.get('root') ?? [];
   const rootRequests = requestsByFolder.get('root') ?? [];
+  const pagedRootRequests = rootRequests.slice(page * pageSize, page * pageSize + pageSize);
 
   return (
     <div className="flex-1 overflow-auto p-6 flex flex-col gap-4">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <Link to="/tester" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 mb-1">
+          <Link to="/tester" className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] mb-1">
             <ChevronLeft size={12} /> All collections
           </Link>
           <h1 className="text-lg font-semibold">{collection?.name ?? 'Collection'}</h1>
-          <p className="text-xs text-zinc-500">Recently executed first · click a request to open its workspace</p>
+          <p className="text-xs text-[var(--text-muted)]">Recently executed first · click a request to open its workspace</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
             <button onClick={() => setEnvMenuOpen(!envMenuOpen)}
-              className="flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 px-3 py-1.5 text-xs font-semibold">
+              className="flex items-center gap-1.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-3 py-1.5 text-xs font-semibold">
               <Layers size={12} /> {activeEnv ? activeEnv.name : 'No Environment'} <ChevronDown size={12} />
             </button>
             {envMenuOpen && (
-              <div className="absolute right-0 mt-1 w-56 bg-[#1c1c1e] border border-zinc-700 rounded shadow-lg z-40 text-xs">
+              <div className="absolute right-0 mt-1 w-56 bg-[var(--bg-surface)] border border-[var(--border)] rounded shadow-lg z-40 text-xs">
                 <button onClick={() => activateEnvMut.mutate(null)}
-                  className={`block w-full text-left px-3 py-2 hover:bg-zinc-800 ${!activeEnv ? 'text-emerald-300' : ''}`}>No Environment</button>
+                  className={`block w-full text-left px-3 py-2 hover:bg-[var(--bg-hover)] ${!activeEnv ? 'text-[var(--accent-text)]' : ''}`}>No Environment</button>
                 {environments.map((e) => (
                   <button key={e.id} onClick={() => activateEnvMut.mutate(e.id)}
-                    className={`block w-full text-left px-3 py-2 hover:bg-zinc-800 ${activeEnv?.id === e.id ? 'text-emerald-300' : ''}`}>{e.name}</button>
+                    className={`block w-full text-left px-3 py-2 hover:bg-[var(--bg-hover)] ${activeEnv?.id === e.id ? 'text-[var(--accent-text)]' : ''}`}>{e.name}</button>
                 ))}
-                <div className="border-t border-zinc-800">
+                <div className="border-t border-[var(--border)]">
                   <button onClick={() => { setEnvManageOpen(true); setEnvMenuOpen(false); }}
-                    className="block w-full text-left px-3 py-2 hover:bg-zinc-800 text-zinc-400">Manage Environments…</button>
+                    className="block w-full text-left px-3 py-2 hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]">Manage Environments…</button>
                 </div>
               </div>
             )}
           </div>
           <button onClick={openVariables}
-            className="flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 px-3 py-1.5 text-xs font-semibold">
-            <Braces size={12} /> Variables {variables.length > 0 && <span className="text-emerald-400">({variables.length})</span>}
+            className="flex items-center gap-1.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-3 py-1.5 text-xs font-semibold">
+            <Braces size={12} /> Variables {variables.length > 0 && <span className="text-[var(--success-text)]">({variables.length})</span>}
           </button>
           <div className="relative">
             <button onClick={() => setExportMenuOpen(!exportMenuOpen)}
-              className="flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 px-3 py-1.5 text-xs font-semibold">
+              className="flex items-center gap-1.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-3 py-1.5 text-xs font-semibold">
               <Download size={12} /> Export <ChevronDown size={12} />
             </button>
             {exportMenuOpen && (
-              <div className="absolute right-0 mt-1 w-44 bg-[#1c1c1e] border border-zinc-700 rounded shadow-lg z-40 text-xs">
+              <div className="absolute right-0 mt-1 w-44 bg-[var(--bg-surface)] border border-[var(--border)] rounded shadow-lg z-40 text-xs">
                 <button onClick={() => { downloadFrom(`/v1/collections/${collectionId}/export/postman`, 'collection.postman_collection.json'); setExportMenuOpen(false); }}
-                  className="block w-full text-left px-3 py-2 hover:bg-zinc-800">Postman Collection</button>
+                  className="block w-full text-left px-3 py-2 hover:bg-[var(--bg-hover)]">Postman Collection</button>
                 <button onClick={() => { downloadFrom(`/v1/collections/${collectionId}/export/json`, 'collection.json'); setExportMenuOpen(false); }}
-                  className="block w-full text-left px-3 py-2 hover:bg-zinc-800">Native JSON</button>
+                  className="block w-full text-left px-3 py-2 hover:bg-[var(--bg-hover)]">Native JSON</button>
               </div>
             )}
           </div>
           <button onClick={() => { setNewFolderParent(null); setNewFolderName(''); }}
-            className="flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 px-3 py-1.5 text-xs font-semibold">
+            className="flex items-center gap-1.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-3 py-1.5 text-xs font-semibold">
             <FolderPlus size={12} /> New Folder
           </button>
-          <button onClick={() => navigate(`/tester/${collectionId}/new`)}
-            className="flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white">
+          <Button onClick={() => navigate(`/tester/${collectionId}/new`)}>
             <Plus size={14} /> New Request
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className="rounded-lg border border-zinc-800 bg-[#1c1c1e] overflow-hidden">
-        <div className={`${GRID_COLS} px-4 py-2.5 border-b border-zinc-800 text-zinc-500 text-xs font-medium`}>
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] overflow-hidden">
+        <div className={`${GRID_COLS} px-4 py-2.5 border-b border-[var(--border)] text-[var(--text-muted)] text-xs font-medium`}>
           <span>API Name</span><span>Method</span><span>Path</span><span>Response Status</span><span>Last Run</span><span></span>
         </div>
         {rootFolders.map((f) => <FolderSection key={f.id} folder={f} />)}
-        {rootRequests.map((r) => <RequestRow key={r.id} r={r} depth={0} />)}
+        {pagedRootRequests.map((r) => <RequestRow key={r.id} r={r} depth={0} />)}
         {rootFolders.length === 0 && rootRequests.length === 0 && (
-          <div className="px-4 py-8 text-center text-xs text-zinc-600">No requests yet — click "New Request" to build one</div>
+          <div className="px-4 py-8 text-center text-xs text-[var(--text-muted)]">No requests yet — click "New Request" to build one</div>
         )}
       </div>
 
+      <Pagination page={page + 1} pageSize={pageSize} totalRecords={rootRequests.length}
+        onPageChange={(p) => setPage(p - 1)}
+        onPageSizeChange={(n) => { setPageSize(n); setPage(0); }} />
+
       {/* New folder modal */}
       {newFolderParent !== undefined && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setNewFolderParent(undefined)}>
-          <div className="bg-[#1c1c1e] border border-zinc-700 rounded-lg p-4 w-96" onClick={(e) => e.stopPropagation()}>
+        <ModalOverlay onClose={() => setNewFolderParent(undefined)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 w-96">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold">{newFolderParent ? 'New Sub-folder' : 'New Folder'}</span>
-              <button onClick={() => setNewFolderParent(undefined)} className="text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+              <button onClick={() => setNewFolderParent(undefined)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} /></button>
             </div>
             <input autoFocus value={newFolderName} onChange={(e) => setNewFolderName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && newFolderName.trim() && createFolderMut.mutate()}
               placeholder="Folder name" className={`${inputCls} w-full mb-3`} />
-            <button onClick={() => createFolderMut.mutate()} disabled={!newFolderName.trim() || createFolderMut.isPending}
-              className="w-full rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 py-2 text-sm font-semibold text-white">Create</button>
+            <Button className="w-full" onClick={() => createFolderMut.mutate()} disabled={!newFolderName.trim() || createFolderMut.isPending}>Create</Button>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Variables modal */}
       {variablesOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setVariablesOpen(false)}>
-          <div className="bg-[#1c1c1e] border border-zinc-700 rounded-lg p-4 w-[560px] max-h-[80vh] flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+        <ModalOverlay onClose={() => setVariablesOpen(false)}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 w-[560px] max-h-[80vh] flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-sm font-semibold">Collection Variables</span>
-                <p className="text-xs text-zinc-500 mt-0.5">Always-on base values (e.g. from a Postman import). Use as <span className="font-mono text-emerald-300">{'{{key}}'}</span> anywhere in this collection's requests. An active environment overrides these.</p>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Always-on base values (e.g. from a Postman import). Use as <span className="font-mono text-[var(--success-text)]">{'{{key}}'}</span> anywhere in this collection's requests. An active environment overrides these.</p>
               </div>
-              <button onClick={() => setVariablesOpen(false)} className="text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+              <button onClick={() => setVariablesOpen(false)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} /></button>
             </div>
             <div className="overflow-auto">
               <KeyValueEditor items={draftVariables} onChange={setDraftVariables} keyPlaceholder="baseUrl" valuePlaceholder="https://api.example.com" />
             </div>
             <div className="flex items-center gap-3">
-              <button onClick={() => saveVariablesMut.mutate()} disabled={saveVariablesMut.isPending}
-                className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">
+              <Button onClick={() => saveVariablesMut.mutate()} disabled={saveVariablesMut.isPending}>
                 <Save size={13} /> Save Variables
-              </button>
-              {saveMessage && <span className="text-xs text-emerald-400">{saveMessage}</span>}
+              </Button>
+              {saveMessage && <span className="text-xs text-[var(--success-text)]">{saveMessage}</span>}
             </div>
           </div>
-        </div>
+        </ModalOverlay>
       )}
 
       {/* Environments management modal */}
       {envManageOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => { setEnvManageOpen(false); setEditingEnv(null); }}>
-          <div className="bg-[#1c1c1e] border border-zinc-700 rounded-lg p-4 w-[640px] max-h-[80vh] flex flex-col gap-3" onClick={(e) => e.stopPropagation()}>
+        <ModalOverlay onClose={() => { setEnvManageOpen(false); setEditingEnv(null); }}>
+          <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4 w-[640px] max-h-[80vh] flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold">Environments</span>
-              <button onClick={() => { setEnvManageOpen(false); setEditingEnv(null); }} className="text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+              <button onClick={() => { setEnvManageOpen(false); setEditingEnv(null); }} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} /></button>
             </div>
 
             {editingEnv ? (
@@ -373,37 +375,35 @@ export default function CollectionRequestsList() {
                     keyPlaceholder="baseUrl" valuePlaceholder="https://dev.example.com" />
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => saveEnvMut.mutate()} disabled={!editingEnv.name.trim() || saveEnvMut.isPending}
-                    className="rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">Save</button>
-                  <button onClick={() => setEditingEnv(null)} className="rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 px-4 py-2 text-sm font-semibold">Cancel</button>
+                  <Button onClick={() => saveEnvMut.mutate()} disabled={!editingEnv.name.trim() || saveEnvMut.isPending}>Save</Button>
+                  <button onClick={() => setEditingEnv(null)} className="rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-4 py-2 text-sm font-semibold">Cancel</button>
                 </div>
               </div>
             ) : (
               <>
-                <button onClick={() => setEditingEnv({ name: '', variables: [] })}
-                  className="flex items-center gap-2 rounded bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-semibold text-white w-fit">
+                <Button className="w-fit" onClick={() => setEditingEnv({ name: '', variables: [] })}>
                   <Plus size={14} /> New Environment
-                </button>
-                <div className="flex flex-col divide-y divide-zinc-900 border border-zinc-800 rounded">
+                </Button>
+                <div className="flex flex-col divide-y divide-[var(--border-soft)] border border-[var(--border)] rounded">
                   {environments.map((e) => (
                     <div key={e.id} className="flex items-center gap-2 px-3 py-2 text-xs">
-                      <Layers size={13} className="text-emerald-400" />
-                      <span className="text-zinc-200">{e.name}</span>
-                      {activeEnv?.id === e.id && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-600/15 text-emerald-300">ACTIVE</span>}
-                      <span className="text-zinc-600">{(JSON.parse(e.variables || '[]')).length} var(s)</span>
+                      <Layers size={13} className="text-[var(--accent-text)]" />
+                      <span className="text-[var(--text-primary)]">{e.name}</span>
+                      {activeEnv?.id === e.id && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--success-bg-soft)] text-[var(--success-text)]">ACTIVE</span>}
+                      <span className="text-[var(--text-muted)]">{(JSON.parse(e.variables || '[]')).length} var(s)</span>
                       <div className="ml-auto flex gap-2">
                         <button onClick={() => setEditingEnv({ id: e.id, name: e.name, variables: JSON.parse(e.variables || '[]') })}
-                          className="text-zinc-500 hover:text-zinc-300"><Pencil size={13} /></button>
-                        <button onClick={() => deleteEnvMut.mutate(e.id)} className="text-zinc-500 hover:text-red-400"><Trash2 size={13} /></button>
+                          className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><Pencil size={13} /></button>
+                        <button onClick={() => deleteEnvMut.mutate(e.id)} className="text-[var(--text-muted)] hover:text-[var(--danger-text)]"><Trash2 size={13} /></button>
                       </div>
                     </div>
                   ))}
-                  {environments.length === 0 && <div className="px-3 py-4 text-center text-xs text-zinc-600">No environments yet</div>}
+                  {environments.length === 0 && <div className="px-3 py-4 text-center text-xs text-[var(--text-muted)]">No environments yet</div>}
                 </div>
               </>
             )}
           </div>
-        </div>
+        </ModalOverlay>
       )}
     </div>
   );

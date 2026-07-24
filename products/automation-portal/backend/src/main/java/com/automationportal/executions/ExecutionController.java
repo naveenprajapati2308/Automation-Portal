@@ -20,6 +20,13 @@ public class ExecutionController {
     @org.springframework.beans.factory.annotation.Value("${portal.execution-manager.url:http://localhost:8090}")
     private String executionManagerUrl;
 
+    @org.springframework.beans.factory.annotation.Value("${portal.events.api-key:shared-secret}")
+    private String expectedApiKey;
+
+    private boolean isValidApiKey(String apiKey) {
+        return expectedApiKey == null || expectedApiKey.isEmpty() || expectedApiKey.equals(apiKey);
+    }
+
     public ExecutionController(ExecutionService service, ExecutionRepository repository, AuthenticatedUserService authenticatedUserService) {
         this.service = service;
         this.repository = repository;
@@ -98,16 +105,27 @@ public class ExecutionController {
     }
 
     @PostMapping("/{id}/state")
-    public ApiResponse<Void> updateState(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public org.springframework.http.ResponseEntity<ApiResponse<Void>> updateState(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey,
+            @RequestBody Map<String, String> body) {
+        if (!isValidApiKey(apiKey)) {
+            return org.springframework.http.ResponseEntity.status(401).body(ApiResponse.error("Invalid or missing X-API-Key header"));
+        }
         String state = body.get("state");
         service.updateState(id, state);
-        return ApiResponse.ok(null);
+        return org.springframework.http.ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @PostMapping("/{id}/job-finished")
-    public ApiResponse<Void> jobFinished(@PathVariable Long id) {
+    public org.springframework.http.ResponseEntity<ApiResponse<Void>> jobFinished(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-API-Key", required = false) String apiKey) {
+        if (!isValidApiKey(apiKey)) {
+            return org.springframework.http.ResponseEntity.status(401).body(ApiResponse.error("Invalid or missing X-API-Key header"));
+        }
         service.markStaleIfStillRunning(id);
-        return ApiResponse.ok(null);
+        return org.springframework.http.ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @GetMapping("/runner/suites")

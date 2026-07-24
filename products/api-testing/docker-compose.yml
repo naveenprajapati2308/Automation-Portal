@@ -31,7 +31,7 @@ services:
     environment:
       # Schedule times ("daily at 10:00") and cron expressions are interpreted in this zone.
       TZ: ${SCHEDULER_TZ:-Asia/Kolkata}
-      DB_URL: jdbc:mysql://testrix-mysql:3306/api_testing_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_URL: jdbc:mysql://testrix-mysql:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       DB_USERNAME: root
       DB_PASSWORD: root
       REDIS_HOST: api-testing-redis

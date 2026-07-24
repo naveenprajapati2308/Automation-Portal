@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../api.js';
-import { CheckCircle2, XCircle, AlertCircle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 
 export function TestStepPanel({ testCaseId }) {
   const [steps, setSteps] = useState([]);
@@ -33,8 +34,8 @@ export function TestStepPanel({ testCaseId }) {
 
   if (loading) {
     return (
-      <div style={{ padding: '12px', color: 'var(--text-muted)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Clock className="animate-spin" size={14} /> Loading step execution logs...
+      <div style={{ padding: '12px' }}>
+        <Loader size={16} label="Loading step execution logs..." />
       </div>
     );
   }

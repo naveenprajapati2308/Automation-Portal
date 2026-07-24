@@ -6,6 +6,7 @@ import com.automationportal.apitesting.baseapi.BaseApi;
 import com.automationportal.apitesting.baseapi.BaseApiExecutionService;
 import com.automationportal.apitesting.baseapi.BaseApiRepository;
 import com.automationportal.apitesting.common.RequestConfigMapper;
+import com.automationportal.apitesting.execution.DynamicValueResolver;
 import com.automationportal.apitesting.execution.ExecutionEngineService;
 import com.automationportal.apitesting.execution.dto.ExecutionContext;
 import com.automationportal.apitesting.execution.dto.ExecutionRequest;
@@ -54,6 +55,7 @@ public class DependencyExecutionService {
     private final ExecutionHistoryService historyService;
     private final ValidationEngine validationEngine;
     private final RequestConfigMapper configMapper;
+    private final DynamicValueResolver dynamicValueResolver;
 
     @Data
     public static class RegularExecutionResult {
@@ -71,6 +73,7 @@ public class DependencyExecutionService {
                                           ExecutionContext context) {
         RegularExecutionResult result = new RegularExecutionResult();
         ExecutionRequest request = buildRequest(api);
+        dynamicValueResolver.resolve(request, context.getDynamicValueCache());
         log.info("executing regular api id={} name='{}' trigger={} scheduleId={} correlationId={}",
                 api.getId(), api.getName(), trigger, scheduleId, context.getCorrelationId());
 
@@ -140,40 +143,84 @@ public class DependencyExecutionService {
     }
 
     private Map<String, String> resolveVariables(RegularApi api, ExecutionContext context) {
-        List<ApiVariableBinding> bindings = bindingRepository.findByRegularApiId(api.getId());
-        Map<String, String> variables = new HashMap<>();
-
-        // Group by base API so each dependency executes at most once per run
-        Set<Long> baseIds = new LinkedHashSet<>();
-        bindings.forEach(b -> baseIds.add(b.getBaseApiId()));
-
-        Map<Long, String> baseBodies = new HashMap<>();
-        for (Long baseId : baseIds) {
-            BaseApi base = baseApiRepository.findById(baseId)
-                    .orElseThrow(() -> new DependencyResolutionException(
-                            "Dependency Base API #" + baseId + " no longer exists"));
-            BaseApiExecutionService.CachedResult cached = baseApiExecutionService.resolveForDependency(base, context);
-            if (cached.body() == null) {
-                throw new DependencyResolutionException(
-                        "Dependency Base API '" + base.getName() + "' could not be resolved (execution failed or no cached value)");
-            }
-            baseBodies.put(baseId, cached.body());
+        // A Regular API can now depend on another Regular API (not just a Base
+        // API), which makes a cycle possible (A -> B -> A) where none was before
+        // (Base APIs are always leaves). Guard against it explicitly.
+        if (!context.getRegularApiCallStack().add(api.getId())) {
+            throw new DependencyResolutionException(
+                    "Circular dependency detected: Regular API '" + api.getName() + "' (#" + api.getId()
+                            + "') depends on itself through its binding chain");
         }
+        try {
+            List<ApiVariableBinding> bindings = bindingRepository.findByRegularApiId(api.getId());
+            Map<String, String> variables = new HashMap<>();
 
-        for (ApiVariableBinding b : bindings) {
-            Object value = JsonPath.using(JSONPATH_CONFIG)
-                    .parse(baseBodies.get(b.getBaseApiId()))
-                    .read(b.getSourceJsonPath());
-            if (value == null) {
-                BaseApi base = baseApiRepository.findById(b.getBaseApiId()).orElse(null);
-                throw new DependencyResolutionException(
-                        "Dependency '" + b.getVariableName() + "' could not be resolved: path "
-                                + b.getSourceJsonPath() + " not found in Base API '"
-                                + (base != null ? base.getName() : b.getBaseApiId()) + "' response");
+            // Group by source so each dependency executes at most once per run
+            Set<Long> baseIds = new LinkedHashSet<>();
+            Set<Long> regularIds = new LinkedHashSet<>();
+            for (ApiVariableBinding b : bindings) {
+                if (b.getBaseApiId() != null) baseIds.add(b.getBaseApiId());
+                else if (b.getSourceRegularApiId() != null) regularIds.add(b.getSourceRegularApiId());
             }
-            variables.put(b.getVariableName(), String.valueOf(value));
+
+            Map<Long, String> baseBodies = new HashMap<>();
+            for (Long baseId : baseIds) {
+                BaseApi base = baseApiRepository.findById(baseId)
+                        .orElseThrow(() -> new DependencyResolutionException(
+                                "Dependency Base API #" + baseId + " no longer exists"));
+                BaseApiExecutionService.CachedResult cached = baseApiExecutionService.resolveForDependency(base, context);
+                if (cached.body() == null) {
+                    throw new DependencyResolutionException(
+                            "Dependency Base API '" + base.getName() + "' could not be resolved (execution failed or no cached value)");
+                }
+                baseBodies.put(baseId, cached.body());
+            }
+
+            Map<Long, String> regularBodies = new HashMap<>();
+            for (Long regularId : regularIds) {
+                RegularApi source = regularApiRepository.findById(regularId)
+                        .orElseThrow(() -> new DependencyResolutionException(
+                                "Dependency Regular API #" + regularId + " no longer exists"));
+                regularBodies.put(regularId, resolveRegularApiForDependency(source, context));
+            }
+
+            for (ApiVariableBinding b : bindings) {
+                String sourceBody = b.getBaseApiId() != null
+                        ? baseBodies.get(b.getBaseApiId())
+                        : regularBodies.get(b.getSourceRegularApiId());
+                Object value = JsonPath.using(JSONPATH_CONFIG).parse(sourceBody).read(b.getSourceJsonPath());
+                if (value == null) {
+                    String sourceName = b.getBaseApiId() != null
+                            ? baseApiRepository.findById(b.getBaseApiId()).map(BaseApi::getName).orElse(String.valueOf(b.getBaseApiId()))
+                            : regularApiRepository.findById(b.getSourceRegularApiId()).map(RegularApi::getName).orElse(String.valueOf(b.getSourceRegularApiId()));
+                    throw new DependencyResolutionException(
+                            "Dependency '" + b.getVariableName() + "' could not be resolved: path "
+                                    + b.getSourceJsonPath() + " not found in '" + sourceName + "' response");
+                }
+                variables.put(b.getVariableName(), String.valueOf(value));
+            }
+            return variables;
+        } finally {
+            context.getRegularApiCallStack().remove(api.getId());
         }
-        return variables;
+    }
+
+    /**
+     * Resolves (executing at most once per run, same as a Base API dependency)
+     * the response body of a Regular API this one's bindings source from.
+     */
+    private String resolveRegularApiForDependency(RegularApi source, ExecutionContext context) {
+        String cached = context.getRegularApiCache().get(source.getId());
+        if (cached != null) return cached;
+        RegularExecutionResult nested = execute(source, ExecutionHistory.TriggeredBy.CHAIN_DEPENDENCY, null, context);
+        if (nested.getResponse() == null || !nested.getResponse().isSuccess()) {
+            String reason = nested.getResponse() != null ? nested.getResponse().getErrorMessage() : "no response";
+            throw new DependencyResolutionException(
+                    "Dependency Regular API '" + source.getName() + "' could not be resolved (" + reason + ")");
+        }
+        String body = nested.getResponse().getBody();
+        context.getRegularApiCache().put(source.getId(), body);
+        return body;
     }
 
     private ExecutionRequest buildRequest(RegularApi api) {

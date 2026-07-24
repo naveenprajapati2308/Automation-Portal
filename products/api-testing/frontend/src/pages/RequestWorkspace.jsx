@@ -1,21 +1,18 @@
 import { useEffect, useState } from 'react';
-import Editor from '@monaco-editor/react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Save, ChevronLeft, Plus, Folder } from 'lucide-react';
+import { Loader } from '../../../../../shared/ui/Loader.jsx';
 import { apiClient } from '../api/client.js';
 import KeyValueEditor from '../components/KeyValueEditor.jsx';
 import ResponseViewer from '../components/ResponseViewer.jsx';
 import RequestHistoryPanel from '../components/RequestHistoryPanel.jsx';
 import { EMPTY_AUTH } from '../components/AuthEditor.jsx';
 import AuthEditor from '../components/AuthEditor.jsx';
+import { ThemedEditor } from '../components/ThemedEditor.jsx';
+import { METHOD_COLORS } from '../lib/statusColors.js';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
-
-const METHOD_COLORS = {
-  GET: 'text-emerald-400', POST: 'text-amber-400', PUT: 'text-blue-400',
-  PATCH: 'text-teal-300', DELETE: 'text-red-400', OPTIONS: 'text-purple-400', HEAD: 'text-pink-400',
-};
 
 const BUILDER_SUBTABS = ['Parameters', 'Body', 'Headers', 'Authorization'];
 const BODY_TYPES = ['NONE', 'JSON', 'XML', 'TEXT', 'HTML', 'FORM_URLENCODED'];
@@ -146,62 +143,67 @@ export default function RequestWorkspace() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-800 bg-[#1c1c1e]">
-        <Link to={`/tester/${collectionId}`} className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 shrink-0">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-[var(--border)] bg-[var(--bg-surface)]">
+        <Link to={`/tester/${collectionId}`} className="flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] shrink-0">
           <ChevronLeft size={13} /> Back
         </Link>
         <input value={requestName} onChange={(e) => setRequestName(e.target.value)}
           placeholder="Request name"
-          className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-xs outline-none placeholder-zinc-600 w-56 focus:border-emerald-500" />
-        <div className="flex items-center gap-1.5 text-zinc-500">
+          className="bg-[var(--bg-surface-2)] border border-[var(--border)] rounded px-2 py-1.5 text-xs outline-none placeholder:text-[var(--text-muted)] w-56 focus:border-[var(--accent)]" />
+        <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
           <Folder size={12} />
           <select value={folderId} onChange={(e) => setFolderId(e.target.value)}
-            className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1.5 text-xs outline-none max-w-[140px]">
+            className="bg-[var(--bg-surface-2)] border border-[var(--border)] rounded px-2 py-1.5 text-xs outline-none max-w-[140px]">
             <option value="">Root (no folder)</option>
             {flatFolders.map((f) => <option key={f.id} value={f.id}>{'—'.repeat(f.depth)} {f.name}</option>)}
           </select>
         </div>
         <button onClick={() => saveMut.mutate()} disabled={!requestName.trim() || saveMut.isPending}
-          className="flex items-center gap-1.5 rounded border border-emerald-700 text-emerald-300 hover:bg-emerald-600/10 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold">
+          className="flex items-center gap-1.5 rounded border border-[var(--accent-border-soft)] text-[var(--accent-text)] hover:bg-[var(--accent-bg-soft)] disabled:opacity-40 px-3 py-1.5 text-xs font-semibold">
           <Save size={12} /> {isNew ? 'Save' : 'Update'}
         </button>
-        {saveMessage && <span className="text-xs text-emerald-400">{saveMessage}</span>}
+        {saveMessage && <span className="text-xs text-[var(--success-text)]">{saveMessage}</span>}
         {saveMut.isError && (
-          <span className="text-xs text-red-400">{saveMut.error?.response?.data?.message ?? 'Save failed'}</span>
+          <span className="text-xs text-[var(--danger-text)]">{saveMut.error?.response?.data?.message ?? 'Save failed'}</span>
         )}
         <button onClick={() => navigate(`/tester/${collectionId}/new`)}
-          className="flex items-center gap-1.5 rounded border border-zinc-700 text-zinc-300 hover:bg-zinc-800 px-3 py-1.5 text-xs font-semibold ml-auto">
+          className="flex items-center gap-1.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-3 py-1.5 text-xs font-semibold ml-auto">
           <Plus size={12} /> New Request
         </button>
       </div>
 
       {/* URL bar */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
-        <div className="flex flex-1 items-stretch rounded-md border border-zinc-700 bg-zinc-900 overflow-hidden focus-within:border-emerald-500">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
+        <div className="flex flex-1 items-stretch rounded-md border border-[var(--border)] bg-[var(--bg-surface-2)] overflow-hidden focus-within:border-[var(--accent)]">
           <select value={method} onChange={(e) => setMethod(e.target.value)}
-            className={`bg-zinc-900 px-3 py-2 text-sm font-semibold outline-none cursor-pointer ${METHOD_COLORS[method]}`}>
+            className={`bg-[var(--bg-surface-2)] px-3 py-2 text-sm font-semibold outline-none cursor-pointer ${METHOD_COLORS[method]}`}>
             {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
           <input value={url} onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && run()}
             placeholder="Enter request URL"
-            className="flex-1 bg-transparent border-l border-zinc-700 px-3 py-2 text-sm outline-none placeholder-zinc-600" />
+            className="flex-1 bg-transparent border-l border-[var(--border)] px-3 py-2 text-sm outline-none placeholder:text-[var(--text-muted)]" />
         </div>
         <button onClick={run} disabled={loading}
-          className="flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white">
-          <Send size={14} /> Send
+          className="flex items-center gap-2 rounded-md bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white">
+          {loading ? <><Loader size={14} /> Sending…</> : <><Send size={14} /> Send</>}
         </button>
       </div>
 
-      {/* Request builder (top) + Response (below) */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="h-[38%] flex flex-col border-b border-zinc-800 min-h-0">
-          <div className="flex gap-1 px-4 pt-2 border-b border-zinc-800">
+      {/* Request builder (top) + Response (below) — each pane gets a fixed,
+          self-contained height (not a % of an ambient container) so Monaco
+          always has a real size to render into, whether this page is at full
+          browser height or embedded in the shell's auto-sized iframe; a %/
+          flex-1 split silently collapses to near-zero when the ambient
+          container's own height isn't definite (embedded mode's h-full). */}
+      <div className="flex flex-col">
+        <div className="h-[360px] shrink-0 flex flex-col border-b border-[var(--border)] min-h-0">
+          <div className="flex gap-1 px-4 pt-2 border-b border-[var(--border)]">
             {BUILDER_SUBTABS.map((t) => (
               <button key={t} onClick={() => setBuilderSubTab(t)}
-                className={`px-3 py-2 text-xs border-b-2 -mb-px ${builderSubTab === t ? 'border-sky-500 text-zinc-100' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}>
+                className={`px-3 py-2 text-xs border-b-2 -mb-px ${builderSubTab === t ? 'border-[var(--accent)] text-[var(--text-primary)]' : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-secondary)]'}`}>
                 {t}
               </button>
             ))}
@@ -214,14 +216,14 @@ export default function RequestWorkspace() {
                 <div className="flex gap-1">
                   {BODY_TYPES.map((bt) => (
                     <button key={bt} onClick={() => setBodyType(bt)}
-                      className={`px-2.5 py-1 rounded text-[11px] ${bodyType === bt ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-700' : 'text-zinc-500 border border-zinc-800 hover:text-zinc-300'}`}>
+                      className={`px-2.5 py-1 rounded text-[11px] ${bodyType === bt ? 'bg-[var(--accent-bg-soft)] text-[var(--accent-text)] border border-[var(--accent-border-soft)]' : 'text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text-secondary)]'}`}>
                       {bt === 'FORM_URLENCODED' ? 'x-www-form-urlencoded' : bt}
                     </button>
                   ))}
                 </div>
                 {bodyType !== 'NONE' && (
-                  <div className="flex-1 min-h-0 border border-zinc-800 rounded-md overflow-hidden">
-                    <Editor height="100%" theme="vs-dark"
+                  <div className="flex-1 min-h-0 border border-[var(--border)] rounded-md overflow-hidden">
+                    <ThemedEditor height="100%"
                       language={bodyType === 'JSON' ? 'json' : bodyType === 'XML' || bodyType === 'HTML' ? 'html' : 'plaintext'}
                       value={body} onChange={(v) => setBody(v ?? '')}
                       options={{ minimap: { enabled: false }, fontSize: 12, scrollBeyondLastLine: false }} />

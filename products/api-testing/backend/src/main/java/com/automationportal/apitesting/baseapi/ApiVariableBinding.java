@@ -20,8 +20,12 @@ public class ApiVariableBinding {
     @Column(name = "regular_api_id")
     private Long regularApiId;
 
-    @Column(name = "base_api_id", nullable = false)
+    @Column(name = "base_api_id")
     private Long baseApiId;
+
+    /** Alternative source when this binding's value comes from another Regular API's response instead of a Base API's. */
+    @Column(name = "source_regular_api_id")
+    private Long sourceRegularApiId;
 
     @Column(name = "source_json_path", nullable = false, length = 500)
     private String sourceJsonPath;

@@ -14,7 +14,7 @@ import {
   Timer
 } from 'lucide-react';
 import { api, auth, API_BASE } from '../../api.js';
-import { Loader } from '../shared/Loader.jsx';
+import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 
 // Import child components
 import { TrendChart } from './TrendChart.jsx';

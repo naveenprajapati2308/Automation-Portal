@@ -1,10 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ChevronRight, ChevronDown, PlusCircle } from 'lucide-react';
 
-/**
- * Expandable JSON tree. Each leaf gets a "+" affordance that reports its
- * JSONPath (e.g. $.data.access_token) via onExtract(path, suggestedName).
- */
 function Node({ nodeKey, value, path, depth, onExtract }) {
   const [open, setOpen] = useState(depth < 2);
   const isObject = value !== null && typeof value === 'object';
@@ -12,16 +8,16 @@ function Node({ nodeKey, value, path, depth, onExtract }) {
   if (!isObject) {
     return (
       <div className="flex items-center gap-1.5 py-0.5" style={{ paddingLeft: depth * 16 }}>
-        <span className="text-sky-300">{nodeKey}</span>
-        <span className="text-zinc-600">:</span>
-        <span className={typeof value === 'string' ? 'text-emerald-300' : 'text-amber-300'}>
+        <span className="text-[var(--info-text)]">{nodeKey}</span>
+        <span className="text-[var(--text-muted)]">:</span>
+        <span className={typeof value === 'string' ? 'text-[var(--success-text)]' : 'text-[var(--warning-text)]'}>
           {JSON.stringify(value)}
         </span>
         {onExtract && (
           <button
             onClick={() => onExtract(path, String(nodeKey).replace(/[^a-zA-Z0-9_]/g, '_'))}
             title={`Extract ${path} as variable`}
-            className="ml-1 text-zinc-600 hover:text-emerald-400"
+            className="ml-1 text-[var(--text-muted)] hover:text-[var(--success-text)]"
           >
             <PlusCircle size={13} />
           </button>
@@ -38,12 +34,12 @@ function Node({ nodeKey, value, path, depth, onExtract }) {
     <div>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 py-0.5 text-zinc-300 hover:text-zinc-100"
+        className="flex items-center gap-1 py-0.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
         style={{ paddingLeft: depth * 16 }}
       >
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        <span className="text-sky-300">{nodeKey}</span>
-        <span className="text-zinc-600 text-[11px]">{Array.isArray(value) ? `[${value.length}]` : '{…}'}</span>
+        <span className="text-[var(--info-text)]">{nodeKey}</span>
+        <span className="text-[var(--text-muted)] text-[11px]">{Array.isArray(value) ? `[${value.length}]` : '{…}'}</span>
       </button>
       {open && entries.map(([k, v]) => (
         <Node
@@ -69,7 +65,7 @@ export default function JsonTree({ json, onExtract }) {
   }, [json]);
 
   if (parsed === undefined) {
-    return <div className="text-xs text-zinc-600 p-3">Response is not JSON — nothing to extract.</div>;
+    return <div className="text-xs text-[var(--text-muted)] p-3">Response is not JSON — nothing to extract.</div>;
   }
 
   return (

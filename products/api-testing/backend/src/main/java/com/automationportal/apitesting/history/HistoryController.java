@@ -36,11 +36,20 @@ public class HistoryController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "25") int size) {
+        // Browsing broadly (no specific group run or specific API picked): hide
+        // the internal CHAIN_DEPENDENCY calls a Regular API's own dependency
+        // chain makes — they'd otherwise flood this list with rows that aren't
+        // a run anyone triggered themselves. Drilling into one group run
+        // (groupExecutionId set) still shows its full chain, and "latest run
+        // of this specific API" lookups (apiId set — group member rows,
+        // per-schedule drill-down) still find an API that only ever runs as a
+        // dependency, same as before.
+        boolean topLevelOnly = groupExecutionId == null && apiId == null;
         Page<ExecutionHistory> result = repository.search(apiType, apiId, moduleId,
                 (status == null || status.isBlank()) ? null : status,
                 scheduleId,
                 (method == null || method.isBlank()) ? null : method.toUpperCase(),
-                groupExecutionId, from, to, PageRequest.of(page, Math.min(size, 100)));
+                groupExecutionId, topLevelOnly, from, to, PageRequest.of(page, Math.min(size, 100)));
         // List rows stay light: bodies are only returned from the detail endpoint.
         result.forEach(h -> {
             h.setResponseBodyInline(null);

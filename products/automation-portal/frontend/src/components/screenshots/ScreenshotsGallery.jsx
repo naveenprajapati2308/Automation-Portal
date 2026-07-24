@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api.js';
 import { DataTable, Modal } from '../shared/index.jsx';
-import { Loader } from '../shared/Loader.jsx';
+import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 import {
   Search,
   X,
@@ -53,7 +53,7 @@ export function ScreenshotsGallery({ onSelectExecution }) {
 
   // Gallery pagination
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(8);
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchScreenshots = async () => {
     setLoading(true);
@@ -105,6 +105,15 @@ export function ScreenshotsGallery({ onSelectExecution }) {
   const pagedScreenshots = filteredScreenshots.slice((safePage - 1) * pageSize, safePage * pageSize);
   const startRecord = totalRecords === 0 ? 0 : (safePage - 1) * pageSize + 1;
   const endRecord = Math.min(safePage * pageSize, totalRecords);
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    const pages = [1];
+    if (safePage > 3) pages.push('…');
+    for (let p = Math.max(2, safePage - 1); p <= Math.min(totalPages - 1, safePage + 1); p++) pages.push(p);
+    if (safePage < totalPages - 2) pages.push('…');
+    pages.push(totalPages);
+    return pages;
+  }, [totalPages, safePage]);
 
   const handleDelete = async () => {
     if (!confirmDelete) return;
@@ -294,32 +303,42 @@ export function ScreenshotsGallery({ onSelectExecution }) {
               ))}
             </div>
 
-            {/* Pagination footer */}
-            <div className="sg-footer">
-              <span>Showing {startRecord} to {endRecord} of {totalRecords} screenshots</span>
-              <div className="sg-pager">
-                <span>Show:</span>
-                <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
-                  <option value={8}>8</option>
-                  <option value={12}>12</option>
-                  <option value={24}>24</option>
-                  <option value={48}>48</option>
-                </select>
-                <button className="sg-page-btn" disabled={safePage === 1} onClick={() => setPage(1)}>
-                  <ChevronsLeft size={15} />
-                </button>
-                <button className="sg-page-btn" disabled={safePage === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                  <ChevronLeft size={15} />
-                </button>
-                <span className="sg-page-label">Page {safePage} of {totalPages}</span>
-                <button className="sg-page-btn" disabled={safePage === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                  <ChevronRight size={15} />
-                </button>
-                <button className="sg-page-btn" disabled={safePage === totalPages} onClick={() => setPage(totalPages)}>
-                  <ChevronsRight size={15} />
-                </button>
+            {/* Pagination footer — hidden entirely when there aren't enough records to paginate */}
+            {totalRecords > 5 && (
+              <div className="sg-footer">
+                <span>Showing {startRecord} to {endRecord} of {totalRecords} screenshots</span>
+                <div className="sg-pager">
+                  <span>Show:</span>
+                  <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <button className="sg-page-btn" disabled={safePage === 1} onClick={() => setPage(1)}>
+                    <ChevronsLeft size={15} />
+                  </button>
+                  <button className="sg-page-btn" disabled={safePage === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                    <ChevronLeft size={15} />
+                  </button>
+                  {pageNumbers.map((p, i) => p === '…' ? (
+                    <span key={`gap-${i}`} className="sg-page-gap">…</span>
+                  ) : (
+                    <button key={p} className={`sg-page-number${p === safePage ? ' active' : ''}`}
+                      onClick={() => setPage(p)} aria-current={p === safePage ? 'page' : undefined}>
+                      {p}
+                    </button>
+                  ))}
+                  <button className="sg-page-btn" disabled={safePage === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                    <ChevronRight size={15} />
+                  </button>
+                  <button className="sg-page-btn" disabled={safePage === totalPages} onClick={() => setPage(totalPages)}>
+                    <ChevronsRight size={15} />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </>
         ) : (
           <DataTable

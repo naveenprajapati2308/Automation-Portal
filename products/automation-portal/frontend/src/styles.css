@@ -63,7 +63,8 @@ select {
   height: 42px;
   border-radius: 6px;
   background: #fff;
-  padding: 4px;
+  /*padding: 4px;*/
+  margin-left: 20px;
 }
 
 .brand strong,
@@ -1513,9 +1514,35 @@ tr:last-child td {
   justify-content: center;
   z-index: 9999;
   backdrop-filter: blur(2px);
+  animation: modal-overlay-in 0.15s ease-out;
+}
+
+@keyframes modal-overlay-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* Opacity-only (no transform): this product's `.modal` gets an inline `transform:
+   translate(-50%,-50%)` for iframe-safe centering (see useViewportCenterOffset in
+   components/shared/index.jsx) — animating `transform` here would fight that positioning
+   for the animation's duration. */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .modal {
+  animation: modal-in 0.15s ease-out;
   /* Bootstrap ships its own `.modal` component class with `position: fixed;
      top: 0; left: 0`. Since bootstrap.min.css loads before this file, our
      rule below wins the properties it declares, but silently inherits
@@ -3231,6 +3258,38 @@ label.form-row select {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+.datatable-page-number {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid #cfdae6;
+  background: #fff;
+  color: #4a5568;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.datatable-page-number:hover {
+  background: #f8fafc;
+  border-color: #b8cddf;
+}
+
+.datatable-page-number.active {
+  background: #176b87;
+  border-color: #176b87;
+  color: #fff;
+  cursor: default;
+}
+
+.datatable-page-gap {
+  padding: 0 2px;
+  color: #8a9bb0;
+  font-size: 12px;
 }
 
 /* ── General Buttons ──────────────────────────────────────────────────────── */

@@ -11,6 +11,7 @@ FROM node:20-alpine AS api-ui
 WORKDIR /repo/products/api-testing/frontend
 COPY products/api-testing/frontend/package*.json ./
 RUN npm ci
+COPY shared/ /repo/shared/
 COPY products/api-testing/frontend/ ./
 ENV VITE_BASE=/apitest/
 RUN npm run build

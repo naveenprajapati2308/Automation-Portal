@@ -221,7 +221,19 @@ public class ExecutionManagerController {
             updateRunnerStatus(job.getAssignedRunner(), "IDLE");
         }
 
-        callbackClient.notifyJobFinished(job.getExecutionId());
+        // Deliberately NOT calling callbackClient.notifyJobFinished() here. This endpoint is
+        // hit both by the portal backend itself (after it has *already* finished processing
+        // SUITE_COMPLETED and knows the real result) and independently by the framework
+        // runner's own process-exit signal, which fires as soon as the OS process exits —
+        // often several seconds *before* the backend finishes digesting the tail of the event
+        // stream (a large suite's testng-results.xml merge alone can take 8+ seconds). Forcing
+        // an immediate "still RUNNING? mark ERROR" check from here raced the backend's own
+        // in-flight, correct finalization and clobbered good results (totals zeroed, status
+        // forced to ERROR) purely because it lost the race. The genuinely-stuck case (runner
+        // died before any SUITE_COMPLETED ever arrived) is now caught by a time-based watchdog
+        // on the backend side (ExecutionWorker.reapStaleRunningExecutions) instead, which only
+        // acts after a generous grace period — no race possible since it isn't triggered by
+        // this call at all.
 
         return ResponseEntity.ok().build();
     }

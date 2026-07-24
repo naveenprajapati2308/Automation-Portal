@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 
 // Portal-wide status colors (same as Module Analytics / Execution Mix).
 const SERIES = [
@@ -30,8 +31,8 @@ export function TrendChart({ data = [], loading = false }) {
 
   if (loading) {
     return (
-      <div style={{ height: '160px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-        Loading trend analytics...
+      <div style={{ height: '160px', display: 'grid', placeItems: 'center' }}>
+        <Loader size={28} label="Loading trend analytics..." />
       </div>
     );
   }

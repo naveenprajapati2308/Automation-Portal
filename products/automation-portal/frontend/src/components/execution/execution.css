@@ -464,7 +464,11 @@
 .xc-tabs-card {
   display: flex;
   flex-direction: column;
-  min-height: 380px;
+  min-height: 320px;
+  /* height/maxHeight are set inline in ExecutionCenter.jsx (sized to the real physical window
+     height, not this class) — without a cap of some kind, this card just kept growing with
+     every appended log line, pushing the whole page taller instead of scrolling internally.
+     min-height here is only a pre-JS fallback. */
   background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: 14px;

@@ -4,7 +4,10 @@ import com.automationportal.config.PortalAutomationProperties;
 import com.automationportal.events.LiveBroadcastService;
 import com.automationportal.events.ExecutionEventPayload;
 import com.automationportal.events.ExecutionEventType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +25,15 @@ import java.util.stream.Collectors;
 
 @Service
 public class ExecutionService {
+    private static final Logger log = LoggerFactory.getLogger(ExecutionService.class);
+
+    // Generous on purpose: a large suite's testng-results.xml merge alone can take 8+ seconds,
+    // and the whole run (Selenium against a real site) can legitimately run long. This only
+    // needs to catch executions that are ACTUALLY stuck (runner died before any SUITE_COMPLETED
+    // ever arrived) — see reapStaleRunningExecutions() below for why it's time-based, not
+    // triggered by the runner's process-exit signal.
+    private static final java.time.Duration STALE_RUNNING_GRACE_PERIOD = java.time.Duration.ofMinutes(20);
+
     private final ExecutionRepository repository;
     private final ExecutionTestCaseRepository testCaseRepository;
     private final ExecutionArtifactRepository artifactRepository;
@@ -248,7 +260,7 @@ public class ExecutionService {
         ExecutionLog logRec = new ExecutionLog();
         logRec.setExecutionId(id);
         logRec.setLevel("ERROR");
-        logRec.setMessage("Framework Runner process exited without ever reporting suite completion — marked as ERROR so the execution queue isn't blocked.");
+        logRec.setMessage("No completion signal received within the stale-execution grace period (" + STALE_RUNNING_GRACE_PERIOD.toMinutes() + " min) — marked as ERROR so the execution queue isn't blocked.");
         logRec.setSource("SYSTEM");
         logRepository.save(logRec);
 
@@ -257,5 +269,25 @@ public class ExecutionService {
         payload.setTimestamp(java.time.LocalDateTime.now());
         payload.setEventType(ExecutionEventType.SUITE_COMPLETED);
         broadcastService.broadcast(e.getExecutionCode(), payload);
+    }
+
+    // Sole path that force-terminates a stuck RUNNING execution. The Execution Manager used to
+    // trigger this immediately whenever the framework runner's OS process exited — but that
+    // signal fires independently of (and often before) the backend finishing its own event
+    // processing for the same execution, so it raced legitimate slow-but-successful completions
+    // and clobbered correct results with a bogus ERROR. Being purely time-based instead removes
+    // the race entirely: a run that's still genuinely in progress is simply younger than the
+    // grace period and left alone; only a run that's been stuck for a long time (runner died
+    // before any SUITE_COMPLETED ever arrived — the original 2026-07-04 bug this replaces) gets
+    // reaped.
+    @Scheduled(fixedDelay = 60000)
+    public void reapStaleRunningExecutions() {
+        Instant cutoff = Instant.now().minus(STALE_RUNNING_GRACE_PERIOD);
+        List<Execution> stale = repository.findByStatusAndStartTimeBefore(ExecutionStatus.RUNNING, cutoff);
+        for (Execution e : stale) {
+            log.warn("Execution {} has been RUNNING since {}, past the {} grace period — marking ERROR",
+                    e.getId(), e.getStartTime(), STALE_RUNNING_GRACE_PERIOD);
+            markStaleIfStillRunning(e.getId());
+        }
     }
 }

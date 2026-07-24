@@ -46,6 +46,19 @@ const friendlyHttpMessage = (status, path, serverMessage) => {
   return 'Something went wrong. Please try again.';
 };
 
+// Mandatory session-expiry behavior: clear auth data and leave immediately — never wait for
+// the user to dismiss a popup first, and never let further requests go out on a dead token.
+// Guarded so concurrent 401s (e.g. a Promise.all of several calls) only redirect once.
+let sessionExpiredRedirectStarted = false;
+const forceSessionExpiredRedirect = () => {
+  authStore.clear();
+  if (sessionExpiredRedirectStarted) return;
+  sessionExpiredRedirectStarted = true;
+  // Navigate the TOP window, not this one — when embedded in the shell's iframe this app
+  // has no login screen of its own; window.top === window when not framed.
+  window.top.location.href = '/';
+};
+
 let globalErrorCallback = null;
 
 const triggerGlobalError = (status, message, detail = '') => {
@@ -128,24 +141,26 @@ const request = async (path, options = {}, retryCount = 0) => {
       // pre-refresh one (i.e. nothing else updated it in the meantime).
       const current = authStore.get();
       if (current?.refreshToken === session.refreshToken) {
-        authStore.clear();
-        triggerGlobalError(401, 'Your session has expired. Please sign in again.');
+        forceSessionExpiredRedirect();
       } else if (current?.accessToken) {
         return request(path, options, retryCount + 1);
       }
       // Store empty and it wasn't this session's tokens: another caller already
       // handled the expiry — resolving silently avoids stacking popups.
     }
-  } else if (response.status === 401) {
+  } else if (response.status === 401 && session?.accessToken) {
     // A 401 is only a real expiry if the token this request carried is still the
     // active one. A request from a previous session epoch can resolve *after* the
     // user has already signed back in — killing the brand-new session with a
     // "Session Expired" popup. Retry those against the current session instead.
+    // (Unauthenticated calls — login, forgot-password — never had a session to
+    // begin with, so a 401 there is a real credentials error, not an expiry;
+    // `session?.accessToken` above routes those to the normal error path below.)
     const current = authStore.get();
     if (current?.accessToken && current.accessToken !== session?.accessToken && retryCount < 2) {
       return request(path, options, retryCount + 1);
     }
-    triggerGlobalError(401, 'Your session has expired. Please sign in again.');
+    forceSessionExpiredRedirect();
   }
   return unwrap(response, path);
 };

@@ -98,6 +98,23 @@
 .datatable-container .datatable-page-buttons span {
   color: var(--text-secondary);
 }
+.datatable-container .datatable-page-number {
+  background: var(--bg-surface);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+.datatable-container .datatable-page-number:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+.datatable-container .datatable-page-number.active {
+  background: #176b87;
+  border-color: #176b87;
+  color: #fff;
+}
+.datatable-container .datatable-page-gap {
+  color: var(--text-muted);
+}
 
 /* Loading skeleton shimmer */
 .datatable-container .skeleton {

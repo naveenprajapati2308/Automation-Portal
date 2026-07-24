@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const HOURS = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
@@ -29,8 +30,8 @@ export function RunHeatmap({ data = [], loading = false }) {
 
   if (loading) {
     return (
-      <div style={{ height: '180px', display: 'grid', placeItems: 'center', color: 'var(--text-muted)' }}>
-        Loading execution heatmap...
+      <div style={{ height: '180px', display: 'grid', placeItems: 'center' }}>
+        <Loader size={28} label="Loading execution heatmap..." />
       </div>
     );
   }

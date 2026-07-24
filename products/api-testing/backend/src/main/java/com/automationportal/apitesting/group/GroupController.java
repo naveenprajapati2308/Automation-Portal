@@ -86,11 +86,23 @@ public class GroupController {
         private String lastErrorMessage;
         private String lastExecutedAt;
         private List<BaseApiStatus> baseApis = new ArrayList<>();
+        private List<RegularApiStatus> regularDependencies = new ArrayList<>();
     }
 
     @Data
     public static class BaseApiStatus {
         private Long baseApiId;
+        private String name;
+        private String lastStatusClass;
+        private Integer lastStatusCode;
+        private String lastErrorMessage;
+        private String lastExecutedAt;
+    }
+
+    /** Same idea as BaseApiStatus, for a binding sourced from another Regular API instead of a Base API. */
+    @Data
+    public static class RegularApiStatus {
+        private Long regularApiId;
         private String name;
         private String lastStatusClass;
         private Integer lastStatusCode;
@@ -189,11 +201,15 @@ public class GroupController {
                 md.setLastExecutedAt(last.getExecutedAt().toString());
             }
 
-            // Connected Base APIs and their own latest statuses — so a failing
-            // member can be traced to the dependency that actually broke.
+            // Connected Base APIs / Regular APIs and their own latest statuses —
+            // so a failing member can be traced to the dependency that actually
+            // broke, however many hops deep (a binding sources from exactly one
+            // of the two; each set only collects the bindings of its own kind).
             Set<Long> baseIds = new LinkedHashSet<>();
+            Set<Long> regularIds = new LinkedHashSet<>();
             for (ApiVariableBinding b : bindingRepository.findByRegularApiId(api.getId())) {
-                baseIds.add(b.getBaseApiId());
+                if (b.getBaseApiId() != null) baseIds.add(b.getBaseApiId());
+                else if (b.getSourceRegularApiId() != null) regularIds.add(b.getSourceRegularApiId());
             }
             for (Long baseId : baseIds) {
                 BaseApi base = baseApiRepository.findById(baseId).orElse(null);
@@ -209,6 +225,21 @@ public class GroupController {
                     bs.setLastExecutedAt(baseLast.getExecutedAt().toString());
                 }
                 md.getBaseApis().add(bs);
+            }
+            for (Long regularId : regularIds) {
+                RegularApi source = regularApiRepository.findById(regularId).orElse(null);
+                RegularApiStatus rs = new RegularApiStatus();
+                rs.setRegularApiId(regularId);
+                rs.setName(source == null ? "(deleted)" : source.getName());
+                ExecutionHistory regularLast = historyRepository
+                        .findFirstByApiTypeAndApiIdOrderByExecutedAtDesc(ExecutionHistory.ApiType.REGULAR, regularId);
+                if (regularLast != null) {
+                    rs.setLastStatusClass(regularLast.getResponseStatusClass());
+                    rs.setLastStatusCode(regularLast.getResponseStatusCode());
+                    rs.setLastErrorMessage(regularLast.getErrorMessage());
+                    rs.setLastExecutedAt(regularLast.getExecutedAt().toString());
+                }
+                md.getRegularDependencies().add(rs);
             }
             detail.getMembers().add(md);
         }

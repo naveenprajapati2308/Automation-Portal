@@ -5,7 +5,7 @@ spring:
   application:
     name: api-testing-platform-backend
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3307/api_testing_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    url: ${DB_URL:jdbc:mysql://localhost:3307/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:root}
   jpa:
@@ -27,6 +27,10 @@ spring:
     # baseline lets V1 run on top of them (it backfills from them).
     baseline-on-migrate: true
     baseline-version: 0
+    # Shares the testrix_platform schema with automation-portal-backend, which
+    # already owns the default "flyway_schema_history" table name there — this
+    # service needs its own history table to keep the two migration sets separate.
+    table: flyway_schema_history_apitest
   data:
     redis:
       host: ${REDIS_HOST:localhost}

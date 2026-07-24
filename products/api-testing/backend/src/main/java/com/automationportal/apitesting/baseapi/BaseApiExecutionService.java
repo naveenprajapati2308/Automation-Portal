@@ -1,12 +1,14 @@
 package com.automationportal.apitesting.baseapi;
 
 import com.automationportal.apitesting.common.RequestConfigMapper;
+import com.automationportal.apitesting.execution.DynamicValueResolver;
 import com.automationportal.apitesting.execution.ExecutionEngineService;
 import com.automationportal.apitesting.execution.dto.ExecutionContext;
 import com.automationportal.apitesting.execution.dto.ExecutionRequest;
 import com.automationportal.apitesting.execution.dto.ExecutionResponse;
 import com.automationportal.apitesting.history.ExecutionHistory;
 import com.automationportal.apitesting.history.ExecutionHistoryService;
+import com.automationportal.apitesting.validation.ValidationEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -34,6 +36,8 @@ public class BaseApiExecutionService {
     private final ExecutionHistoryService historyService;
     private final RequestConfigMapper configMapper;
     private final StringRedisTemplate redis;
+    private final DynamicValueResolver dynamicValueResolver;
+    private final ValidationEngine validationEngine;
 
     public record CachedResult(String body, boolean freshlyExecuted) { }
 
@@ -51,29 +55,42 @@ public class BaseApiExecutionService {
     /**
      * Resolves the response body for dependency resolution, honoring the cache
      * strategy. Returns null body if execution fails. The context ties any live
-     * execution into the caller's correlation/group chain.
+     * execution into the caller's correlation/group chain, and also acts as a
+     * per-run cache: within one chain run, this Base API executes at most once
+     * no matter how many nodes (directly or via a nested Regular API) depend on
+     * it — otherwise two independent live calls (e.g. one Send-OTP call read by
+     * Verify-OTP, another read by Register Submit) could each get a different
+     * OTP for the same run, and only the later one would still be valid.
      */
     public CachedResult resolveForDependency(BaseApi api, ExecutionContext context) {
-        switch (api.getCacheStrategy()) {
+        String runCached = context.getBaseApiCache().get(api.getId());
+        if (runCached != null) {
+            return new CachedResult(runCached, false);
+        }
+        CachedResult result = switch (api.getCacheStrategy()) {
             case CACHED_TTL -> {
                 String cached = cacheGet(api.getId());
                 if (cached != null) {
-                    return new CachedResult(cached, false);
+                    yield new CachedResult(cached, false);
                 }
                 ExecutionResponse resp = executeAndRecord(api, ExecutionHistory.TriggeredBy.CHAIN_DEPENDENCY, context);
-                return new CachedResult(resp.isSuccess() ? resp.getBody() : null, true);
+                yield new CachedResult(resp.isSuccess() ? resp.getBody() : null, true);
             }
             case SCHEDULED_REFRESH -> {
                 String cached = cacheGet(api.getId());
-                if (cached != null) return new CachedResult(cached, false);
+                if (cached != null) yield new CachedResult(cached, false);
                 // Cold start: fall back to the last DB snapshot, never a live call.
-                return new CachedResult(api.getLastResponseSnapshot(), false);
+                yield new CachedResult(api.getLastResponseSnapshot(), false);
             }
             default -> {
                 ExecutionResponse resp = executeAndRecord(api, ExecutionHistory.TriggeredBy.CHAIN_DEPENDENCY, context);
-                return new CachedResult(resp.isSuccess() ? resp.getBody() : null, true);
+                yield new CachedResult(resp.isSuccess() ? resp.getBody() : null, true);
             }
+        };
+        if (result.body() != null) {
+            context.getBaseApiCache().put(api.getId(), result.body());
         }
+        return result;
     }
 
     /** Used by schedules that keep SCHEDULED_REFRESH base APIs warm. */
@@ -84,10 +101,17 @@ public class BaseApiExecutionService {
     public ExecutionResponse executeAndRecord(BaseApi api, ExecutionHistory.TriggeredBy trigger,
                                               ExecutionContext context) {
         ExecutionRequest request = toExecutionRequest(api);
+        dynamicValueResolver.resolve(request, context.getDynamicValueCache());
         ExecutionResponse response = engine.execute(request);
 
-        historyService.record(ExecutionHistory.ApiType.BASE, api.getId(), api.getName(),
+        ExecutionHistory history = historyService.record(ExecutionHistory.ApiType.BASE, api.getId(), api.getName(),
                 api.getModuleId(), null, trigger, request, response, context, null);
+
+        Boolean passed = validationEngine.validate(ExecutionHistory.ApiType.BASE, api.getId(),
+                history.getId(), response.getBody());
+        if (passed != null) {
+            historyService.markValidation(history, passed);
+        }
 
         if (response.isSuccess()) {
             api.setLastExecutedAt(Instant.now());

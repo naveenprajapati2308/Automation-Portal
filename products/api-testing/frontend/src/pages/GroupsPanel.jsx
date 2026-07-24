@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Trash2, Play, Plus, CheckCircle2, XCircle, X, Layers, Clock,
@@ -7,37 +7,25 @@ import {
 import { apiClient } from '../api/client.js';
 import { flattenModules } from './BaseApis.jsx';
 import { WEEK_DAYS } from './Scheduler.jsx';
-
-const inputCls = 'bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-sm outline-none placeholder-zinc-600 focus:border-emerald-500';
-
-const STATUS_BADGE = {
-  SUCCESS: 'bg-emerald-600/15 text-emerald-300',
-  PARTIAL: 'bg-amber-600/15 text-amber-300',
-  FAILED: 'bg-red-600/15 text-red-300',
-  RUNNING: 'bg-blue-600/15 text-blue-300',
-};
-
-export function healthColor(pct) {
-  if (pct == null) return 'text-zinc-500';
-  if (pct >= 99.9) return 'text-emerald-400';
-  if (pct >= 50) return 'text-amber-400';
-  return 'text-red-400';
-}
+import { INPUT_CLASS as inputCls, STATUS_BADGE, healthColor, CLASS_BADGE } from '../lib/statusColors.js';
+import { ModalOverlay } from '../components/ModalOverlay.jsx';
+import { Loader } from '../../../../../shared/ui/Loader.jsx';
+import { Pagination } from '../components/Pagination.jsx';
 
 /** Labeled row-action button: clear hit area, colored hover fill, press feedback. */
 export function ActionBtn({ icon: Icon, label, onClick, disabled, tone = 'default', active }) {
   const tones = {
-    default: 'border-zinc-700 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 hover:border-zinc-500',
-    run: 'border-emerald-800/70 text-emerald-400 hover:text-white hover:bg-emerald-600 hover:border-emerald-500',
-    edit: 'border-sky-800/70 text-sky-400 hover:text-white hover:bg-sky-600 hover:border-sky-500',
-    warn: 'border-amber-800/70 text-amber-400 hover:text-white hover:bg-amber-600 hover:border-amber-500',
-    danger: 'border-red-900/70 text-red-400 hover:text-white hover:bg-red-600 hover:border-red-500',
+    default: 'border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] hover:border-[var(--border-strong)]',
+    run: 'border-[var(--success-border-soft)] text-[var(--success-text)] hover:text-white hover:bg-[var(--success-text)] hover:border-[var(--success-text)]',
+    edit: 'border-[var(--info-text)]/40 text-[var(--info-text)] hover:text-white hover:bg-[var(--info-text)] hover:border-[var(--info-text)]',
+    warn: 'border-[var(--warning-border-soft)] text-[var(--warning-text)] hover:text-white hover:bg-[var(--warning-text)] hover:border-[var(--warning-text)]',
+    danger: 'border-[var(--danger-border-soft)] text-[var(--danger-text)] hover:text-white hover:bg-[var(--danger-text)] hover:border-[var(--danger-text)]',
   };
   return (
     <button onClick={onClick} disabled={disabled} title={label}
       className={`inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[11px] font-semibold
         transition-all duration-150 active:scale-95 disabled:opacity-30 disabled:pointer-events-none
-        ${tones[tone] ?? tones.default} ${active ? 'ring-1 ring-sky-400 bg-sky-600/15' : ''}`}>
+        ${tones[tone] ?? tones.default} ${active ? 'ring-1 ring-[var(--info-text)] bg-[var(--info-text)]/15' : ''}`}>
       <Icon size={14} />
       <span>{label}</span>
     </button>
@@ -58,6 +46,8 @@ export default function GroupsPanel() {
   const [execDetailId, setExecDetailId] = useState(null);
   const [schedTime, setSchedTime] = useState('10:00');
   const [schedDay, setSchedDay] = useState('MON');
+  const [groupsPage, setGroupsPage] = useState(1);
+  const [groupsPageSize, setGroupsPageSize] = useState(10);
 
   const { data: groups = [] } = useQuery({
     queryKey: ['groups'],
@@ -147,6 +137,7 @@ export default function GroupsPanel() {
 
   const flatModules = flattenModules(modules);
   const moduleName = (id) => flatModules.find((m) => m.id === id)?.label ?? '—';
+  const pagedGroups = groups.slice((groupsPage - 1) * groupsPageSize, groupsPage * groupsPageSize);
   const memberIds = useMemo(() => new Set((detail?.members ?? []).map((m) => m.regularApiId)), [detail]);
   const selectedGroup = groups.find((g) => g.group.id === selectedId)?.group;
 
@@ -156,13 +147,13 @@ export default function GroupsPanel() {
   return (
     <div className="flex flex-col gap-5">
       {/* Create group */}
-      <div className="rounded-lg border border-zinc-800 bg-[#1c1c1e] p-4 flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-zinc-500">
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
           Group name
           <input className={inputCls} placeholder="e.g. Smoke Suite" value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-zinc-500">
+        <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
           Type
           <select className={inputCls} value={form.groupType}
             onChange={(e) => setForm({ ...form, groupType: e.target.value })}>
@@ -171,7 +162,7 @@ export default function GroupsPanel() {
           </select>
         </label>
         {form.groupType === 'MODULE' && (
-          <label className="flex flex-col gap-1 text-xs text-zinc-500">
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Module
             <select className={inputCls} value={form.moduleId}
               onChange={(e) => setForm({ ...form, moduleId: e.target.value })}>
@@ -181,7 +172,7 @@ export default function GroupsPanel() {
           </label>
         )}
         {form.groupType === 'TIME' && (
-          <label className="flex flex-col gap-1 text-xs text-zinc-500">
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
             Cadence
             <select className={inputCls} value={form.timeFrequency}
               onChange={(e) => setForm({ ...form, timeFrequency: e.target.value })}>
@@ -191,34 +182,34 @@ export default function GroupsPanel() {
             </select>
           </label>
         )}
-        <label className="flex flex-col gap-1 text-xs text-zinc-500 flex-1 min-w-[160px]">
+        <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)] flex-1 min-w-[160px]">
           Description
           <input className={inputCls} placeholder="Optional" value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </label>
         <button disabled={!canCreate || createMut.isPending} onClick={() => createMut.mutate()}
-          className="flex items-center gap-2 rounded-md bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">
+          className="flex items-center gap-2 rounded-md bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">
           {editingId ? <><Pencil size={14} /> Update Group</> : <><Plus size={14} /> Create Group</>}
         </button>
         {editingId && (
           <button onClick={() => { setForm(emptyGroupForm); setEditingId(null); }}
-            className="rounded-md border border-zinc-700 text-zinc-400 hover:text-zinc-200 px-3 py-2 text-sm">
+            className="rounded-md border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] px-3 py-2 text-sm">
             Cancel
           </button>
         )}
         {createMut.isError && (
-          <span className="text-xs text-red-400">{createMut.error?.response?.data?.message ?? 'Failed to save group'}</span>
+          <span className="text-xs text-[var(--danger-text)]">{createMut.error?.response?.data?.message ?? 'Failed to save group'}</span>
         )}
       </div>
 
       {/* Latest groups with health */}
-      <div className="rounded-lg border border-zinc-800 bg-[#1c1c1e]">
-        <div className="px-4 py-2 border-b border-zinc-800 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-          Execution Groups <span className="text-zinc-600 normal-case">({groups.length})</span>
+      <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+        <div className="px-4 py-2 border-b border-[var(--border)] text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+          Execution Groups <span className="text-[var(--text-muted)] normal-case">({groups.length})</span>
         </div>
         <table className="w-full text-xs">
           <thead>
-            <tr className="text-zinc-500 border-b border-zinc-800">
+            <tr className="text-[var(--text-muted)] border-b border-[var(--border)]">
               <th className="text-left px-4 py-2 font-medium">Group</th>
               <th className="text-left px-4 py-2 font-medium">Type</th>
               <th className="text-left px-4 py-2 font-medium">APIs</th>
@@ -229,32 +220,34 @@ export default function GroupsPanel() {
             </tr>
           </thead>
           <tbody>
-            {groups.map(({ group: g, memberCount, lastExecution: le }) => (
-              <tr key={g.id} onClick={() => setSelectedId(g.id)}
-                className={`border-b border-zinc-900 hover:bg-zinc-900/40 cursor-pointer ${selectedId === g.id ? 'bg-emerald-600/5' : ''}`}>
+            {pagedGroups.map(({ group: g, memberCount, lastExecution: le }) => (
+              <Fragment key={g.id}>
+              <tr onClick={() => setSelectedId(selectedId === g.id ? null : g.id)}
+                className={`border-b border-[var(--border-soft)] hover:bg-[var(--bg-hover)] cursor-pointer ${selectedId === g.id ? 'bg-[var(--accent-bg-soft)]' : ''}`}>
                 <td className="px-4 py-2.5">
-                  <span className="text-zinc-200 font-medium flex items-center gap-1.5">
-                    <Layers size={12} className="text-emerald-400" /> {g.name}
-                    <span className="text-zinc-600 font-normal">#{g.id}</span>
+                  <span className="text-[var(--text-primary)] font-medium flex items-center gap-1.5">
+                    <ChevronRight size={12} className={`shrink-0 text-[var(--text-muted)] transition-transform ${selectedId === g.id ? 'rotate-90' : ''}`} />
+                    <Layers size={12} className="text-[var(--accent-text)]" /> {g.name}
+                    <span className="text-[var(--text-muted)] font-normal">#{g.id}</span>
                   </span>
-                  {g.description && <div className="text-zinc-600">{g.description}</div>}
+                  {g.description && <div className="text-[var(--text-muted)] pl-[18px]">{g.description}</div>}
                 </td>
-                <td className="px-4 py-2.5 text-zinc-400">
+                <td className="px-4 py-2.5 text-[var(--text-secondary)]">
                   {g.groupType === 'MODULE'
                     ? <span>Module · {moduleName(g.moduleId)}</span>
                     : <span className="inline-flex items-center gap-1"><Clock size={11} /> {g.timeFrequency}</span>}
                 </td>
-                <td className="px-4 py-2.5 text-zinc-300 tabular-nums">{memberCount}</td>
+                <td className="px-4 py-2.5 text-[var(--text-secondary)] tabular-nums">{memberCount}</td>
                 <td className={`px-4 py-2.5 font-semibold tabular-nums ${healthColor(le?.healthPercent)}`}>
                   {le?.healthPercent != null ? `${le.healthPercent}%` : '—'}
                 </td>
-                <td className="px-4 py-2.5 text-zinc-500">{le ? new Date(le.startedAt).toLocaleString() : 'never'}</td>
+                <td className="px-4 py-2.5 text-[var(--text-muted)]">{le ? new Date(le.startedAt).toLocaleString() : 'never'}</td>
                 <td className="px-4 py-2.5">
                   {le
-                    ? <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_BADGE[le.status] ?? 'bg-zinc-800 text-zinc-400'}`}>
+                    ? <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${STATUS_BADGE[le.status] ?? 'bg-[var(--bg-surface-2)] text-[var(--text-muted)]'}`}>
                       {le.status === 'RUNNING' ? 'RUNNING…' : `${le.status} ${le.passedApis}/${le.totalApis}`}
                     </span>
-                    : <span className="text-zinc-600">—</span>}
+                    : <span className="text-[var(--text-muted)]">—</span>}
                 </td>
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
@@ -267,109 +260,36 @@ export default function GroupsPanel() {
                   </div>
                 </td>
               </tr>
+              {selectedId === g.id && (
+                <tr className="border-b border-[var(--border-soft)]">
+                  <td colSpan={7} className="p-0">
+                    <GroupExpand detail={detail} executions={executions} memberIds={memberIds}
+                      regularApis={regularApis} runMut={runMut} addMemberMut={addMemberMut} removeMemberMut={removeMemberMut}
+                      schedTime={schedTime} setSchedTime={setSchedTime} schedDay={schedDay} setSchedDay={setSchedDay}
+                      scheduleGroupMut={scheduleGroupMut} onSelectExecution={setExecDetailId} />
+                  </td>
+                </tr>
+              )}
+              </Fragment>
             ))}
             {groups.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-zinc-600">No groups yet — create one above, then add Regular APIs to it</td></tr>
+              <tr><td colSpan={7} className="px-4 py-6 text-center text-[var(--text-muted)]">No groups yet — create one above, then add Regular APIs to it</td></tr>
             )}
           </tbody>
         </table>
+        <Pagination page={groupsPage} pageSize={groupsPageSize} totalRecords={groups.length}
+          onPageChange={setGroupsPage} onPageSizeChange={(n) => { setGroupsPageSize(n); setGroupsPage(1); }} />
       </div>
-
-      {/* Group detail */}
-      {selectedId && detail && (
-        <div className="rounded-lg border border-zinc-800 bg-[#1c1c1e] p-4 flex flex-col gap-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Layers size={14} className="text-emerald-400" /> {detail.group.name}
-              <span className={`font-semibold tabular-nums ${healthColor(detail.lastExecution?.healthPercent)}`}>
-                {detail.lastExecution?.healthPercent != null ? `${detail.lastExecution.healthPercent}% healthy` : ''}
-              </span>
-            </h2>
-            <div className="ml-auto flex gap-2">
-              {detail.group.groupType === 'TIME' && detail.group.timeFrequency !== 'NOW' && (
-                <div className="flex items-center gap-1.5">
-                  {detail.group.timeFrequency === 'WEEKLY' && (
-                    <select className={`${inputCls} py-1.5 text-xs`} value={schedDay} title="Day of week"
-                      onChange={(e) => setSchedDay(e.target.value)}>
-                      {WEEK_DAYS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-                    </select>
-                  )}
-                  <input type="time" className={`${inputCls} py-1.5 text-xs w-28`} value={schedTime} title="Run at"
-                    onChange={(e) => setSchedTime(e.target.value)} />
-                  <button onClick={() => scheduleGroupMut.mutate(detail.group)} disabled={scheduleGroupMut.isPending}
-                    className="flex items-center gap-1.5 rounded border border-emerald-700 text-emerald-300 hover:bg-emerald-600/10 px-3 py-1.5 text-xs font-semibold">
-                    <CalendarClock size={12} /> Schedule {detail.group.timeFrequency.toLowerCase()}
-                  </button>
-                </div>
-              )}
-              <button onClick={() => runMut.mutate(selectedId)} disabled={detail.members.length === 0 || runMut.isPending}
-                className="flex items-center gap-1.5 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold text-white">
-                <Play size={12} /> Run Group
-              </button>
-              <button onClick={() => setSelectedId(null)} className="text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
-            </div>
-          </div>
-          {scheduleGroupMut.isSuccess && <div className="text-xs text-emerald-400">Schedule created — see the Schedules view.</div>}
-          {scheduleGroupMut.isError && <div className="text-xs text-red-400">{scheduleGroupMut.error?.response?.data?.message ?? 'Failed to schedule'}</div>}
-
-          {/* Members: per-API status + base API status + failure reason */}
-          <div className="border border-zinc-800 rounded">
-            <div className="px-3 py-2 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-              APIs in this group ({detail.members.length})
-            </div>
-            {detail.members.map((m) => (
-              <MemberRow key={m.regularApiId} m={m}
-                onRemove={() => removeMemberMut.mutate(m.regularApiId)} />
-            ))}
-            {detail.members.length === 0 && <div className="px-3 py-3 text-xs text-zinc-600">No APIs in this group yet.</div>}
-            {/* Add member */}
-            <div className="px-3 py-2 flex items-center gap-2">
-              <select className={`${inputCls} py-1.5 flex-1`} value=""
-                onChange={(e) => e.target.value && addMemberMut.mutate(Number(e.target.value))}>
-                <option value="">+ Add Regular API…</option>
-                {regularApis.filter((r) => !memberIds.has(r.id))
-                  .map((r) => <option key={r.id} value={r.id}>{r.name} ({r.method})</option>)}
-              </select>
-            </div>
-          </div>
-
-          {/* Recent group executions */}
-          <div className="border border-zinc-800 rounded">
-            <div className="px-3 py-2 border-b border-zinc-800 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-              Recent Group Runs
-            </div>
-            {(executions?.content ?? []).map((e) => (
-              <button key={e.id} onClick={() => setExecDetailId(e.id)}
-                className="w-full flex items-center gap-3 px-3 py-2 text-xs border-b border-zinc-900 hover:bg-zinc-900/50 text-left">
-                {e.status === 'RUNNING'
-                  ? <Loader2 size={12} className="text-blue-400 animate-spin" />
-                  : e.status === 'SUCCESS'
-                    ? <CheckCircle2 size={12} className="text-emerald-400" />
-                    : <XCircle size={12} className="text-red-400" />}
-                <span className="text-zinc-300">Run #{e.id}</span>
-                <span className={`px-1.5 rounded-full text-[10px] font-semibold ${STATUS_BADGE[e.status] ?? ''}`}>{e.status}</span>
-                <span className="text-zinc-500">{e.passedApis}/{e.totalApis} passed</span>
-                <span className={`tabular-nums ${healthColor(e.healthPercent)}`}>{e.healthPercent != null ? `${e.healthPercent}%` : ''}</span>
-                <span className="text-zinc-600">{e.triggeredBy}</span>
-                <span className="ml-auto text-zinc-600">{new Date(e.startedAt).toLocaleString()}</span>
-                <ChevronRight size={12} className="text-zinc-600" />
-              </button>
-            ))}
-            {(executions?.content ?? []).length === 0 && <div className="px-3 py-3 text-xs text-zinc-600">Never executed.</div>}
-          </div>
-        </div>
-      )}
 
       {/* Group-run drill-down drawer */}
       {execDetailId && (
-        <div className="fixed inset-0 bg-black/60 flex justify-end z-50" onClick={() => setExecDetailId(null)}>
-          <div className="w-[620px] h-full bg-[#1c1c1e] border-l border-zinc-700 overflow-auto p-5 flex flex-col gap-3"
-            onClick={(e) => e.stopPropagation()}>
+        <ModalOverlay onClose={() => setExecDetailId(null)} align="end">
+          <div className="w-[620px] h-full bg-[var(--bg-surface)] border-l border-[var(--border)] overflow-auto p-5 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">
                 Group Run #{execDetailId} {execDetail ? `· ${execDetail.groupName}` : ''}
               </h2>
-              <button onClick={() => setExecDetailId(null)} className="text-zinc-500 hover:text-zinc-300"><X size={16} /></button>
+              <button onClick={() => setExecDetailId(null)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} /></button>
             </div>
             {execDetail ? (
               <>
@@ -381,22 +301,112 @@ export default function GroupsPanel() {
                   <Meta k="Started" v={new Date(execDetail.execution.startedAt).toLocaleString()} />
                   <Meta k="Correlation" v={execDetail.execution.correlationId} mono />
                 </div>
-                <div className="text-[11px] text-zinc-500">
+                <div className="text-[11px] text-[var(--text-muted)]">
                   {(execDetail.executions ?? []).length} API call(s) in this run — click any row to see its full request/response data.
                 </div>
-                <div className="border border-zinc-800 rounded divide-y divide-zinc-900">
+                <div className="border border-[var(--border)] rounded divide-y divide-[var(--border-soft)]">
                   {(execDetail.executions ?? []).map((h) => <ExecRow key={h.id} h={h} />)}
                   {(execDetail.executions ?? []).length === 0 && (
-                    <div className="px-3 py-3 text-xs text-zinc-600">
+                    <div className="px-3 py-3 text-xs text-[var(--text-muted)]">
                       {execDetail.execution.status === 'RUNNING' ? 'Still running…' : 'No execution records.'}
                     </div>
                   )}
                 </div>
               </>
-            ) : <div className="text-zinc-500 text-sm">Loading…</div>}
+            ) : <div className="py-6 flex justify-center"><Loader size={28} label="Loading…" /></div>}
           </div>
-        </div>
+        </ModalOverlay>
       )}
+    </div>
+  );
+}
+
+/**
+ * Inline expansion content for a group row — same "expand in place, no
+ * navigation" pattern as the Schedules tab's row drill-down. Shows the
+ * group's member APIs (add/remove right here), its Run/Schedule actions,
+ * and recent execution history.
+ */
+function GroupExpand({ detail, executions, memberIds, regularApis, runMut, addMemberMut, removeMemberMut,
+  schedTime, setSchedTime, schedDay, setSchedDay, scheduleGroupMut, onSelectExecution }) {
+  if (!detail) return <div className="px-4 py-3 bg-[var(--bg-inset)]"><Loader size={16} label="Loading group…" /></div>;
+
+  return (
+    <div className="bg-[var(--bg-inset)] p-4 flex flex-col gap-4">
+      <div className="flex items-center gap-3">
+        <span className="text-xs text-[var(--text-muted)]">
+          {detail.lastExecution?.healthPercent != null ? `${detail.lastExecution.healthPercent}% healthy` : 'Never executed'}
+        </span>
+        <div className="ml-auto flex gap-2">
+          {detail.group.groupType === 'TIME' && detail.group.timeFrequency !== 'NOW' && (
+            <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+              {detail.group.timeFrequency === 'WEEKLY' && (
+                <select className={`${inputCls} py-1.5 text-xs`} value={schedDay} title="Day of week"
+                  onChange={(e) => setSchedDay(e.target.value)}>
+                  {WEEK_DAYS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+                </select>
+              )}
+              <input type="time" className={`${inputCls} py-1.5 text-xs w-28`} value={schedTime} title="Run at"
+                onChange={(e) => setSchedTime(e.target.value)} />
+              <button onClick={() => scheduleGroupMut.mutate(detail.group)} disabled={scheduleGroupMut.isPending}
+                className="flex items-center gap-1.5 rounded border border-[var(--accent-border-soft)] text-[var(--accent-text)] hover:bg-[var(--accent-bg-soft)] px-3 py-1.5 text-xs font-semibold">
+                <CalendarClock size={12} /> Schedule {detail.group.timeFrequency.toLowerCase()}
+              </button>
+            </div>
+          )}
+          <button onClick={(e) => { e.stopPropagation(); runMut.mutate(detail.group.id); }}
+            disabled={detail.members.length === 0 || runMut.isPending}
+            className="flex items-center gap-1.5 rounded bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 px-3 py-1.5 text-xs font-semibold text-white">
+            <Play size={12} /> Run Group
+          </button>
+        </div>
+      </div>
+      {scheduleGroupMut.isSuccess && <div className="text-xs text-[var(--success-text)]">Schedule created — see the Schedules view.</div>}
+      {scheduleGroupMut.isError && <div className="text-xs text-[var(--danger-text)]">{scheduleGroupMut.error?.response?.data?.message ?? 'Failed to schedule'}</div>}
+
+      {/* Members: per-API status + base API status + failure reason */}
+      <div className="border border-[var(--border)] rounded" onClick={(e) => e.stopPropagation()}>
+        <div className="px-3 py-2 border-b border-[var(--border)] text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+          APIs in this group ({detail.members.length})
+        </div>
+        {detail.members.map((m) => (
+          <MemberRow key={m.regularApiId} m={m} onRemove={() => removeMemberMut.mutate(m.regularApiId)} />
+        ))}
+        {detail.members.length === 0 && <div className="px-3 py-3 text-xs text-[var(--text-muted)]">No APIs in this group yet.</div>}
+        <div className="px-3 py-2 flex items-center gap-2">
+          <select className={`${inputCls} py-1.5 flex-1`} value=""
+            onChange={(e) => e.target.value && addMemberMut.mutate(Number(e.target.value))}>
+            <option value="">+ Add Regular API…</option>
+            {regularApis.filter((r) => !memberIds.has(r.id))
+              .map((r) => <option key={r.id} value={r.id}>{r.name} ({r.method})</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Recent group executions — the "Execution Count" for this group */}
+      <div className="border border-[var(--border)] rounded" onClick={(e) => e.stopPropagation()}>
+        <div className="px-3 py-2 border-b border-[var(--border)] text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">
+          Recent Group Runs ({executions?.content?.length ?? 0})
+        </div>
+        {(executions?.content ?? []).map((e) => (
+          <button key={e.id} onClick={() => onSelectExecution(e.id)}
+            className="w-full flex items-center gap-3 px-3 py-2 text-xs border-b border-[var(--border-soft)] hover:bg-[var(--bg-hover)] text-left">
+            {e.status === 'RUNNING'
+              ? <Loader2 size={12} className="text-[var(--info-text)] animate-spin" />
+              : e.status === 'SUCCESS'
+                ? <CheckCircle2 size={12} className="text-[var(--success-text)]" />
+                : <XCircle size={12} className="text-[var(--danger-text)]" />}
+            <span className="text-[var(--text-secondary)]">Run #{e.id}</span>
+            <span className={`px-1.5 rounded-full text-[10px] font-semibold ${STATUS_BADGE[e.status] ?? ''}`}>{e.status}</span>
+            <span className="text-[var(--text-muted)]">{e.passedApis}/{e.totalApis} passed</span>
+            <span className={`tabular-nums ${healthColor(e.healthPercent)}`}>{e.healthPercent != null ? `${e.healthPercent}%` : ''}</span>
+            <span className="text-[var(--text-muted)]">{e.triggeredBy}</span>
+            <span className="ml-auto text-[var(--text-muted)]">{new Date(e.startedAt).toLocaleString()}</span>
+            <ChevronRight size={12} className="text-[var(--text-muted)]" />
+          </button>
+        ))}
+        {(executions?.content ?? []).length === 0 && <div className="px-3 py-3 text-xs text-[var(--text-muted)]">Never executed.</div>}
+      </div>
     </div>
   );
 }
@@ -414,22 +424,22 @@ function ExecRow({ h }) {
   return (
     <div>
       <button onClick={() => setOpen(!open)}
-        className={`w-full px-3 py-2 text-xs flex flex-col gap-0.5 text-left hover:bg-zinc-900/60 ${open ? 'bg-zinc-900/40' : ''}`}>
+        className={`w-full px-3 py-2 text-xs flex flex-col gap-0.5 text-left hover:bg-[var(--bg-hover)] ${open ? 'bg-[var(--bg-hover)]' : ''}`}>
         <div className="flex items-center gap-2">
-          <ChevronRight size={12} className={`text-zinc-600 transition-transform ${open ? 'rotate-90' : ''}`} />
-          <span className={`px-1.5 rounded text-[10px] font-semibold ${h.apiType === 'BASE' ? 'bg-purple-600/15 text-purple-300' : 'bg-emerald-600/15 text-emerald-300'}`}>
+          <ChevronRight size={12} className={`text-[var(--text-muted)] transition-transform ${open ? 'rotate-90' : ''}`} />
+          <span className={`px-1.5 rounded text-[10px] font-semibold ${h.apiType === 'BASE' ? 'bg-[var(--indigo-text)]/15 text-[var(--indigo-text)]' : 'bg-[var(--success-bg-soft)] text-[var(--success-text)]'}`}>
             {h.apiType}
           </span>
-          <span className="text-zinc-200">{h.apiName ?? '(ad-hoc)'}</span>
-          <span className="font-semibold text-zinc-400">{h.requestMethod}</span>
+          <span className="text-[var(--text-primary)]">{h.apiName ?? '(ad-hoc)'}</span>
+          <span className="font-semibold text-[var(--text-secondary)]">{h.requestMethod}</span>
           <StatusPill statusClass={h.responseStatusClass} statusCode={h.responseStatusCode} />
           {passed
-            ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400"><CheckCircle2 size={11} /> PASS</span>
-            : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-400"><XCircle size={11} /> FAIL</span>}
-          <span className="ml-auto text-zinc-500 tabular-nums">{h.totalTimeMs} ms</span>
+            ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--success-text)]"><CheckCircle2 size={11} /> PASS</span>
+            : <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--danger-text)]"><XCircle size={11} /> FAIL</span>}
+          <span className="ml-auto text-[var(--text-muted)] tabular-nums">{h.totalTimeMs} ms</span>
         </div>
         {h.errorMessage && (
-          <div className="flex items-start gap-1.5 text-[11px] text-red-400 pl-5">
+          <div className="flex items-start gap-1.5 text-[11px] text-[var(--danger-text)] pl-5">
             <AlertTriangle size={11} className="mt-0.5 shrink-0" /> {h.errorMessage}
           </div>
         )}
@@ -453,8 +463,8 @@ export function HistoryDetailPanel({ historyId, totalTimeMs }) {
   const exec = detail?.execution;
 
   return (
-    <div className="px-4 pb-3 pt-1 flex flex-col gap-2 bg-zinc-950/40">
-      {isLoading && <div className="text-xs text-zinc-500">Loading data…</div>}
+    <div className="px-4 pb-3 pt-1 flex flex-col gap-2 bg-[var(--bg-inset)]">
+      {isLoading && <Loader size={16} label="Loading data…" />}
       {exec && (
         <>
           <div className="flex flex-wrap gap-4 text-xs">
@@ -465,26 +475,26 @@ export function HistoryDetailPanel({ historyId, totalTimeMs }) {
             {exec.injectedVariables && <Meta k="Variables (masked)" v={exec.injectedVariables} mono />}
           </div>
           {exec.errorMessage && (
-            <div className="flex items-start gap-1.5 text-[11px] text-red-400">
+            <div className="flex items-start gap-1.5 text-[11px] text-[var(--danger-text)]">
               <AlertTriangle size={11} className="mt-0.5 shrink-0" /> {exec.errorMessage}
             </div>
           )}
           {(detail.validationResults ?? []).length > 0 && (
-            <div className="border border-zinc-800 rounded divide-y divide-zinc-900">
+            <div className="border border-[var(--border)] rounded divide-y divide-[var(--border-soft)]">
               {detail.validationResults.map((v) => (
                 <div key={v.id} className="px-2.5 py-1.5 text-[11px] flex items-center gap-2">
-                  {v.passed ? <CheckCircle2 size={11} className="text-emerald-400" /> : <XCircle size={11} className="text-red-400" />}
-                  <span className="font-mono text-zinc-300">{v.jsonPath}</span>
-                  <span className="text-zinc-500">{v.operator}</span>
-                  {v.expectedValue != null && <span className="text-zinc-400">expected <span className="text-zinc-200">{v.expectedValue}</span></span>}
-                  <span className="text-zinc-400">actual <span className={v.passed ? 'text-emerald-300' : 'text-red-300'}>{v.actualValue ?? 'null'}</span></span>
+                  {v.passed ? <CheckCircle2 size={11} className="text-[var(--success-text)]" /> : <XCircle size={11} className="text-[var(--danger-text)]" />}
+                  <span className="font-mono text-[var(--text-secondary)]">{v.jsonPath}</span>
+                  <span className="text-[var(--text-muted)]">{v.operator}</span>
+                  {v.expectedValue != null && <span className="text-[var(--text-secondary)]">expected <span className="text-[var(--text-primary)]">{v.expectedValue}</span></span>}
+                  <span className="text-[var(--text-secondary)]">actual <span className={v.passed ? 'text-[var(--success-text)]' : 'text-[var(--danger-text)]'}>{v.actualValue ?? 'null'}</span></span>
                 </div>
               ))}
             </div>
           )}
           <div>
-            <div className="text-[10px] text-zinc-600 uppercase mb-1">Response body</div>
-            <pre className="text-[11px] text-zinc-300 bg-zinc-900/80 border border-zinc-800 rounded p-2.5 max-h-64 overflow-auto whitespace-pre-wrap break-all">
+            <div className="text-[10px] text-[var(--text-muted)] uppercase mb-1">Response body</div>
+            <pre className="text-[11px] text-[var(--text-secondary)] bg-[var(--bg-surface-2)] border border-[var(--border)] rounded p-2.5 max-h-64 overflow-auto whitespace-pre-wrap break-all">
               {prettyJson(detail.responseBody) ?? '(empty body)'}
             </pre>
           </div>
@@ -510,43 +520,51 @@ export function MemberRow({ m, onRemove }) {
   const latestId = latest?.content?.[0]?.id;
 
   return (
-    <div className="border-b border-zinc-900">
+    <div className="border-b border-[var(--border-soft)]">
       <button onClick={() => setOpen(!open)}
-        className={`w-full px-3 py-2.5 flex flex-col gap-1 text-left hover:bg-zinc-900/60 ${open ? 'bg-zinc-900/40' : ''}`}>
+        className={`w-full px-3 py-2.5 flex flex-col gap-1 text-left hover:bg-[var(--bg-hover)] ${open ? 'bg-[var(--bg-hover)]' : ''}`}>
         <div className="flex items-center gap-2 text-xs">
-          <ChevronRight size={12} className={`text-zinc-600 transition-transform ${open ? 'rotate-90' : ''}`} />
-          <span className="font-semibold text-emerald-400">{m.method}</span>
-          <span className="text-zinc-200">{m.name}</span>
-          {m.dynamic && <span className="text-[9px] px-1 rounded bg-purple-600/20 text-purple-300">DYN</span>}
+          <ChevronRight size={12} className={`text-[var(--text-muted)] transition-transform ${open ? 'rotate-90' : ''}`} />
+          <span className="font-semibold text-[var(--accent-text)]">{m.method}</span>
+          <span className="text-[var(--text-primary)]">{m.name}</span>
+          {m.dynamic && <span className="text-[9px] px-1 rounded bg-[var(--indigo-text)]/20 text-[var(--indigo-text)]">DYN</span>}
           <StatusPill statusClass={m.lastStatusClass} statusCode={m.lastStatusCode} />
-          <span className="text-zinc-600 ml-auto">{m.lastExecutedAt ? new Date(m.lastExecutedAt).toLocaleString() : 'never ran'}</span>
+          <span className="text-[var(--text-muted)] ml-auto">{m.lastExecutedAt ? new Date(m.lastExecutedAt).toLocaleString() : 'never ran'}</span>
           <span onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="text-zinc-600 hover:text-red-400 cursor-pointer" title="Remove from group"><Trash2 size={13} /></span>
+            className="text-[var(--text-muted)] hover:text-[var(--danger-text)] cursor-pointer" title="Remove from group"><Trash2 size={13} /></span>
         </div>
-        <div className="text-zinc-600 text-[11px] truncate pl-5">{m.url}</div>
+        <div className="text-[var(--text-muted)] text-[11px] truncate pl-5">{m.url}</div>
         {m.lastErrorMessage && (
-          <div className="flex items-start gap-1.5 text-[11px] text-red-400 pl-5">
+          <div className="flex items-start gap-1.5 text-[11px] text-[var(--danger-text)] pl-5">
             <AlertTriangle size={11} className="mt-0.5 shrink-0" /> {m.lastErrorMessage}
           </div>
         )}
-        {(m.baseApis ?? []).length > 0 && (
+        {((m.baseApis ?? []).length > 0 || (m.regularDependencies ?? []).length > 0) && (
           <div className="flex flex-wrap gap-2 mt-1 pl-5">
-            {m.baseApis.map((b) => (
-              <span key={b.baseApiId} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-zinc-800 text-[10px] text-zinc-400"
+            {(m.baseApis ?? []).map((b) => (
+              <span key={`base-${b.baseApiId}`} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-[var(--border)] text-[10px] text-[var(--text-secondary)]"
                 title={b.lastErrorMessage ?? ''}>
                 Base: {b.name}
                 <StatusPill statusClass={b.lastStatusClass} statusCode={b.lastStatusCode} small />
-                {b.lastErrorMessage && <AlertTriangle size={10} className="text-red-400" />}
+                {b.lastErrorMessage && <AlertTriangle size={10} className="text-[var(--danger-text)]" />}
+              </span>
+            ))}
+            {(m.regularDependencies ?? []).map((r) => (
+              <span key={`regular-${r.regularApiId}`} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-[var(--indigo-text)]/40 text-[10px] text-[var(--indigo-text)]"
+                title={r.lastErrorMessage ?? ''}>
+                Regular: {r.name}
+                <StatusPill statusClass={r.lastStatusClass} statusCode={r.lastStatusCode} small />
+                {r.lastErrorMessage && <AlertTriangle size={10} className="text-[var(--danger-text)]" />}
               </span>
             ))}
           </div>
         )}
       </button>
       {open && (isLoading
-        ? <div className="px-4 pb-3 text-xs text-zinc-500">Loading last run…</div>
+        ? <div className="px-4 pb-3"><Loader size={16} label="Loading last run…" /></div>
         : latestId
           ? <HistoryDetailPanel historyId={latestId} />
-          : <div className="px-4 pb-3 text-xs text-zinc-600">This API has never run yet — no data to show.</div>)}
+          : <div className="px-4 pb-3 text-xs text-[var(--text-muted)]">This API has never run yet — no data to show.</div>)}
     </div>
   );
 }
@@ -561,11 +579,7 @@ function prettyJson(s) {
 }
 
 function StatusPill({ statusClass, statusCode, small }) {
-  const color = {
-    '2xx': 'bg-emerald-600/15 text-emerald-300', '3xx': 'bg-sky-600/15 text-sky-300',
-    '4xx': 'bg-amber-600/15 text-amber-300', '5xx': 'bg-red-600/15 text-red-300',
-    ERROR: 'bg-purple-600/15 text-purple-300', TIMEOUT: 'bg-rose-600/15 text-rose-300',
-  }[statusClass] ?? 'bg-zinc-800 text-zinc-500';
+  const color = CLASS_BADGE[statusClass] ?? 'bg-[var(--bg-surface-2)] text-[var(--text-muted)]';
   return (
     <span className={`${small ? 'px-1' : 'px-1.5 py-0.5'} rounded-full text-[10px] font-semibold ${color}`}>
       {statusCode ?? statusClass ?? 'never'}
@@ -576,8 +590,8 @@ function StatusPill({ statusClass, statusCode, small }) {
 function Meta({ k, v, mono }) {
   return (
     <div className="flex flex-col">
-      <span className="text-[10px] text-zinc-600 uppercase">{k}</span>
-      <span className={`text-zinc-300 ${mono ? 'font-mono text-[10px] break-all max-w-[180px]' : ''}`}>{v}</span>
+      <span className="text-[10px] text-[var(--text-muted)] uppercase">{k}</span>
+      <span className={`text-[var(--text-secondary)] ${mono ? 'font-mono text-[10px] break-all max-w-[180px]' : ''}`}>{v}</span>
     </div>
   );
 }

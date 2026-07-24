@@ -170,7 +170,7 @@ public class BaseApiController {
     public void deleteExtraction(@PathVariable Long id, @PathVariable Long bindingId) {
         ApiVariableBinding b = bindingRepository.findById(bindingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Binding not found"));
-        if (!b.getBaseApiId().equals(id)) {
+        if (b.getBaseApiId() == null || !b.getBaseApiId().equals(id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Binding does not belong to this base API");
         }
         bindingRepository.delete(b);

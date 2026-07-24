@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Play,
   TerminalSquare,
-  UserCircle,
   GitCompare,
   AlertTriangle,
   ShieldAlert,
@@ -19,50 +18,38 @@ import {
   Check,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { initThemeSync, getStoredThemePref, resolveEffectiveTheme } from '../../../../shared/ui/theme-sync.js';
+import { reportHeightToParent } from '../../../../shared/ui/iframe-resize.js';
 import { api, auth } from './api.js';
-import { AdminWorkspace } from './components/admin/AdminWorkspace.jsx';
-import { AuthPage } from './components/auth/AuthPage.jsx';
 import { Dashboard } from './components/dashboard/Dashboard.jsx';
 import { EnvironmentView } from './components/environments/EnvironmentView.jsx';
 import { ExecutionCenter } from './components/execution/ExecutionCenter.jsx';
 import { ComparePage } from './components/execution/ComparePage.jsx';
 import { PortalLayout, Sidebar, Topbar } from './components/layout/index.jsx';
-import { Profile } from './components/profile/Profile.jsx';
 import { ReportsCenter } from './components/reports/ReportsCenter.jsx';
 import { Placeholder, Modal } from './components/shared/index.jsx';
-import { FullScreenLoader } from './components/shared/Loader.jsx';
+import { FullScreenLoader } from '../../../../shared/ui/Loader.jsx';
+import appLogo from './assets/testrix_logo.png';
 import { LogsViewer } from './components/logs/LogsViewer.jsx';
 import { ScreenshotsGallery } from './components/screenshots/ScreenshotsGallery.jsx';
 import { ExecutionDetailPage } from './components/execution/ExecutionDetailPage.jsx';
-import { ADMIN_NAV, ADMIN_WORKSPACE_NAV, fallbackSummary, isSuperAdmin, USER_NAV } from './constants.js';
+import { fallbackSummary, USER_NAV } from './constants.js';
 
 // Attach resolved icon components to nav items (done once at module level)
 const ICON_MAP = {
   Gauge, Play, FileText, TerminalSquare, Camera, Globe2,
-  UserCircle, LayoutDashboard, KeyRound, GitCompare
+  LayoutDashboard, KeyRound, GitCompare
 };
-[...USER_NAV, ...ADMIN_NAV].forEach((item) => { item._icon = ICON_MAP[item.icon]; });
+USER_NAV.forEach((item) => { item._icon = ICON_MAP[item.icon]; });
 
 // ── Hash routing ──────────────────────────────────────────────────────────────
-// The active tab lives in the URL hash (#/reports, #/admin/user-management) so a
-// page refresh or back/forward keeps the user on the tab they were on.
+// The active tab lives in the URL hash (#/reports) so a page refresh or
+// back/forward keeps the user on the tab they were on.
 const USER_TAB_KEYS = new Set(USER_NAV.map((item) => item.key));
-const ADMIN_PAGE_KEYS = new Set(ADMIN_WORKSPACE_NAV.map((item) => item.key));
 
 const parseHashRoute = () => {
-  const [head, sub] = window.location.hash.replace(/^#\/?/, '').split('/');
-  if (head === 'admin') {
-    return {
-      workspace: 'admin',
-      active: 'dashboard',
-      adminPage: ADMIN_PAGE_KEYS.has(sub) ? sub : 'admin-dashboard'
-    };
-  }
-  return {
-    workspace: 'portal',
-    active: USER_TAB_KEYS.has(head) ? head : 'dashboard',
-    adminPage: 'admin-dashboard'
-  };
+  const [head] = window.location.hash.replace(/^#\/?/, '').split('/');
+  return { active: USER_TAB_KEYS.has(head) ? head : 'dashboard' };
 };
 
 // ── Error Popup Content ───────────────────────────────────────────────────────
@@ -172,9 +159,6 @@ export function App() {
   const [session, setSession] = useState(auth.get());
   const initialRoute = parseHashRoute();
   const [active, setActive] = useState(initialRoute.active);
-  // workspace: 'portal' | 'admin'
-  const [workspace, setWorkspace] = useState(initialRoute.workspace);
-  const [adminPage, setAdminPage] = useState(initialRoute.adminPage);
 
   const [summary, setSummary] = useState(fallbackSummary);
   const [environments, setEnvironments] = useState([]);
@@ -197,13 +181,26 @@ export function App() {
     localStorage.setItem('sidebar-collapsed', String(nextVal));
   };
 
-  // Apply the saved theme before anything renders (toggle lives in Topbar).
-  // Bright is the default; dark is opt-in via the toggle. data-bs-theme keeps
-  // Bootstrap components in sync with the portal theme.
+  // Apply the saved theme (shared across the whole platform — see
+  // shared/ui/theme-sync.js) and keep it live-synced if the shell's own
+  // toggle is used while this app is open in its sidebar iframe.
+  // data-bs-theme is Bootstrap-specific, so it's kept local to this app
+  // rather than folded into the shared helper.
   useEffect(() => {
-    const theme = localStorage.getItem('portal-theme') || 'light';
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.setAttribute('data-bs-theme', theme);
+    initThemeSync();
+    const applyBsTheme = (pref) => document.documentElement.setAttribute('data-bs-theme', resolveEffectiveTheme(pref));
+    applyBsTheme(getStoredThemePref());
+    const onStorage = (event) => {
+      if (event.key === 'portal-theme') applyBsTheme(event.newValue || 'light');
+    };
+    window.addEventListener('storage', onStorage);
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    const onSystemChange = () => { if (getStoredThemePref() === 'system') applyBsTheme('system'); };
+    mq?.addEventListener('change', onSystemChange);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      mq?.removeEventListener('change', onSystemChange);
+    };
   }, []);
 
   // Set favicon once
@@ -214,15 +211,15 @@ export function App() {
       favicon.rel = 'icon';
       document.head.appendChild(favicon);
     }
-    favicon.href = new URL('./assets/MPHIDB_Logo2.png', import.meta.url).href;
+    favicon.href = new URL('./assets/testric_favicon.png', import.meta.url).href;
   }, []);
 
   const [globalError, setGlobalError] = useState(null);
 
   useEffect(() => {
     api.setErrorCallback((err) => {
-      // On the login screen AuthPage shows errors inline below the form —
-      // don't stack the global popup on top of it.
+      // No session means we're mid-redirect to the Testrix shell's login —
+      // don't pop a global error over that.
       if (!session?.accessToken) return;
       setGlobalError(err);
     });
@@ -236,22 +233,17 @@ export function App() {
     return () => clearTimeout(timer);
   }, [notice]);
 
-  // Keep the URL hash in sync with the active tab/workspace.
+  // Keep the URL hash in sync with the active tab.
   useEffect(() => {
-    const target = workspace === 'admin' ? `/admin/${adminPage}` : `/${active}`;
+    const target = `/${active}`;
     if (window.location.hash !== `#${target}`) {
       window.location.hash = target;
     }
-  }, [active, workspace, adminPage]);
+  }, [active]);
 
   // Browser back/forward (and manual hash edits) drive the tab state.
   useEffect(() => {
-    const onHashChange = () => {
-      const route = parseHashRoute();
-      setActive(route.active);
-      setWorkspace(route.workspace);
-      setAdminPage(route.adminPage);
-    };
+    const onHashChange = () => setActive(parseHashRoute().active);
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
@@ -295,6 +287,43 @@ export function App() {
     });
   }, [session?.accessToken]);
 
+  // `refresh()` was otherwise only ever called once on mount (plus a few explicit spots after
+  // actions like triggering a run) — nothing kept the executions list/dashboard summary live
+  // after that. A queued/running execution's status in tables like the Execution Center's
+  // "Recent Executions Queue" would just sit frozen indefinitely (looked exactly like a stuck
+  // queue, even though the backend was progressing fine) until something else happened to
+  // trigger a refresh. Polls while the tab is visible, and refreshes immediately the moment the
+  // tab regains focus (backgrounded tabs commonly throttle timers/drop long-lived connections,
+  // so coming back is exactly when stale data is most likely and most noticeable).
+  useEffect(() => {
+    if (!session?.accessToken) return;
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') refresh();
+    }, 10000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [session?.accessToken]);
+
+  // Embedded inside the Testrix shell's "Automation" sidebar sub-menu (an
+  // iframe on /automation/, same origin — see platform/shell's
+  // AutomationWorkspace.jsx). Reports this document's content height to the
+  // shell (shared/ui/iframe-resize.js) so the iframe can match it exactly —
+  // otherwise a fixed-height iframe scrolls internally, a second scrollbar
+  // stacked on the shell page's own.
+  const isEmbedded = window.self !== window.top;
+
+  useEffect(() => {
+    if (!isEmbedded) return;
+    return reportHeightToParent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const pageTitle = useMemo(
     () => USER_NAV.find((item) => item.key === active)?.label ?? 'Dashboard',
     [active]
@@ -319,8 +348,6 @@ export function App() {
       setSession(null);
       setGlobalError(null);
       setActive('dashboard');
-      setWorkspace('portal');
-      setAdminPage('admin-dashboard');
     }
   };
 
@@ -343,103 +370,91 @@ export function App() {
   };
 
   if (!session?.accessToken) {
-    return <AuthPage onAuthenticated={onAuthenticated} />;
+    // Single sign-on: the Testrix shell at "/" is the platform's one and only
+    // login screen now — this product no longer has its own. Navigate the
+    // TOP window, not this one: when embedded in the shell's iframe (see
+    // AutomationWorkspace.jsx), `window.location.href` would load the whole
+    // shell a second time *inside* the iframe ("app inside an app").
+    // window.top === window when not framed, so this is safe standalone too.
+    window.top.location.href = '/';
+    return null;
   }
 
-  const superAdmin = isSuperAdmin(session);
+  // The shell already provides sidebar/topbar chrome, so skip rendering our
+  // own here to avoid double chrome; the shell drives which page is active
+  // by setting this window's hash directly.
 
-  const openAdminWorkspace = () => {
-    if (superAdmin) {
-      setWorkspace('admin');
-    } else {
-      setGlobalError({
-        status: 403,
-        title: 'Access Restricted (403)',
-        message: 'You do not have permission to access the Administration workspace.',
-        detail: 'Only Super Admin accounts can enter this area.'
-      });
-    }
-  };
+  const pages = (
+    <>
+      {/* User pages */}
+      {active === 'dashboard' && <Dashboard onSelectExecution={setSelectedExecutionId} onNavigate={setActive} />}
+      {active === 'execution' && (
+        <ExecutionCenter
+          environments={environments}
+          modules={modules}
+          selectedEnv={selectedEnv}
+          selectedModule={selectedModule}
+          suiteXmlPath={suiteXmlPath}
+          setSelectedEnv={setSelectedEnv}
+          setSelectedModule={setSelectedModule}
+          setSuiteXmlPath={setSuiteXmlPath}
+          run={run}
+          executions={executions}
+          onSelectExecution={setSelectedExecutionId}
+          onRefresh={refresh}
+        />
+      )}
+      {active === 'reports' && <ReportsCenter onSelectExecution={setSelectedExecutionId} />}
+      {active === 'logs' && <LogsViewer />}
+      {active === 'screenshots' && <ScreenshotsGallery onSelectExecution={setSelectedExecutionId} />}
+      {active === 'compare' && <ComparePage executions={executions} />}
+      {active === 'environments' && <EnvironmentView onRefresh={refresh} />}
+      {selectedExecutionId && (
+        <ExecutionDetailPage
+          executionId={selectedExecutionId}
+          onClose={() => {
+            setSelectedExecutionId(null);
+            refresh();
+          }}
+        />
+      )}
+    </>
+  );
 
-  // ── Admin Workspace ─────────────────────────────────────────────────────────
-  // ── Admin Workspace / Normal Portal content ───────────────────────────────
-  let content;
-  if (workspace === 'admin' && superAdmin) {
-    content = (
-      <AdminWorkspace
-        superAdmin={superAdmin}
-        logout={logout}
-        onBack={() => setWorkspace('portal')}
-        activePage={adminPage}
-        setActivePage={setAdminPage}
-      />
-    );
-  } else {
-    content = (
-      <PortalLayout
-        isCollapsed={isSidebarCollapsed}
-        sidebar={(
-          <Sidebar
-            active={active}
-            setActive={setActive}
-            superAdmin={superAdmin}
-            logout={logout}
-            onOpenAdmin={openAdminWorkspace}
-            isCollapsed={isSidebarCollapsed}
-            onToggle={toggleSidebar}
-          />
-        )}
-        topbar={(
-          <Topbar
-            pageTitle={pageTitle}
-            superAdmin={superAdmin}
-            onOpenAdmin={openAdminWorkspace}
-            onNavigateHome={() => setActive('dashboard')}
-          />
-        )}
-      >
-        {/* User pages */}
-        {active === 'dashboard' && <Dashboard onSelectExecution={setSelectedExecutionId} onNavigate={setActive} />}
-        {active === 'execution' && (
-          <ExecutionCenter
-            environments={environments}
-            modules={modules}
-            selectedEnv={selectedEnv}
-            selectedModule={selectedModule}
-            suiteXmlPath={suiteXmlPath}
-            setSelectedEnv={setSelectedEnv}
-            setSelectedModule={setSelectedModule}
-            setSuiteXmlPath={setSuiteXmlPath}
-            run={run}
-            executions={executions}
-            onSelectExecution={setSelectedExecutionId}
-            onRefresh={refresh}
-          />
-        )}
-        {active === 'reports' && <ReportsCenter onSelectExecution={setSelectedExecutionId} />}
-        {active === 'logs' && <LogsViewer />}
-        {active === 'screenshots' && <ScreenshotsGallery onSelectExecution={setSelectedExecutionId} />}
-        {active === 'compare' && <ComparePage executions={executions} />}
-        {active === 'environments' && <EnvironmentView onRefresh={refresh} />}
-        {active === 'profile' && <Profile setNotice={notify} />}
-        {selectedExecutionId && (
-          <ExecutionDetailPage
-            executionId={selectedExecutionId}
-            onClose={() => {
-              setSelectedExecutionId(null);
-              refresh();
-            }}
-          />
-        )}
-      </PortalLayout>
-    );
-  }
+  const content = isEmbedded ? (
+    <div className="layout-content">{pages}</div>
+  ) : (
+    <PortalLayout
+      isCollapsed={isSidebarCollapsed}
+      sidebar={(
+        <Sidebar
+          active={active}
+          setActive={setActive}
+          logout={logout}
+          isCollapsed={isSidebarCollapsed}
+          onToggle={toggleSidebar}
+        />
+      )}
+      topbar={(
+        <Topbar
+          pageTitle={pageTitle}
+          onNavigateHome={() => setActive('dashboard')}
+        />
+      )}
+    >
+      {pages}
+    </PortalLayout>
+  );
 
   return (
     <>
       {content}
 
-      {bootLoader && <FullScreenLoader exiting={bootLoader === 'exit'} />}
+      {/* When embedded, the shell shows its own full-screen loader over the
+          iframe until it's ready — showing this one too would just be a
+          second loader stacked underneath it. Standalone access still needs
+          its own. */}
+      {!isEmbedded && bootLoader && <FullScreenLoader exiting={bootLoader === 'exit'} logoSrc={appLogo} />}
 
       {notice && (() => {
         const tone = TOAST_TONES[notice.tone] || TOAST_TONES.success;

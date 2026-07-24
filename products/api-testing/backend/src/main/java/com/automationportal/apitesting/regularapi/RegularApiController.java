@@ -2,10 +2,10 @@ package com.automationportal.apitesting.regularapi;
 
 import com.automationportal.apitesting.baseapi.ApiVariableBinding;
 import com.automationportal.apitesting.baseapi.ApiVariableBindingRepository;
+import com.automationportal.apitesting.common.RequestConfigMapper;
 import com.automationportal.apitesting.history.ExecutionHistory;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +23,9 @@ public class RegularApiController {
     private final ApiVariableBindingRepository bindingRepository;
     private final DependencyExecutionService dependencyExecutionService;
     private final com.automationportal.apitesting.audit.AuditService auditService;
+    private final com.automationportal.apitesting.collections.ApiCollectionRepository collectionRepository;
+    private final com.automationportal.apitesting.collections.CollectionRequestRepository collectionRequestRepository;
+    private final RequestConfigMapper configMapper;
 
     @Data
     public static class RegularApiPayload {
@@ -44,7 +47,8 @@ public class RegularApiController {
 
     @Data
     public static class BindingPayload {
-        @NotNull private Long baseApiId;
+        private Long baseApiId;
+        private Long sourceRegularApiId;
         @NotBlank private String sourceJsonPath;
         @NotBlank private String variableName;
     }
@@ -93,26 +97,72 @@ public class RegularApiController {
         return dependencyExecutionService.execute(find(id), ExecutionHistory.TriggeredBy.MANUAL, null);
     }
 
+    /** Copies this Regular API into a tester collection as a runnable request (mirrors Base API's convenience endpoint). */
+    @PostMapping("/{id}/add-to-collection/{collectionId}")
+    public com.automationportal.apitesting.collections.CollectionRequest addToCollection(
+            @PathVariable Long id, @PathVariable Long collectionId) {
+        RegularApi api = find(id);
+        collectionRepository.findById(collectionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found"));
+
+        java.util.Map<String, Object> config = new java.util.LinkedHashMap<>();
+        config.put("method", api.getMethod());
+        config.put("url", api.getUrlTemplate());
+        config.put("queryParams", configMapper.keyValues(api.getQueryParamsTemplate()));
+        config.put("headers", configMapper.keyValues(api.getHeadersTemplate()));
+        config.put("bodyType", api.getBodyType() == null || api.getBodyType().isBlank() ? "NONE" : api.getBodyType());
+        config.put("body", api.getBodyTemplate() == null ? "" : api.getBodyTemplate());
+        config.put("auth", configMapper.auth(api.getAuthConfig()));
+        config.put("timeoutMs", api.getTimeoutMs());
+        config.put("followRedirects", api.isFollowRedirects());
+        config.put("verifySsl", api.isVerifySsl());
+
+        var request = new com.automationportal.apitesting.collections.CollectionRequest();
+        request.setCollectionId(collectionId);
+        request.setName("[Regular] " + api.getName());
+        request.setSeq((int) collectionRequestRepository.countByCollectionId(collectionId));
+        request.setMethod(api.getMethod());
+        request.setUrl(api.getUrlTemplate());
+        request.setConfigJson(configMapper.toJson(config));
+        request = collectionRequestRepository.save(request);
+        audit(id, com.automationportal.apitesting.audit.AuditLog.Action.UPDATE,
+                "Added regular API '" + api.getName() + "' to collection #" + collectionId);
+        return request;
+    }
+
     @GetMapping("/{id}/bindings")
     public List<ApiVariableBinding> bindings(@PathVariable Long id) {
         find(id);
         return bindingRepository.findByRegularApiId(id);
     }
 
-    /** Bind a base-API variable into this regular API. */
+    /** Bind a variable into this regular API, sourced from either a Base API or another Regular API. */
     @PostMapping("/{id}/bindings")
     public ApiVariableBinding addBinding(@PathVariable Long id, @Valid @RequestBody BindingPayload payload) {
         find(id);
+        boolean hasBase = payload.getBaseApiId() != null;
+        boolean hasRegular = payload.getSourceRegularApiId() != null;
+        if (hasBase == hasRegular) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Provide exactly one source: baseApiId or sourceRegularApiId");
+        }
+        if (hasRegular && payload.getSourceRegularApiId().equals(id)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A regular API cannot bind to itself");
+        }
         ApiVariableBinding b = new ApiVariableBinding();
         b.setRegularApiId(id);
         b.setBaseApiId(payload.getBaseApiId());
+        b.setSourceRegularApiId(payload.getSourceRegularApiId());
         b.setSourceJsonPath(payload.getSourceJsonPath());
         b.setVariableName(payload.getVariableName());
         try {
             b = bindingRepository.save(b);
+            String sourceDescription = hasBase
+                    ? "base API #" + payload.getBaseApiId()
+                    : "regular API #" + payload.getSourceRegularApiId();
             auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.BINDING, b.getId(),
                     com.automationportal.apitesting.audit.AuditLog.Action.CREATE,
-                    "Bound {{" + payload.getVariableName() + "}} from base API #" + payload.getBaseApiId()
+                    "Bound {{" + payload.getVariableName() + "}} from " + sourceDescription
                             + " into regular API #" + id);
             return b;
         } catch (Exception e) {

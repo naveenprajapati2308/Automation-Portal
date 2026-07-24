@@ -21,6 +21,7 @@ public interface ExecutionHistoryRepository extends JpaRepository<ExecutionHisto
               AND (:scheduleId IS NULL OR h.scheduleId = :scheduleId)
               AND (:method IS NULL OR h.requestMethod = :method)
               AND (:groupExecutionId IS NULL OR h.groupExecutionId = :groupExecutionId)
+              AND (:topLevelOnly = false OR h.triggeredBy <> 'CHAIN_DEPENDENCY')
               AND (:from IS NULL OR h.executedAt >= :from)
               AND (:to IS NULL OR h.executedAt <= :to)
             ORDER BY h.executedAt DESC
@@ -32,6 +33,7 @@ public interface ExecutionHistoryRepository extends JpaRepository<ExecutionHisto
                                   @Param("scheduleId") Long scheduleId,
                                   @Param("method") String method,
                                   @Param("groupExecutionId") Long groupExecutionId,
+                                  @Param("topLevelOnly") boolean topLevelOnly,
                                   @Param("from") Instant from,
                                   @Param("to") Instant to,
                                   Pageable pageable);

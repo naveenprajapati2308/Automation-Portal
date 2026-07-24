@@ -856,7 +856,135 @@ Per page:
 
 ---
 
-## 12. How to Use This Document
+## 12. Session Update — 2026-07-19/21: Testrix Platform Merge, Gateway SSO, In-Shell Product Embedding, API Testing Re-theme
+
+Three sessions' worth of work restructured the repo from separate products into one Testrix
+platform. Prior detail lived only in scattered per-product `context/` folders and Claude's own
+memory, not in this file — this section folds that back in so it survives outside any one
+assistant session.
+
+### 12.1 Platform merge, gateway auth, port lockdown (2026-07-19, commit `db525b4`)
+
+- DB: all tables from `automation_portal` and `api_testing_platform` merged into one
+  `testrix_platform` MySQL schema (42 tables); old schemas kept empty as a safety net.
+  `api-testing-backend`'s Flyway history table renamed to `flyway_schema_history_apitest` to
+  avoid colliding with automation's `flyway_schema_history` in the shared schema.
+- Single Testrix login lives in `platform/shell/src/components/auth/AuthPage.jsx` (recovered
+  from automation-portal's original, rebranded only). Uses the automation backend's auth API and
+  localStorage session key, so one login covers shell + Automation + API Testing.
+- Gateway (`gateway/nginx.conf`) enforces the platform JWT via `auth_request` on `/apitest/api`
+  and `/genai` — nothing is reachable without a valid login (verified: 401 without token, 200 on
+  statics, login endpoint live).
+- Host ports locked down to only 15000 (gateway), 18080 (automation backend — OAuth redirect +
+  fully JWT-protected), 3306 (MySQL); api backend/genai/execution-manager/runner/artifacts are
+  now network-internal only.
+- Removed README-only placeholder folders (`core-service`, `shared/platform-client`,
+  `shared/java`, `performance-testing`) — folders exist only when real code does.
+- Compose project pinned to `testrix` so root-folder renames don't orphan containers.
+
+### 12.2 Shell restructuring: Admin/Profile/AI moved in, dashboard cleaned up (2026-07-20)
+
+- `platform/shell` is now the single sidebar entry point for the whole platform; the whole
+  `components/admin/` tree physically moved from automation-portal into
+  `platform/shell/src/components/admin/` (entry: "Super Admin" badge + "Admin Panel" button in
+  the shell's topbar, matching where it lived originally — not the sidebar).
+- `components/profile/` moved into the shell the same way; sidebar order is Dashboard,
+  Automation, API Testing, Performance, **Profile last** (matches automation's original order).
+- Real `/genai/chat`-wired AI Support panel in the shell's sidebar footer; automation-portal's
+  dummy stub chat removed entirely.
+- Dashboard "Open" buttons (duplicated sidebar nav) replaced with a real "Recent Activity" table
+  reusing the existing `ExecutionTable` shared component.
+- Two real CSS bugs fixed: `.open-btn` using `var(--sidebar-active-text)` (white-on-white in dark
+  theme); `nav a` had no styling (only `nav button` did), causing cramped/overlapping sidebar
+  rows.
+
+### 12.3 In-shell product embedding via iframe (2026-07-21)
+
+Automation and API Testing are both reachable from the shell sidebar as expandable sub-menus,
+with the product's real unmodified app shown via a same-origin iframe — **exactly one copy of
+each product's page code**, nothing duplicated into the shell. (An earlier attempt copied all 7
+Automation pages into the shell and was explicitly reversed by the owner — see
+[[feedback_no_code_duplication_across_products]] equivalent note below.) The generalizable
+pattern, for any future product:
+
+1. Shell `constants.js`: a `<PRODUCT>_NAV` array sits under `SIDEBAR_NAV`'s item as `children`.
+2. Shell `Sidebar` renders any item with `children` as a generic expand/collapse group.
+3. Shell `App.jsx`: one `<product>Page` state + hash branch in `parseHashRoute` +
+   `set<Product>PageAndHash` setter.
+4. One thin `platform/shell/src/components/<product>/<Product>Workspace.jsx` — just an
+   `<iframe src="/<product>/...">`.
+5. The embedded product detects `window.self !== window.top` and skips rendering its own
+   sidebar/topbar chrome when true.
+
+Automation uses hash routing, so the shell pokes `iframe.contentWindow.location.hash` directly
+(free — 0 extra JS fetches). API Testing uses react-router (`BrowserRouter`), where changing
+`iframe.src` path forces a reload, so `ApiTestingWorkspace.jsx` freezes `src` at mount and instead
+`postMessage`s `{type:'testrix:navigate', path}`, which the product's `Layout.jsx` turns into a
+`useNavigate()` call (0 reloads, confirmed).
+
+Two gotchas found and fixed the same day:
+- **Nested-app bug**: any `window.location.href = '/'` inside an embedded product (401
+  interceptor, no-session redirect) navigates the iframe itself, loading the whole shell nested
+  inside the iframe (duplicate Sidebar/Topbar visible). Fix: use `window.top.location.href = '/'`
+  instead (safe standalone too, since `window.top === window` when not framed). Fixed in
+  `products/automation-portal/frontend/src/App.jsx` and
+  `products/api-testing/frontend/src/api/client.js`.
+- **Double-scrollbar bug**: a fixed-height iframe scrolls internally when its content is taller.
+  Fixed with `shared/ui/iframe-resize.js` (`reportHeightToParent()`, `ResizeObserver`-driven,
+  called from both embedded apps) posting `{type:'testrix:resize', height}` to
+  `platform/shell/src/lib/useIframeAutoHeight.js`, which sets the iframe's height to match exactly
+  — page now scrolls as one unified surface.
+
+Verified via headless Chrome (`playwright-core`) against the real `testrix-gateway` container on
+port 15000 (dev servers can't simulate the gateway's `/automation/`+`/apitest/` subpaths — always
+verify through the real container, rebuilding with
+`docker compose build testrix-gateway && docker compose up -d testrix-gateway` after each change).
+Not yet verified with a real logged-in session against real backend data.
+
+### 12.4 API Testing re-themed onto shared design tokens (2026-07-21)
+
+`products/api-testing/frontend` was a Tailwind app with its own hardcoded dark theme
+(`bg-[#181818]`, emerald accents), disconnected from `shared/ui/theme.css` (the CSS-variable
+light/dark system the shell and Automation already share) — after embedding, it visually read as
+"a different app dropped into the workspace." Fixed with a full pass across 16 files rather than a
+palette tweak, because several color/status maps were already duplicated-with-drift before this
+work started (`STATUS_BADGE`, `CLASS_COLORS`, `METHOD_COLORS` each existed in 2–3 places with
+different values).
+
+Built (all under `products/api-testing/frontend/src/`):
+- `lib/statusColors.js` — canonical `STATUS_BADGE`, `CLASS_COLORS`/`CLASS_BADGE`, `METHOD_COLORS`,
+  `INPUT_CLASS`, `healthColor()`, `resolveThemeColors()` (resolves CSS vars to hex for Chart.js
+  canvas rendering).
+- `lib/useThemeVersion.js` — `MutationObserver` on `data-theme` so Chart.js/Monaco re-render on
+  theme flip.
+- `components/Panel.jsx`, `Button.jsx`, `StatusBadge.jsx`, `ThemedEditor.jsx` (Monaco wrapper).
+- `shared/ui/theme-sync.js` (new, monorepo-shared) — one `initThemeSync()` used by both
+  api-testing's `main.jsx` and Automation's `App.jsx`; also fixed a real latent bug where
+  Automation didn't live-update its theme when the shell's toggle was flipped from another tab
+  (now listens for the native `storage` event too).
+
+Verified in both light and dark against the real gateway container (required adding
+`COPY shared/ /repo/shared/` to the `api-ui` stage in `gateway/Dockerfile`, which hadn't needed
+the shared folder before). All 7 sidebar pages render with zero console errors in both themes;
+flipping the shell's theme toggle live-updates an already-open API Testing tab.
+
+### 12.5 State / next session
+
+- Scattered per-product `context/` docs (`products/api-testing/context/*.md`) were consolidated
+  into `docs/context/` in this pass — one shared context folder for the whole platform, not one
+  per product. This `PROJECT_CONTEXT.md` file itself stays at `docs/` root (it's the living
+  doc, not a moved-in file).
+- Admin workspace pages are not yet light-themed (deferred, owner will schedule).
+- If a 4th product gets the iframe-embed + theme treatment, follow §12.3's 5-step pattern and
+  §12.4's playbook exactly — do not copy page components into the shell, check for pre-existing
+  duplication before recoloring, reuse `shared/ui/theme-sync.js`.
+- As of this update a large amount of the above (shell restructuring, iframe embedding, theming)
+  is present in the working tree but not yet committed to git — commit remains the owner's call,
+  per standing convention (see §11.7).
+
+---
+
+## 13. How to Use This Document
 
 - Treat this as the **baseline mental model**. When you give new instructions, they add to or
   override specific sections here — they don't replace the whole architecture.

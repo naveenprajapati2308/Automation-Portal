@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api.js';
-import { Loader } from '../shared/Loader.jsx';
+import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 import { Modal } from '../shared/index.jsx';
 import {
   Globe2,
