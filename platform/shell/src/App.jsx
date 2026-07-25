@@ -14,6 +14,9 @@ import { AuthPage } from './components/auth/AuthPage.jsx';
 import { TrendChart } from './components/dashboard/TrendChart.jsx';
 import { DonutChart } from './components/dashboard/DonutChart.jsx';
 import { FullScreenLoader } from '../../../shared/ui/Loader.jsx';
+import { DestinationHighlight } from './search/components/DestinationHighlight.jsx';
+import { registerAction } from './search/searchActions.js';
+import { MODULE_COLOR } from './search/core/searchTypes.js';
 import appLogo from './assets/testrix_logo.png';
 
 const authHeader = () => {
@@ -255,6 +258,10 @@ export default function App() {
   const [chatInput, setChatInput] = useState('');
   const [chatBusy, setChatBusy] = useState(false);
 
+  // ── Search navigation state ─────────────────────────────────────────────
+  const [searchNavLoading, setSearchNavLoading] = useState(false);
+  const [destHighlight, setDestHighlight] = useState({ active: false, color: '#60b3e0' });
+
   useEffect(() => {
     const s = auth.get();
     if (!s?.accessToken) {
@@ -346,6 +353,19 @@ export default function App() {
     window.scrollTo(0, 0);
   }, [page, adminPage, automationPage, apitestPage]);
 
+  // ── Register search action handlers ────────────────────────────────────────
+  // Must live here (before the early returns) to satisfy Rules of Hooks.
+  // Guards on authed so actions are only registered for a logged-in session.
+  useEffect(() => {
+    if (!authed) return;
+    // These reference the state setters directly — the setters are stable
+    // across renders so no closure-staleness issues.
+    registerAction('auto-run',            () => setAutomationPage('execution'));
+    registerAction('api-create',          () => { setApitestPage('regular-apis'); setPage('apitest'); });
+    registerAction('api-schedule-create', () => { setApitestPage('scheduler');    setPage('apitest'); });
+    registerAction('admin-create-user',   () => { setPage('admin'); setAdminPage('user-management'); });
+  }, [authed]);
+
   if (authed === null) return <FullScreenLoader logoSrc={appLogo} subtitle="Loading TESTRIX" />;
   if (!authed) {
     return <AuthPage onAuthenticated={(nextSession) => { auth.set(nextSession); setAuthed(true); }} />;
@@ -395,6 +415,45 @@ export default function App() {
     forceLogout();
   };
 
+  // ── Search navigation ───────────────────────────────────────────────────
+  // Called by GlobalSearchDropdown when user selects a result.
+  // Existing navigation functions (goDashboard, setAutomationPageAndHash, etc.)
+  // are unchanged — navigateFromSearch simply orchestrates them.
+  const navigateFromSearch = (item) => {
+    const { nav, permission, disabled } = item;
+    if (disabled) return;
+    if (permission === 'SUPER_ADMIN' && !superAdmin) return;
+
+    setSearchNavLoading(true);
+    const color = MODULE_COLOR[nav.page] || '#60b3e0';
+
+    setTimeout(() => {
+      setSearchNavLoading(false);
+
+      // Page navigation
+      if (nav.page === 'dashboard')           goDashboard();
+      else if (nav.page === 'automation')     setAutomationPageAndHash(nav.sub);
+      else if (nav.page === 'apitest')        setApitestPageAndHash(nav.sub);
+      else if (nav.page === 'admin' && superAdmin) {
+        setPage('admin');
+        setAdminPageAndHash(nav.sub);
+      }
+      else if (nav.page === 'profile')        goProfile();
+
+      // Inline anchor scroll (for admin pages rendered in the shell)
+      if (nav.anchor) {
+        requestAnimationFrame(() => {
+          document.getElementById(nav.anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+
+      // Trigger destination highlight
+      setDestHighlight({ active: true, color });
+    }, 800);
+  };
+
+
+
   const sendChat = async () => {
     const text = chatInput.trim();
     if (!text || chatBusy) return;
@@ -434,6 +493,11 @@ export default function App() {
       : null;
 
   const apiTrendPoints = toTrendChartData(apiTrend);
+
+  // Show the Testrix loader while the dashboard is fetching its first data.
+  // Once either summary arrives (or fails) the loader clears — same UX as
+  // Automation and API Testing which use FullScreenLoader on their iframes.
+  const dashboardLoading = authed && autoSummary === null && apiSummary === null;
 
   const dashboardContent = (
     <>
@@ -694,6 +758,7 @@ export default function App() {
             notifications={notifications}
             user={user}
             onNavigateProfile={goProfile}
+            onNavigate={navigateFromSearch}
           />
         )}
       >
@@ -709,8 +774,23 @@ export default function App() {
           <ApiTestingWorkspace activePage={apitestPage} />
         ) : page === 'profile' ? (
           <Profile setNotice={notify} />
+        ) : dashboardLoading ? (
+          <FullScreenLoader logoSrc={appLogo} subtitle="Loading Dashboard" />
         ) : dashboardContent}
       </PortalLayout>
+
+      {/* ── Search: navigation loading overlay (uses existing Testrix loader) ── */}
+      {searchNavLoading && (
+        <FullScreenLoader logoSrc={appLogo} subtitle="Navigating…" />
+      )}
+
+      {/* ── Search: post-navigation destination highlight ─────────────── */}
+      <DestinationHighlight
+        active={destHighlight.active}
+        color={destHighlight.color}
+        duration={2000}
+        onDone={() => setDestHighlight((d) => ({ ...d, active: false }))}
+      />
 
       {notice && (
         <div

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Bell,
   Bot,
@@ -20,7 +20,6 @@ import {
   Monitor,
   Moon,
   Play,
-  Search,
   Send,
   Sun,
   TerminalSquare,
@@ -28,6 +27,7 @@ import {
   Workflow,
   X
 } from 'lucide-react';
+import { GlobalSearchDropdown } from '../../search/components/GlobalSearchDropdown.jsx';
 import { SIDEBAR_NAV } from '../../constants.js';
 import { getStoredThemePref, resolveEffectiveTheme } from '../../../../../shared/ui/theme-sync.js';
 import testrixLogo from '../../assets/testrix_logo.png';
@@ -328,11 +328,9 @@ export function Breadcrumb({ rootLabel, mid, pageTitle, onNavigateRoot }) {
 }
 
 // ── Layout: Topbar ───────────────────────────────────────────────────────────
-export function Topbar({ pageTitle, breadcrumbMid, superAdmin, onOpenAdmin, onNavigateHome, notifications, user, onNavigateProfile }) {
+export function Topbar({ pageTitle, breadcrumbMid, superAdmin, onOpenAdmin, onNavigateHome, notifications, user, onNavigateProfile, onNavigate }) {
   const [showNotifications, setShowNotifications] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [themePref, setThemePref] = useState(() => getStoredThemePref());
-  const searchRef = useRef(null);
 
   const chooseTheme = (pref) => {
     setThemePref(pref);
@@ -353,16 +351,7 @@ export function Topbar({ pageTitle, breadcrumbMid, superAdmin, onOpenAdmin, onNa
     return () => mq?.removeEventListener('change', onChange);
   }, [themePref]);
 
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  // Ctrl+K is now handled inside GlobalSearchDropdown itself.
 
   const unreadCount = notifications.filter((n) => n.unread).length;
 
@@ -376,16 +365,7 @@ export function Topbar({ pageTitle, breadcrumbMid, superAdmin, onOpenAdmin, onNa
       </div>
 
       <div className="topbar-right">
-        <div className="tb-search">
-          <Search size={15} />
-          <input
-            ref={searchRef}
-            placeholder="Global search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <span className="tb-kbd">Ctrl + K</span>
-        </div>
+        <GlobalSearchDropdown onNavigate={onNavigate} superAdmin={superAdmin} />
 
         <div style={{ position: 'relative' }}>
           <button
