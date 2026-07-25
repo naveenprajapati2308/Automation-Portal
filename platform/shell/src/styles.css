@@ -101,24 +101,12 @@ nav {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--sidebar-scrollbar) transparent;
+  scrollbar-width: none;
 }
 
 .sidebar>nav::-webkit-scrollbar,
 .admin-sidebar>nav::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sidebar>nav::-webkit-scrollbar-track,
-.admin-sidebar>nav::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar>nav::-webkit-scrollbar-thumb,
-.admin-sidebar>nav::-webkit-scrollbar-thumb {
-  background: var(--sidebar-scrollbar);
-  border-radius: 999px;
+  display: none;
 }
 
 .nav-section-label {
@@ -257,7 +245,7 @@ nav a.active svg {
 .sidebar-footer {
   flex: 0 0 auto;
   display: grid;
-  gap: 10px;
+  gap: 7px;
   padding-top: 14px;
   margin-top: 14px;
   border-top: 1px solid var(--sidebar-edge);
@@ -1263,11 +1251,12 @@ tr:last-child td {
   border-bottom: 1px solid #e2eaf3;
   padding-bottom: 20px;
   margin-bottom: 22px;
+  justify-content: center;
 }
 
 .auth-logo {
-  width: 74px;
-  height: 46px;
+  width: 80px;
+  height: 50px;
 }
 
 .auth-tabs {
@@ -4277,6 +4266,200 @@ button.tb-chip:hover {
 .status-chip-bad {
   background: var(--danger-bg-soft);
   color: var(--danger-text);
+}
+
+/* ── Dashboard redesign — KPI tiles, donut/scheduling row, status tiles ───── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.kpi-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 4px 14px var(--shadow-a35);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.kpi-tile:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 28px var(--shadow-a45);
+  border-color: var(--accent-border-soft);
+}
+
+.kpi-tile:hover .kpi-icon {
+  transform: scale(1.1) rotate(-6deg);
+}
+
+.kpi-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.kpi-icon-accent {
+  background: var(--accent-bg-soft);
+  color: var(--accent-text);
+}
+
+.kpi-icon-success {
+  background: var(--success-bg-soft);
+  color: var(--success-text);
+}
+
+.kpi-icon-danger {
+  background: var(--danger-bg-soft);
+  color: var(--danger-text);
+}
+
+.kpi-icon-warning {
+  background: var(--warning-bg-soft);
+  color: var(--warning-text);
+}
+
+.kpi-icon-info {
+  background: color-mix(in srgb, var(--info-text) 16%, transparent);
+  color: var(--info-text);
+}
+
+.kpi-value {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.kpi-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.panel-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .panel-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel-box {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  background: var(--bg-surface);
+  box-shadow: 0 4px 14px var(--shadow-a35);
+}
+
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.donut-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.donut-legend-label {
+  min-width: 56px;
+  font-weight: 600;
+}
+
+.donut-legend-value {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.status-tile-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: 8px;
+}
+
+.status-tile {
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: 10px;
+  background: var(--bg-surface-2);
+}
+
+.status-tile-value {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.status-tile-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.tile-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 10px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  padding: 8px 4px;
+}
+
+.tile-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile-value {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.tile-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
 }
 
 .topbar-label {

@@ -8,9 +8,9 @@ async function main() {
   await page.fill('input[type="password"]', 'password');
   await page.click('button[type="submit"]');
   await page.waitForTimeout(2000);
-  await page.locator('text=Automation').first().click().catch(()=>{});
+  await page.locator('text=Automation').first().click().catch(() => { });
   await page.waitForTimeout(1000);
-  await page.locator('text=Execution Center').first().click().catch(()=>{});
+  await page.locator('text=Execution Center').first().click().catch(() => { });
   await page.waitForTimeout(3000);
 
   const iframeEl = await page.waitForSelector('iframe');
@@ -19,11 +19,10 @@ async function main() {
 
   const before = await frame.locator('tr', { hasText: 'AUTO-20260722055629' }).innerText();
   console.log('BEFORE (exec 11 row):', before.replace(/\s+/g, ' '));
-  const beforeRunning = await frame.locator('tr', { hasText: 'AUTO-20260722054822' }).innerText().catch(()=>'not found');
+  const beforeRunning = await frame.locator('tr', { hasText: 'AUTO-20260722054822' }).innerText().catch(() => 'not found');
   console.log('BEFORE (exec 10 row):', beforeRunning.replace(/\s+/g, ' '));
 
-  // Simulate the tab going into the background (inside the iframe's own document, since
-  // visibilitychange is per-document, and App.jsx's listener is registered on this document).
+
   await frame.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
     Object.defineProperty(document, 'hidden', { value: true, configurable: true });
@@ -45,10 +44,10 @@ async function main() {
 
   const after = await frame.locator('tr', { hasText: 'AUTO-20260722055629' }).innerText();
   console.log('AFTER (exec 11 row):', after.replace(/\s+/g, ' '));
-  const afterRunning = await frame.locator('tr', { hasText: 'AUTO-20260722054822' }).innerText().catch(()=>'not found');
+  const afterRunning = await frame.locator('tr', { hasText: 'AUTO-20260722054822' }).innerText().catch(() => 'not found');
   console.log('AFTER (exec 10 row):', afterRunning.replace(/\s+/g, ' '));
 
   await page.screenshot({ path: 'tab-switch-verify.png' });
   await browser.close();
 }
-main().catch(e=>{console.error(e);process.exit(1)});
+main().catch(e => { console.error(e); process.exit(1) });

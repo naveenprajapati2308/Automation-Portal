@@ -92,6 +92,9 @@ public class ProfileController {
             throw new IllegalArgumentException("Email already exists");
         }
         User user = authenticatedUserService.currentUser();
+        if (usesEmailAsUsername(user) && userRepository.existsByUsername(request.newEmail())) {
+            throw new IllegalArgumentException("Email already exists");
+        }
         user.setPendingEmail(request.newEmail());
         userRepository.save(user);
         String otp = otpService.send(user.getUsername(), request.newEmail(), OtpPurpose.EMAIL_CHANGE);
@@ -106,12 +109,27 @@ public class ProfileController {
             throw new IllegalArgumentException("Email change request not found");
         }
         otpService.verify(request.newEmail(), request.otp(), OtpPurpose.EMAIL_CHANGE);
+        if (usesEmailAsUsername(user)) {
+            user.setUsername(request.newEmail());
+        }
         user.setEmail(request.newEmail());
         user.setPendingEmail(null);
         user.setEmailVerified(true);
         userRepository.save(user);
         auditService.record(user, AuditAction.EMAIL_CHANGE, "Email changed", servletRequest);
         return ApiResponse.ok(UserProfileDto.from(user));
+    }
+
+    /**
+     * Login accepts either the username or email column, and self-service accounts are
+     * created with username == email. If we only ever updated email on a change, the old
+     * address would keep authenticating forever via the stale username (this caused a
+     * crash-loop bug where the seeder tried to recreate a "vacated" address). Only sync
+     * when the username still mirrors the email, so admin-assigned custom usernames aren't
+     * silently overwritten.
+     */
+    private boolean usesEmailAsUsername(User user) {
+        return user.getEmail() != null && user.getEmail().equalsIgnoreCase(user.getUsername());
     }
 
     @GetMapping("/audit-logs")

@@ -185,6 +185,327 @@ Every module should follow the same design system.
 ## and we can implement ui shre in image not to change just ui in which card have hover efeect aura effect on user name and clean structure 
 
 ## and one more thing that isbedcrum of the pages ae still have old even we changed all architeture 
+## 8 
+# Implement Enterprise-Level Global Search (Application-Wide)
+
+I want to replace the current **dummy Global Search** with a fully functional **enterprise-grade application-wide search system**.
+
+Before implementing anything, **analyze the complete project architecture, routing structure, modules, shared components, layouts, and navigation flow** so the solution fits naturally into the existing application.
+
+## Core Requirements
+
+The Global Search must be a **shared feature**, not a page-specific implementation.
+
+Create it inside the shared/common layer so every current and future module can use the same search engine.
+
+Example:
+
+* Shared Components
+* Shared Services
+* Shared Hooks
+* Shared Search Provider
+* Shared Search Index
+
+Do **not** duplicate search logic inside individual modules.
+
+---
+
+# Search Scope
+
+The search should work across the **entire application**, including every module.
+
+Examples:
+
+* Dashboard
+* API Testing
+* Automation
+* Performance Testing
+* Reports
+* Scheduler
+* Executions
+* Collections
+* Settings
+* Users
+* Roles
+* Analytics
+* Future modules
+
+Every searchable page, feature, menu item, tab, card, button, configuration page, and major section should be indexed automatically.
+
+---
+
+# Intelligent Search Index
+
+Build a centralized search index.
+
+Each searchable item should contain information like:
+
+* Module Name
+* Page Name
+* Section
+* Route
+* Keywords
+* Synonyms
+* Description
+* Navigation Path
+* Icon
+* Permission (if applicable)
+
+The search should never depend on hardcoded conditions inside components.
+
+Instead, maintain one centralized searchable registry.
+
+---
+
+# Real-Time Search
+
+Search should start while typing.
+
+No Search button.
+
+Results should update instantly.
+
+Implement:
+
+* Debouncing
+* Ranking
+* Relevance scoring
+* Fast filtering
+
+Search should remain smooth even after thousands of searchable items are added.
+
+---
+
+# Search Ranking
+
+Exact match should appear first.
+
+Then:
+
+* Starts with
+* Partial match
+* Keyword match
+* Synonym match
+
+Example:
+
+Searching:
+
+```
+report
+```
+
+Should return:
+
+Reports
+
+Execution Report
+
+Performance Report
+
+API Report
+
+Automation Report
+
+Analytics Report
+
+---
+
+Searching:
+
+```
+api
+```
+
+Should return every API-related page across the application.
+
+---
+
+# Multiple Match Support
+
+If the same keyword exists in multiple modules, display all matching results.
+
+Example:
+
+Search:
+
+```
+Settings
+```
+
+Results:
+
+Automation → Settings
+
+API Testing → Settings
+
+Performance → Settings
+
+System → Settings
+
+Admin → Settings
+
+Each result should clearly show where it belongs.
+
+---
+
+# Search Result Design
+
+Use the Docker Desktop search experience as inspiration.
+
+The dropdown should include:
+
+* Recent Searches
+* Suggested Searches
+* Live Search Results
+* Grouped Results by Module
+* Icons
+* Route Information
+
+Recent searches should be stored locally.
+
+Suggested searches should be based on the available application features.
+
+---
+
+# Navigation Behavior
+
+When the user clicks a result:
+
+Navigate automatically to the correct page.
+
+If required:
+
+* Open the correct module
+* Expand the required sidebar
+* Open the correct tab
+* Scroll to the target section
+* Highlight the destination briefly
+
+The user should land exactly where the searched item exists.
+
+---
+
+# Loading Experience
+
+When navigating from search:
+
+Show a global loading indicator for approximately **1 second** to create a smooth transition before opening the destination.
+
+The transition should feel intentional and polished.
+
+---
+
+# Highlight Search Matches
+
+Highlight the matching text inside search results.
+
+Example:
+
+Search:
+
+```
+report
+```
+
+Display:
+
+Execution **Report**
+
+Performance **Report**
+
+---
+
+# Recent Searches
+
+Maintain a history of recent searches.
+
+Features:
+
+* Most recent first
+* Remove individual items
+* Clear all history
+* Persist using Local Storage (or backend later if required)
+
+---
+
+# Suggested Searches
+
+Before typing anything, show useful suggestions such as:
+
+* API Testing
+* Automation
+* Performance Testing
+* Reports
+* Executions
+* Scheduler
+* Analytics
+* Collections
+* Settings
+
+---
+
+# Keyboard Support
+
+Support:
+
+* Arrow Up
+* Arrow Down
+* Enter
+* Escape
+* Tab
+
+The search should be fully keyboard accessible.
+
+---
+
+# Scalability
+
+The implementation should be designed for future growth.
+
+When new pages or modules are added, developers should only need to register them in the centralized search registry. No changes should be required in the search component itself.
+
+---
+
+# Performance
+
+Optimize for speed.
+
+Implement:
+
+* Debounced searching
+* Memoization
+* Efficient indexing
+* Lazy loading where appropriate
+* Minimal unnecessary re-renders
+
+The search should remain fast even with hundreds or thousands of searchable entries.
+
+---
+
+# Code Architecture
+
+Create a reusable architecture with shared components such as:
+
+* Global Search Provider
+* Search Service
+* Search Registry
+* Search Hook
+* Search Dropdown
+* Search Result Item
+* Recent Search Manager
+* Search Utilities
+
+Keep the code modular, reusable, and maintainable.
+
+---
+
+# Final Goal
+
+The final result should feel comparable to enterprise products like Docker Desktop, VS Code Command Palette, Notion Search, or modern developer platforms.
+
+This should become the single, centralized search system for the entire Testrix platform, providing fast, intelligent, scalable, and reusable navigation across every module.
+
 
 ---
 

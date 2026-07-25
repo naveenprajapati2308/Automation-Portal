@@ -26,7 +26,7 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (userRepository.findByEmail("superadmin@gmail.com").isEmpty()) {
+        if (userRepository.findByUsernameOrEmail("superadmin@gmail.com", "superadmin@gmail.com").isEmpty()) {
             User superAdmin = new User();
             superAdmin.setUsername("superadmin@gmail.com");
             superAdmin.setEmail("superadmin@gmail.com");
@@ -38,7 +38,7 @@ public class DataSeeder implements CommandLineRunner {
             superAdmin.setPasswordHash(passwordEncoder.encode("password"));
             userRepository.save(superAdmin);
         } else {
-            userRepository.findByEmail("superadmin@gmail.com").ifPresent(superAdmin -> {
+            userRepository.findByUsernameOrEmail("superadmin@gmail.com", "superadmin@gmail.com").ifPresent(superAdmin -> {
                 boolean changed = false;
                 if (!"superadmin@gmail.com".equals(superAdmin.getUsername())) {
                     superAdmin.setUsername("superadmin@gmail.com");

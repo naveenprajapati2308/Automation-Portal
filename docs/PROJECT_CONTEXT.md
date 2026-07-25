@@ -982,6 +982,52 @@ flipping the shell's theme toggle live-updates an already-open API Testing tab.
   is present in the working tree but not yet committed to git — commit remains the owner's call,
   per standing convention (see §11.7).
 
+### 12.6 Iframe resize, dashboard cleanup, theme System option, pagination pass (2026-07-24)
+
+- **Fixed a real iframe auto-height bug**: `shared/ui/iframe-resize.js`'s `reportHeightToParent()`
+  watched `document.documentElement` (`<html>`) with a `ResizeObserver`. `<html>`'s box mostly
+  tracks the viewport, not in-page content, so the observer barely fired when content *shrank*
+  (collapsing a row, changing page size, fewer records after a filter) — the shell iframe only
+  ever grew, leaving dead scrollable blank space below the real content. Fixed by observing
+  `document.body` instead (a plain block box that always sizes to its content). One shared file,
+  fixes both API Testing's and Automation's embeds.
+- **Removed a duplicate "Platform Management" button** from the Global Dashboard
+  (`platform/shell/src/App.jsx`) — it opened the same admin workspace as the topbar's existing
+  "Admin Panel" chip. Simplified `.overview-cards`/`.card` CSS accordingly.
+- **Theme: added a System option.** Topbar's Light/Dark toggle is now a 3-way
+  System/Light/Dark segmented switch (`.tb-theme-switch` in `layout/index.jsx`). Logic
+  centralized in `shared/ui/theme-sync.js` (`getStoredThemePref()`, `resolveEffectiveTheme()`,
+  `initThemeSync()` — resolves `'system'` via `matchMedia`, re-resolves live on OS scheme change).
+  Automation's Bootstrap theme bridge (`data-bs-theme`) was updated to call
+  `resolveEffectiveTheme()` instead of writing the raw stored value directly (would've broken
+  once `'system'` became a valid value). Accent color intentionally stayed fixed violet — no
+  color-swatch picker was requested.
+- Added a hover effect (lift + shadow + accent border + icon rotate) to the Global Dashboard's
+  4 KPI cards.
+- **Pagination pass across API Testing**: `CollectionRequestsList.jsx` (collection's request
+  list) and `Scheduler.jsx`'s Schedules tab were rendering flat/grouped tables with no
+  `Pagination` component wired in at all — fixed, following the same pattern already used by
+  `History.jsx`/`GroupsPanel.jsx`/`TesterCollections.jsx`. Condense-to-`1 2 … N` threshold in
+  `Pagination.jsx` lowered from `totalPages <= 7` to `<= 5` (owner's choice, so a 7-page list
+  condenses instead of spelling out every number). Default page size changed 20 → 10 in the few
+  places that still had 20 (`History.jsx` x2, `CollectionRequestsList.jsx`, `Scheduler.jsx`) —
+  `GroupsPanel.jsx`/`TesterCollections.jsx` already defaulted to 10.
+- **A same-day platform-wide pagination consolidation was built, then explicitly reverted** —
+  owner said it was a mistaken instruction. It had moved `Pagination.jsx` and `DataTable.jsx`
+  into `shared/ui/` (deleting the `DataTable.jsx` duplicate flagged in §12.6's own audit below),
+  plus a new dependency-free `shared/ui/icons.jsx` (lucide-react can't resolve from `shared/ui/`
+  in the Docker build — it's outside every app's own `node_modules` tree, same constraint that
+  already keeps `Loader.jsx` dependency-free). All reverted byte-for-byte (confirmed via matching
+  Docker image hash pre/post-revert) — **do not redo this consolidation without an explicit new
+  ask**; `DataTable.jsx` is back to being duplicated in `platform/shell` and
+  `products/automation-portal/frontend`.
+- **Code duplication audit** (read-only, this session): besides `DataTable.jsx` above,
+  `TrendChart.jsx` is also duplicated between shell and automation-portal (a documented,
+  deliberate port from an earlier session, lower priority). `shared/ui/Loader.jsx` proves
+  cross-app `.jsx` sharing works today (monorepo-relative import, each app's own Vite transpiles
+  it) — the only real constraint is that anything moved into `shared/ui/` must be dependency-free
+  or bring its deps along as plain code (see the `icons.jsx` workaround above).
+
 ---
 
 ## 13. How to Use This Document

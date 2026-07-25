@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
-  ArrowUpRight, Clock, Play, Sparkles, TimerReset, Zap
+  AlertTriangle, ArrowUpRight, CalendarCheck, CalendarClock, CheckCircle2, Clock,
+  Layers, ListTodo, Loader2, Play, Sparkles, Timer, TimerReset, XCircle, Zap
 } from 'lucide-react';
 import { api, auth } from './api.js';
 import { ADMIN_WORKSPACE_NAV_FLAT, API_TESTING_NAV, AUTOMATION_NAV, isSuperAdmin } from './constants.js';
@@ -10,8 +11,8 @@ import { AutomationWorkspace } from './components/automation/AutomationWorkspace
 import { ApiTestingWorkspace } from './components/apitesting/ApiTestingWorkspace.jsx';
 import { Profile } from './components/profile/Profile.jsx';
 import { AuthPage } from './components/auth/AuthPage.jsx';
-import { ExecutionTable } from './components/shared/index.jsx';
 import { TrendChart } from './components/dashboard/TrendChart.jsx';
+import { DonutChart } from './components/dashboard/DonutChart.jsx';
 import { FullScreenLoader } from '../../../shared/ui/Loader.jsx';
 import appLogo from './assets/testrix_logo.png';
 
@@ -61,6 +62,21 @@ function Stat({ label, value, tone }) {
     <div className="stat">
       <div className={`stat-value ${tone || ''}`}>{value}</div>
       <div className="stat-label">{label}</div>
+    </div>
+  );
+}
+
+// ── Dashboard: compact KPI tile (icon + big value + label) — the redesigned
+// per-product overview sections use a row of these in place of the plain
+// `.stats` list, matching the new dashboard layout.
+function KpiTile({ icon: Icon, tone, value, label }) {
+  return (
+    <div className="kpi-tile">
+      <div className={`kpi-icon kpi-icon-${tone}`}><Icon size={18} /></div>
+      <div>
+        <div className="kpi-value">{value}</div>
+        <div className="kpi-label">{label}</div>
+      </div>
     </div>
   );
 }
@@ -469,92 +485,114 @@ export default function App() {
       <section className="product-overview">
         <div className="panel-title"><Play size={16} /> Automation Overview <HealthDot state={health.automation} /></div>
         {autoSummary ? (
-          <div className="split">
-            <div>
-              <div className="stats">
-                <Stat label="Total executions" value={autoSummary.totalExecutions ?? 0} />
-                <Stat label="Pass rate" value={`${autoSummary.passRate ?? 0}%`} tone="good" />
-                <Stat label="Fail rate" value={`${autoSummary.failRate ?? 0}%`} tone="bad" />
-                <Stat label="Running" value={autoSummary.runningExecutions ?? 0} />
-                <Stat label="Queued" value={autoSummary.queuedExecutions ?? 0} />
-                <Stat label="Avg duration" value={`${autoSummary.averageDuration ?? 0}s`} />
-              </div>
-              {autoSummary.lastExecutionStatus && (
-                <div className="panel-subrow">
-                  <span className="panel-subrow-label">Last run</span>
-                  <span className={`status ${autoSummary.lastExecutionStatus.toLowerCase()}`}>
-                    {autoSummary.lastExecutionStatus}
-                  </span>
-                </div>
-              )}
-              <div className="panel-subrow">
-                <span className="panel-subrow-label">Pass / Fail / Skip (tests)</span>
-                <span className="panel-subrow-value">
-                  {autoSummary.passedTests ?? 0} / {autoSummary.failedTests ?? 0} / {autoSummary.skippedTests ?? 0}
-                </span>
-              </div>
-              {autoTrends && autoTrends.length > 0 && (
-                <div className="mini-block">
-                  <div className="mini-block-title">Execution trend (7d)</div>
-                  <TrendChart data={autoTrends} />
-                </div>
-              )}
-              {autoModuleHealth && autoModuleHealth.length > 0 && (
-                <div className="mini-block">
-                  <div className="mini-block-title">Module health (30d)</div>
-                  <ModuleHealthTable modules={autoModuleHealth} />
-                </div>
-              )}
+          <>
+            <div className="kpi-row">
+              <KpiTile icon={Play} tone="accent" value={autoSummary.totalExecutions ?? 0} label="Total Executions" />
+              <KpiTile icon={CheckCircle2} tone="success" value={`${autoSummary.passRate ?? 0}%`} label="Pass Rate" />
+              <KpiTile icon={XCircle} tone="danger" value={`${autoSummary.failRate ?? 0}%`} label="Fail Rate" />
+              <KpiTile icon={Loader2} tone="info" value={autoSummary.runningExecutions ?? 0} label="Running" />
+              <KpiTile icon={ListTodo} tone="warning" value={autoSummary.queuedExecutions ?? 0} label="Queued" />
+              <KpiTile icon={Timer} tone="accent" value={`${autoSummary.averageDuration ?? 0}s`} label="Avg Duration" />
             </div>
-            <div>
-              <div className="mini-block-title" style={{ marginBottom: 8 }}>Recent Activity</div>
-              {recentActivity && recentActivity.length > 0
-                ? <ExecutionTable executions={recentActivity} />
-                : <p className="panel-empty">No executions yet.</p>}
+
+            <div className="panel-row">
+              <div className="panel-box">
+                <div className="mini-block-title">Execution Status Mix</div>
+                <DonutChart
+                  segments={[
+                    { key: 'passed', label: 'Passed', value: autoSummary.passedTests ?? 0, color: 'var(--success-text)' },
+                    { key: 'failed', label: 'Failed', value: autoSummary.failedTests ?? 0, color: 'var(--danger-text)' },
+                    { key: 'skipped', label: 'Skipped', value: autoSummary.skippedTests ?? 0, color: 'var(--warning-text)' },
+                  ]}
+                />
+              </div>
+              <div className="panel-box">
+                <div className="mini-block-title">Run Summary</div>
+                <div className="tile-row">
+                  <div className="tile">
+                    <div className="tile-icon kpi-icon-accent"><Clock size={15} /></div>
+                    <div className="tile-value">{autoSummary.lastExecutionStatus ?? '—'}</div>
+                    <div className="tile-label">Last Run</div>
+                  </div>
+                  <div className="tile">
+                    <div className="tile-icon kpi-icon-info"><Layers size={15} /></div>
+                    <div className="tile-value">{autoModuleHealth?.length ?? 0}</div>
+                    <div className="tile-label">Modules Tracked</div>
+                  </div>
+                  <div className="tile">
+                    <div className="tile-icon kpi-icon-success"><CalendarCheck size={15} /></div>
+                    <div className="tile-value">{recentActivity?.length ?? 0}</div>
+                    <div className="tile-label">Recent Runs</div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+
+            {autoTrends && autoTrends.length > 0 && (
+              <div className="mini-block">
+                <div className="mini-block-title">Execution Trend (7D)</div>
+                <TrendChart data={autoTrends} />
+              </div>
+            )}
+
+            <div className="mini-block">
+              <div className="mini-block-title">Module Health (30D)</div>
+              {autoModuleHealth && autoModuleHealth.length > 0
+                ? <ModuleHealthTable modules={autoModuleHealth} />
+                : <p className="panel-empty">No module activity yet.</p>}
+            </div>
+          </>
         ) : <p className="panel-empty">Automation stats unavailable.</p>}
       </section>
 
       <section className="product-overview">
         <div className="panel-title"><Zap size={16} /> API Testing Overview <HealthDot state={health.apitest} /></div>
         {apiSummary ? (
-          <div className="split">
-            <div>
-              <div className="stats">
-                <Stat label="Executions" value={apiSummary.totalExecutions ?? 0} />
-                <Stat label="Success rate" value={`${Math.round(apiSummary.successRate ?? 0)}%`} tone="good" />
-                <Stat label="Total APIs" value={apiSummary.totalRegularApis ?? 0} />
-                <Stat label="Failed APIs" value={apiSummary.failed ?? 0} tone="bad" />
-                <Stat label="Avg response" value={`${Math.round(apiSummary.avgDurationMs ?? 0)}ms`} />
-                <Stat label="Active schedules" value={apiSummary.activeSchedules ?? 0} />
+          <>
+            <div className="kpi-row">
+              <KpiTile icon={Zap} tone="accent" value={apiSummary.totalExecutions ?? 0} label="Executions" />
+              <KpiTile icon={CheckCircle2} tone="success" value={`${Math.round(apiSummary.successRate ?? 0)}%`} label="Success Rate" />
+              <KpiTile icon={Layers} tone="info" value={apiSummary.totalRegularApis ?? 0} label="Total APIs" />
+              <KpiTile icon={XCircle} tone="danger" value={apiSummary.failed ?? 0} label="Failed APIs" />
+              <KpiTile icon={Timer} tone="accent" value={`${Math.round(apiSummary.avgDurationMs ?? 0)}ms`} label="Avg Response" />
+              <KpiTile icon={CalendarClock} tone="warning" value={apiSummary.activeSchedules ?? 0} label="Active Schedules" />
+            </div>
+
+            <div className="panel-row">
+              <div className="panel-box">
+                <div className="mini-block-title">Response Status Mix (30D)</div>
+                {apiSummary.statusClassBreakdown ? (
+                  <div className="status-tile-row">
+                    {Object.entries(apiSummary.statusClassBreakdown).map(([cls, count]) => {
+                      const tone = chipTone(cls);
+                      const bg = tone === 'good' ? 'var(--success-bg-soft)' : tone === 'bad' ? 'var(--danger-bg-soft)' : 'var(--bg-surface-2)';
+                      const fg = tone === 'good' ? 'var(--success-text)' : tone === 'bad' ? 'var(--danger-text)' : 'var(--text-primary)';
+                      return (
+                        <div key={cls} className="status-tile" style={{ background: bg }}>
+                          <span className="status-tile-value" style={{ color: fg }}>{count}</span>
+                          <span className="status-tile-label">{cls}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : <p className="panel-empty">No response data yet.</p>}
               </div>
-              {apiSummary.statusClassBreakdown && (
-                <div className="mini-block">
-                  <div className="mini-block-title">Response status mix (30d)</div>
-                  <div className="chip-row">
-                    {Object.entries(apiSummary.statusClassBreakdown).map(([cls, count]) => (
-                      <span key={cls} className={`status-chip status-chip-${chipTone(cls)}`}>
-                        {cls} <strong>{count}</strong>
-                      </span>
-                    ))}
+              <div className="panel-box">
+                <div className="mini-block-title">Scheduling Overview</div>
+                <div className="tile-row">
+                  <div className="tile">
+                    <div className="tile-icon kpi-icon-info"><CalendarClock size={15} /></div>
+                    <div className="tile-value">{apiSummary.totalSchedules ?? 0}</div>
+                    <div className="tile-label">Total Schedules</div>
+                  </div>
+                  <div className="tile">
+                    <div className="tile-icon kpi-icon-warning"><AlertTriangle size={15} /></div>
+                    <div className="tile-value">{apiSummary.failingSchedules?.length ?? 0}</div>
+                    <div className="tile-label">Failing Schedules</div>
                   </div>
                 </div>
-              )}
-              <div className="mini-block">
-                <div className="mini-block-title">Scheduling</div>
-                <div className="panel-subrow">
-                  <span className="panel-subrow-label">Total schedules</span>
-                  <span className="panel-subrow-value">{apiSummary.totalSchedules ?? 0}</span>
-                </div>
-                <div className="panel-subrow">
-                  <span className="panel-subrow-label">Failing schedules</span>
-                  <span className={`inline-flag ${apiSummary.failingSchedules?.length ? 'bad' : 'good'}`}>
-                    {apiSummary.failingSchedules?.length ?? 0}
-                  </span>
-                </div>
                 {apiSummary.nextRuns?.[0] && (
-                  <div className="panel-subrow">
+                  <div className="panel-subrow" style={{ marginTop: 10 }}>
                     <span className="panel-subrow-label"><Clock size={12} /> Next run</span>
                     <span className="panel-subrow-value" title={apiSummary.nextRuns[0].name}>
                       {apiSummary.nextRuns[0].name} · {formatWhen(apiSummary.nextRuns[0].nextRunAt)}
@@ -563,19 +601,21 @@ export default function App() {
                 )}
               </div>
             </div>
-            <div>
-              <div className="mini-block-title" style={{ marginBottom: 8 }}>Execution trend (7d)</div>
+
+            <div className="mini-block">
+              <div className="mini-block-title">Execution Trend (7D)</div>
               {apiTrendPoints.length > 0
                 ? <TrendChart data={apiTrendPoints} />
                 : <p className="panel-empty">No trend data yet.</p>}
-              {apiSummary.moduleStats && apiSummary.moduleStats.length > 0 && (
-                <div className="mini-block">
-                  <div className="mini-block-title">Module summary</div>
-                  <ApiModuleStatsTable modules={apiSummary.moduleStats} />
-                </div>
-              )}
             </div>
-          </div>
+
+            {apiSummary.moduleStats && apiSummary.moduleStats.length > 0 && (
+              <div className="mini-block">
+                <div className="mini-block-title">Module Summary</div>
+                <ApiModuleStatsTable modules={apiSummary.moduleStats} />
+              </div>
+            )}
+          </>
         ) : <p className="panel-empty">API Testing stats unavailable.</p>}
       </section>
 

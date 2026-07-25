@@ -189,7 +189,7 @@ nav button.active svg {
 .sidebar-footer {
   flex: 0 0 auto;
   display: grid;
-  gap: 10px;
+  gap: 7px;
   padding-top: 14px;
   margin-top: 14px;
   border-top: 1px solid var(--sidebar-edge);
@@ -1195,11 +1195,12 @@ tr:last-child td {
   border-bottom: 1px solid #e2eaf3;
   padding-bottom: 20px;
   margin-bottom: 22px;
+  justify-content: center;
 }
 
 .auth-logo {
-  width: 74px;
-  height: 46px;
+  width: 80px;
+  height: 50px;
 }
 
 .auth-tabs {
