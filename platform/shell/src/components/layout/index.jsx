@@ -342,7 +342,7 @@ export function Breadcrumb({ items = [], rootLabel = 'Home', mid, pageTitle, onN
 }
 
 // ── Layout: Topbar ───────────────────────────────────────────────────────────
-export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, onOpenAdmin, onNavigateHome, notifications, user, onNavigateProfile, onNavigate }) {
+export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, onOpenAdmin, onNavigateHome, notifications, user, onNavigateProfile, onNavigate, topbarExtra }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [themePref, setThemePref] = useState(() => getStoredThemePref());
 
@@ -379,6 +379,7 @@ export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, 
       </div>
 
       <div className="topbar-right">
+        {topbarExtra}
         <GlobalSearchDropdown onNavigate={onNavigate} superAdmin={superAdmin} />
 
         <div style={{ position: 'relative' }}>

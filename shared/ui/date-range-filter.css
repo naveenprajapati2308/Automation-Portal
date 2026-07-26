@@ -1,0 +1,32 @@
+/* Global Date Range Filter — visually matches automation-portal's .db-range/.db-select
+   (products/automation-portal/frontend/src/components/dashboard/dashboard.css) so every
+   dashboard's filter looks identical. Duplicated, not shared, to keep product bundles decoupled. */
+.dr-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dr-select {
+  height: 36px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+.dr-select:focus {
+  border-color: #4f6ef7;
+}
+.dr-select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}

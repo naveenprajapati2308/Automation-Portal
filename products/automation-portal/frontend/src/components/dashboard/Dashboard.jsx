@@ -15,6 +15,8 @@ import {
 } from 'lucide-react';
 import { api, auth, API_BASE } from '../../api.js';
 import { Loader } from '../../../../../../shared/ui/Loader.jsx';
+import { useDateRange } from '../../../../../../shared/ui/useDateRange.js';
+import { DATE_RANGE_SCOPES } from '../../../../../../shared/ui/date-range.js';
 
 // Import child components
 import { TrendChart } from './TrendChart.jsx';
@@ -35,7 +37,7 @@ const formatDurationHMS = (seconds) => {
 };
 
 export function Dashboard({ onSelectExecution, onNavigate }) {
-  const [range, setRange] = useState('7d');
+  const [range, setRange] = useDateRange(DATE_RANGE_SCOPES.AUTOMATION, '7d');
   const [loading, setLoading] = useState(true);
   const [selectedEnvId, setSelectedEnvId] = useState('');
 
@@ -65,7 +67,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         flakyTestData,
         modulesData
       ] = await Promise.all([
-        api.dashboardSummary().catch(() => null),
+        api.dashboardSummary(range).catch(() => null),
         api.dashboardRecentActivity().catch(() => []),
         api.environments().catch(() => []),
         api.dashboardModuleHealth(range).catch(() => []),

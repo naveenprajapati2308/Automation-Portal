@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { Activity, Zap, CheckCircle2, XCircle, Clock, TrendingUp } from 'lucide-react';
 import { api } from '../api/client.js';
 import { StatusBadge, TypeBadge } from '../components/StatusBadge.jsx';
+import { useDateRange } from '../../../../../shared/ui/useDateRange.js';
+import { DateRangeFilter } from '../../../../../shared/ui/DateRangeFilter.jsx';
+import { DATE_RANGE_SCOPES, rangeLabel } from '../../../../../shared/ui/date-range.js';
+import '../../../../../shared/ui/refreshing.css';
 
 function StatCard({ icon: Icon, label, value, sub, tone }) {
   const toneCls = {
@@ -39,16 +43,19 @@ function MiniHistoryBar({ data }) {
 }
 
 export default function Dashboard() {
+  const [range, setRange] = useDateRange(DATE_RANGE_SCOPES.PERFORMANCE, '7d');
   const [stats, setStats] = useState(null);
   const [recentRuns, setRecentRuns] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [firstLoad, setFirstLoad] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     (async () => {
+      setRefreshing(true);
       try {
         const [s, runsPage] = await Promise.all([
-          api.get('/dashboard/stats'),
+          api.get('/dashboard/stats', { params: { range } }),
           api.get('/runs', { params: { page: 0, size: 8 } }),
         ]);
         setStats(s);
@@ -56,28 +63,33 @@ export default function Dashboard() {
       } catch (err) {
         setError(err.message);
       } finally {
-        setLoading(false);
+        setFirstLoad(false);
+        setRefreshing(false);
       }
     })();
-  }, []);
+  }, [range]);
 
-  if (loading) return <p className="text-[var(--text-muted)]">Loading dashboard…</p>;
+  if (firstLoad) return <p className="text-[var(--text-muted)]">Loading dashboard…</p>;
   if (error) return <div className="bg-[var(--danger-bg-soft)] text-[var(--danger-text)] rounded-md px-4 py-3 text-sm">Error: {error}</div>;
 
   const passRate = stats?.totalRuns > 0 ? ((stats.passedRuns / stats.totalRuns) * 100).toFixed(1) : '—';
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-extrabold mb-1">Performance Testing</h1>
-        <p className="text-[var(--text-muted)] leading-relaxed max-w-2xl">
-          Real-time visibility into API performance — latency percentiles, error rates, virtual user
-          load shapes, and drift detection. All powered by k6 under the hood.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-extrabold mb-1">Performance Testing</h1>
+          <p className="text-[var(--text-muted)] leading-relaxed max-w-2xl">
+            Real-time visibility into API performance — latency percentiles, error rates, virtual user
+            load shapes, and drift detection. All powered by k6 under the hood.
+          </p>
+        </div>
+        <DateRangeFilter value={range} onChange={setRange} />
       </div>
 
+      <div className={`flex flex-col gap-8 ${refreshing && !firstLoad ? 'dr-refreshing' : ''}`}>
       <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
-        <StatCard icon={Activity} label="Total Runs" value={stats?.totalRuns ?? 0} sub="All time" />
+        <StatCard icon={Activity} label="Total Runs" value={stats?.totalRuns ?? 0} sub={rangeLabel(range)} />
         <StatCard icon={CheckCircle2} label="Passed" tone="success" value={stats?.passedRuns ?? 0} sub={`${passRate}% pass rate`} />
         <StatCard icon={XCircle} label="Failed" tone="danger" value={stats?.failedRuns ?? 0} />
         <StatCard icon={Zap} label="Perf Tests" value={stats?.performanceTestCount ?? 0} sub="Configured" />
@@ -113,6 +125,7 @@ export default function Dashboard() {
             ))}
           </div>
         )}
+      </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

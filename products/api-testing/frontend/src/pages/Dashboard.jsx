@@ -16,6 +16,10 @@ import { Button } from '../components/Button.jsx';
 import { StatusBadge } from '../components/StatusBadge.jsx';
 import { resolveThemeColors, healthColor } from '../lib/statusColors.js';
 import { useThemeVersion } from '../lib/useThemeVersion.js';
+import { useDateRange } from '../../../../../shared/ui/useDateRange.js';
+import { DateRangeFilter } from '../../../../../shared/ui/DateRangeFilter.jsx';
+import { DATE_RANGE_SCOPES, rangeLabel } from '../../../../../shared/ui/date-range.js';
+import '../../../../../shared/ui/refreshing.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -39,6 +43,7 @@ function StatTile({ icon: Icon, label, value, accent = 'text-[var(--text-primary
 export default function Dashboard() {
   const navigate = useNavigate();
   const [moduleId, setModuleId] = useState('');
+  const [range, setRange] = useDateRange(DATE_RANGE_SCOPES.APITESTING, '7d');
   useThemeVersion();
   const tokens = resolveThemeColors([
     '--success-text', '--danger-text', '--info-text', '--warning-text',
@@ -50,21 +55,25 @@ export default function Dashboard() {
     Object.entries(CLASS_COLOR_VARS).map(([key, varName]) => [key, tokens[varName]])
   );
 
-  const params = moduleId ? { moduleId } : {};
-  const { data: summary } = useQuery({
-    queryKey: ['dashboard-summary', moduleId],
+  const params = moduleId ? { moduleId, range } : { range };
+  const { data: summary, isFetching: summaryFetching } = useQuery({
+    queryKey: ['dashboard-summary', moduleId, range],
     queryFn: async () => (await apiClient.get('/v1/dashboard/summary', { params })).data,
     refetchInterval: 10000,
   });
-  const { data: trend = [] } = useQuery({
-    queryKey: ['dashboard-trend', moduleId],
-    queryFn: async () => (await apiClient.get('/v1/dashboard/trend', { params: { ...params, days: 7 } })).data,
+  const { data: trend = [], isFetching: trendFetching } = useQuery({
+    queryKey: ['dashboard-trend', moduleId, range],
+    queryFn: async () => (await apiClient.get('/v1/dashboard/trend', { params })).data,
     refetchInterval: 30000,
   });
   const { data: modules = [] } = useQuery({
     queryKey: ['modules'],
     queryFn: async () => (await apiClient.get('/v1/modules')).data,
   });
+
+  // "Refreshing" (not first-load) treatment for a filter-triggered refetch, shared look
+  // with the other 3 dashboards via shared/ui/refreshing.css.
+  const refreshing = (summaryFetching || trendFetching) && (summary !== undefined);
 
   const flatModules = flattenModules(modules);
   const breakdown = summary?.statusClassBreakdown ?? {};
@@ -98,8 +107,9 @@ export default function Dashboard() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="mr-auto">
           <h1 className="text-lg font-semibold">Dashboard</h1>
-          <p className="text-xs text-[var(--text-muted)]">Last 30 days{moduleId ? ' · filtered by module' : ''}</p>
+          <p className="text-xs text-[var(--text-muted)]">{rangeLabel(range)}{moduleId ? ' · filtered by module' : ''}</p>
         </div>
+        <DateRangeFilter value={range} onChange={setRange} />
         <select value={moduleId} onChange={(e) => setModuleId(e.target.value)}
           className="bg-[var(--bg-surface-2)] border border-[var(--border)] rounded px-2 py-2 text-xs outline-none focus:border-[var(--accent)]">
           <option value="">All modules</option>
@@ -113,8 +123,9 @@ export default function Dashboard() {
         </Button>
       </div>
 
+      <div className={`flex flex-col gap-5 ${refreshing ? 'dr-refreshing' : ''}`}>
       <div className="flex flex-wrap gap-3">
-        <StatTile icon={Activity} label="Executions (30d)" value={summary?.totalExecutions ?? '—'} />
+        <StatTile icon={Activity} label={`Executions (${rangeLabel(range)})`} value={summary?.totalExecutions ?? '—'} />
         <StatTile icon={CheckCircle2} label="Passed" value={summary?.passed ?? '—'} accent="text-[var(--success-text)]" />
         <StatTile icon={XCircle} label="Failed" value={summary?.failed ?? '—'} accent="text-[var(--danger-text)]" />
         <StatTile icon={Activity} label="Success Rate" value={summary ? `${summary.successRate}%` : '—'} />
@@ -137,13 +148,13 @@ export default function Dashboard() {
           accent={summary?.schedulerStatus?.queueSize > 0 ? 'text-[var(--warning-text)]' : 'text-[var(--text-primary)]'} />
       </div>
 
-      {/* Fastest / slowest APIs (30d window) */}
+      {/* Fastest / slowest APIs (range window) */}
       <div className="grid grid-cols-2 gap-4">
         <Panel className="flex items-center gap-3" padded={false}>
           <div className="px-4 py-3 flex items-center gap-3 w-full">
           <Rabbit size={18} className="text-[var(--success-text)] shrink-0" />
           <div className="min-w-0">
-            <div className="text-xs text-[var(--text-muted)]">Fastest API (30d)</div>
+            <div className="text-xs text-[var(--text-muted)]">Fastest API ({rangeLabel(range)})</div>
             {summary?.fastestApi
               ? <div className="text-sm text-[var(--text-primary)] truncate">{summary.fastestApi.apiName}
                   <span className="ml-2 text-[var(--success-text)] font-semibold tabular-nums">{summary.fastestApi.avgMs} ms</span>
@@ -157,7 +168,7 @@ export default function Dashboard() {
           <div className="px-4 py-3 flex items-center gap-3 w-full">
           <Turtle size={18} className="text-[var(--warning-text)] shrink-0" />
           <div className="min-w-0">
-            <div className="text-xs text-[var(--text-muted)]">Slowest API (30d)</div>
+            <div className="text-xs text-[var(--text-muted)]">Slowest API ({rangeLabel(range)})</div>
             {summary?.slowestApi
               ? <div className="text-sm text-[var(--text-primary)] truncate">{summary.slowestApi.apiName}
                   <span className="ml-2 text-[var(--warning-text)] font-semibold tabular-nums">{summary.slowestApi.avgMs} ms</span>
@@ -172,7 +183,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-3 gap-4">
         {/* Trend */}
         <Panel className="col-span-2">
-          <h2 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Execution Trend (7 days)</h2>
+          <h2 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Execution Trend ({rangeLabel(range)})</h2>
           <div className="h-52">
             <Bar data={trendData} options={{
               responsive: true, maintainAspectRatio: false,
@@ -187,7 +198,7 @@ export default function Dashboard() {
 
         {/* Status-class donut */}
         <Panel>
-          <h2 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Status Classes (30d)</h2>
+          <h2 className="text-sm font-medium text-[var(--text-secondary)] mb-3">Status Classes ({rangeLabel(range)})</h2>
           <div className="h-40 flex items-center justify-center">
             {donutLabels.length > 0
               ? <Doughnut data={donutData} options={{
@@ -225,7 +236,7 @@ export default function Dashboard() {
             ))}
         </Panel>
         <Panel>
-          <h2 className="text-sm font-medium text-[var(--text-secondary)] mb-2">Module-wise Statistics (30d)</h2>
+          <h2 className="text-sm font-medium text-[var(--text-secondary)] mb-2">Module-wise Statistics ({rangeLabel(range)})</h2>
           {(summary?.moduleStats ?? []).length === 0
             ? <div className="text-xs text-[var(--text-muted)]">No module-tagged executions yet</div>
             : (
@@ -287,6 +298,7 @@ export default function Dashboard() {
               </div>
             ))}
         </Panel>
+      </div>
       </div>
     </div>
   );

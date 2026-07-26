@@ -17,8 +17,8 @@ public class DashboardController {
     }
 
     @GetMapping("/summary")
-    public ApiResponse<Map<String, Object>> summary() {
-        return ApiResponse.ok(dashboardService.getSummary());
+    public ApiResponse<Map<String, Object>> summary(@RequestParam(defaultValue = "7d") String range) {
+        return ApiResponse.ok(dashboardService.getSummary(range));
     }
 
     @GetMapping("/trends")

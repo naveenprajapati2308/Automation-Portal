@@ -101,11 +101,15 @@ public class DashboardController {
         private long failed;
     }
 
-    /** Windowed to the last `days` (default 30) so numbers reflect recent behavior. */
+    /**
+     * Windowed to the last `days` (default 30), or to the Global Date Range Filter's
+     * `range` token (today/7d/30d/90d) when present — `range` takes priority over `days`.
+     */
     @GetMapping("/summary")
     public Summary summary(@RequestParam(required = false) Long moduleId,
+                           @RequestParam(required = false) String range,
                            @RequestParam(defaultValue = "30") int days) {
-        Instant since = Instant.now().minus(Math.min(days, 365), ChronoUnit.DAYS);
+        Instant since = sinceFor(range, days);
         List<ExecutionHistory> window = moduleId == null
                 ? historyRepository.findByExecutedAtAfter(since)
                 : historyRepository.findByExecutedAtAfterAndModuleId(since, moduleId);
@@ -155,8 +159,9 @@ public class DashboardController {
 
     @GetMapping("/trend")
     public List<TrendPoint> trend(@RequestParam(required = false) Long moduleId,
+                                  @RequestParam(required = false) String range,
                                   @RequestParam(defaultValue = "7") int days) {
-        int window = Math.min(Math.max(days, 1), 90);
+        int window = Math.min(Math.max(daysFor(range, days), 1), 90);
         Instant since = Instant.now().minus(window, ChronoUnit.DAYS);
         List<ExecutionHistory> records = moduleId == null
                 ? historyRepository.findByExecutedAtAfter(since)
@@ -180,6 +185,25 @@ public class DashboardController {
     }
 
     // ------------------------------------------------------------------
+
+    /** Global Date Range Filter token vocabulary — mirrors automation-portal's DashboardService.getSinceInstant. */
+    private static Instant sinceFor(String range, int daysFallback) {
+        if (range != null) {
+            return Instant.now().minus(daysFor(range, 7), ChronoUnit.DAYS);
+        }
+        return Instant.now().minus(Math.min(Math.max(daysFallback, 1), 365), ChronoUnit.DAYS);
+    }
+
+    private static int daysFor(String range, int fallback) {
+        if (range == null) return fallback;
+        return switch (range.toLowerCase()) {
+            case "today" -> 1;
+            case "7d" -> 7;
+            case "30d" -> 30;
+            case "90d" -> 90;
+            default -> fallback;
+        };
+    }
 
     private static boolean isPassed(ExecutionHistory h) {
         boolean httpOk = "2xx".equals(h.getResponseStatusClass()) || "3xx".equals(h.getResponseStatusClass());

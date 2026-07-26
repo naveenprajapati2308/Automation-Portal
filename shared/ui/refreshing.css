@@ -1,0 +1,7 @@
+/* Applied to a dashboard's content wrapper while a date-range-triggered (non-first-load)
+   refetch is in flight, so widgets visibly dim instead of flashing blank or looking frozen. */
+.dr-refreshing {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}

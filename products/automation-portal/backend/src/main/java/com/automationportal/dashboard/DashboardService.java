@@ -26,8 +26,11 @@ public class DashboardService {
         this.testCaseRepository = testCaseRepository;
     }
 
-    public Map<String, Object> getSummary() {
-        List<Execution> executions = executionRepository.findAll();
+    public Map<String, Object> getSummary(String range) {
+        Instant since = getSinceInstant(range);
+        List<Execution> executions = executionRepository.findAll().stream()
+                .filter(e -> e.getCreatedAt() != null && e.getCreatedAt().isAfter(since))
+                .collect(Collectors.toList());
 
         long totalExecutions = executions.size();
         long runningExecutions = executions.stream().filter(e -> e.getStatus() == ExecutionStatus.RUNNING).count();

@@ -15,6 +15,10 @@ import { AuthPage } from './components/auth/AuthPage.jsx';
 import { TrendChart } from './components/dashboard/TrendChart.jsx';
 import { DonutChart } from './components/dashboard/DonutChart.jsx';
 import { FullScreenLoader } from '../../../shared/ui/Loader.jsx';
+import { useDateRange } from '../../../shared/ui/useDateRange.js';
+import { DateRangeFilter } from '../../../shared/ui/DateRangeFilter.jsx';
+import { DATE_RANGE_SCOPES, rangeLabel, rangeToDays } from '../../../shared/ui/date-range.js';
+import '../../../shared/ui/refreshing.css';
 import { DestinationHighlight } from './search/components/DestinationHighlight.jsx';
 import { registerAction } from './search/searchActions.js';
 import { MODULE_COLOR } from './search/core/searchTypes.js';
@@ -244,6 +248,8 @@ export default function App() {
   const [apiTrend, setApiTrend] = useState(null);
   const [perfSummary, setPerfSummary] = useState(null);
   const [recentActivity, setRecentActivity] = useState(null);
+  const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
+  const [range, setRange] = useDateRange(DATE_RANGE_SCOPES.GLOBAL, '7d');
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const initialRoute = parseHashRoute();
@@ -327,14 +333,31 @@ export default function App() {
         setter(null);
       }
     };
-    loadSummary('/automation/api/dashboard/summary', setAutoSummary);
-    loadSummary('/automation/api/dashboard/trends?range=7d', setAutoTrends);
-    loadSummary('/automation/api/dashboard/module-health?range=30d', setAutoModuleHealth);
-    loadSummary('/apitest/api/v1/dashboard/summary', setApiSummary);
-    loadSummary('/apitest/api/v1/dashboard/trend?days=7', setApiTrend);
-    loadSummary('/perf/api/v1/dashboard/stats', setPerfSummary);
-    api.dashboardRecentActivity().then((rows) => setRecentActivity(rows.slice(0, 5))).catch(() => setRecentActivity(null));
-  }, [authed]);
+
+    // Global Date Range Filter: every range-aware fetch below is keyed on `range` and
+    // fired together as one logical refresh (dashboardRefreshing gates a dim overlay,
+    // distinct from the first-load FullScreenLoader) rather than each widget polling
+    // independently. `days` (API Testing) is translated from the shared `range` token.
+    const days = rangeToDays(range);
+    let cancelled = false;
+    (async () => {
+      setDashboardRefreshing(true);
+      try {
+        await Promise.allSettled([
+          loadSummary(`/automation/api/dashboard/summary?range=${range}`, setAutoSummary),
+          loadSummary(`/automation/api/dashboard/trends?range=${range}`, setAutoTrends),
+          loadSummary(`/automation/api/dashboard/module-health?range=${range}`, setAutoModuleHealth),
+          loadSummary(`/apitest/api/v1/dashboard/summary?days=${days}`, setApiSummary),
+          loadSummary(`/apitest/api/v1/dashboard/trend?days=${days}`, setApiTrend),
+          loadSummary(`/perf/api/v1/dashboard/stats?range=${range}`, setPerfSummary),
+          api.dashboardRecentActivity().then((rows) => setRecentActivity(rows.slice(0, 5))).catch(() => setRecentActivity(null)),
+        ]);
+      } finally {
+        if (!cancelled) setDashboardRefreshing(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [authed, range]);
 
   // api.js's request() clears localStorage on a real 401 but has no way to force
   // this component's `authed` state back to the login screen on its own — wire it
@@ -567,7 +590,7 @@ export default function App() {
   const dashboardLoading = authed && autoSummary === null && apiSummary === null;
 
   const dashboardContent = (
-    <>
+    <div className={!dashboardLoading && dashboardRefreshing ? 'dr-refreshing' : ''}>
       <p className="dash-subtitle">One place for every testing product — automation, API and performance.</p>
 
       <section className="cards overview-cards">
@@ -666,13 +689,13 @@ export default function App() {
 
             {autoTrends && autoTrends.length > 0 && (
               <div className="mini-block">
-                <div className="mini-block-title">Execution Trend (7D)</div>
+                <div className="mini-block-title">Execution Trend ({rangeLabel(range)})</div>
                 <TrendChart data={autoTrends} />
               </div>
             )}
 
             <div className="mini-block">
-              <div className="mini-block-title">Module Health (30D)</div>
+              <div className="mini-block-title">Module Health ({rangeLabel(range)})</div>
               {autoModuleHealth && autoModuleHealth.length > 0
                 ? <ModuleHealthTable modules={autoModuleHealth} />
                 : <p className="panel-empty">No module activity yet.</p>}
@@ -696,7 +719,7 @@ export default function App() {
 
             <div className="panel-row">
               <div className="panel-box">
-                <div className="mini-block-title">Response Status Mix (30D)</div>
+                <div className="mini-block-title">Response Status Mix ({rangeLabel(range)})</div>
                 {apiSummary.statusClassBreakdown ? (
                   <div className="status-tile-row">
                     {Object.entries(apiSummary.statusClassBreakdown).map(([cls, count]) => {
@@ -739,7 +762,7 @@ export default function App() {
             </div>
 
             <div className="mini-block">
-              <div className="mini-block-title">Execution Trend (7D)</div>
+              <div className="mini-block-title">Execution Trend ({rangeLabel(range)})</div>
               {apiTrendPoints.length > 0
                 ? <TrendChart data={apiTrendPoints} />
                 : <p className="panel-empty">No trend data yet.</p>}
@@ -798,7 +821,7 @@ export default function App() {
           </>
         ) : <p className="panel-empty">Performance stats unavailable.</p>}
       </section>
-    </>
+    </div>
   );
 
   const notifications = [
@@ -860,6 +883,7 @@ export default function App() {
             user={user}
             onNavigateProfile={goProfile}
             onNavigate={navigateFromSearch}
+            topbarExtra={page === 'dashboard' ? <DateRangeFilter value={range} onChange={setRange} /> : null}
           />
         )}
       >

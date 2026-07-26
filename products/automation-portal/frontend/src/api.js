@@ -200,7 +200,7 @@ export const api = {
   adminDeleteUser: (id) => request(`/api/admin/users/${id}`, { method: 'DELETE' }),
 
   // ── Portal ────────────────────────────────────────────────────────────────
-  dashboardSummary: () => request('/api/dashboard/summary'),
+  dashboardSummary: (range) => request(`/api/dashboard/summary?range=${range || '7d'}`),
   dashboardTrends: (range) => request(`/api/dashboard/trends?range=${range || '7d'}`),
   dashboardModuleHealth: (range) => request(`/api/dashboard/module-health?range=${range || '30d'}`),
   dashboardRecentActivity: () => request('/api/dashboard/recent-activity'),

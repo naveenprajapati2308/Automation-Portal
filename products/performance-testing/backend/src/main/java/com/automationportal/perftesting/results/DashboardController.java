@@ -13,7 +13,7 @@ public class DashboardController {
     private final DashboardService service;
 
     @GetMapping("/stats")
-    public ApiResponse<DashboardStatsDto> getStats() {
-        return ApiResponse.ok(service.getStats());
+    public ApiResponse<DashboardStatsDto> getStats(@RequestParam(required = false) String range) {
+        return ApiResponse.ok(service.getStats(range));
     }
 }

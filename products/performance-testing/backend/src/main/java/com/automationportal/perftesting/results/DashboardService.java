@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,13 +24,28 @@ public class DashboardService {
     private final TestGroupRepository testGroupRepository;
     private final PerfTestScheduleRepository scheduleRepository;
 
-    public DashboardStatsDto getStats() {
-        List<PerfTestRun> allRuns = runRepository.findAll();
+    /** Global Date Range Filter token vocabulary — mirrors automation-portal's DashboardService.getSinceInstant. */
+    private static LocalDateTime sinceFor(String range) {
+        if (range == null) return LocalDateTime.now().minusDays(7);
+        return switch (range.toLowerCase()) {
+            case "today" -> LocalDate.now().atStartOfDay();
+            case "30d" -> LocalDateTime.now().minusDays(30);
+            case "90d" -> LocalDateTime.now().minusDays(90);
+            default -> LocalDateTime.now().minusDays(7);
+        };
+    }
 
-        long total = allRuns.size();
-        long passed = allRuns.stream().filter(r -> r.getStatus() == RunStatus.PASSED).count();
-        long failed = allRuns.stream().filter(r -> r.getStatus() == RunStatus.FAILED).count();
-        long running = allRuns.stream().filter(r -> r.getStatus() == RunStatus.RUNNING).count();
+    public DashboardStatsDto getStats(String range) {
+        List<PerfTestRun> allRuns = runRepository.findAll();
+        LocalDateTime since = sinceFor(range);
+        List<PerfTestRun> runs = allRuns.stream()
+                .filter(r -> r.getCreatedAt() != null && !r.getCreatedAt().isBefore(since))
+                .collect(Collectors.toList());
+
+        long total = runs.size();
+        long passed = runs.stream().filter(r -> r.getStatus() == RunStatus.PASSED).count();
+        long failed = runs.stream().filter(r -> r.getStatus() == RunStatus.FAILED).count();
+        long running = runs.stream().filter(r -> r.getStatus() == RunStatus.RUNNING).count();
 
         // Daily run counts for last 20 days
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MM/dd");
