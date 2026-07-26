@@ -31,7 +31,7 @@ export const PERFORMANCE_NAV = [
 ];
 
 export const SIDEBAR_NAV = [
-  { key: 'dashboard', label: 'Global Dashboard', icon: 'LayoutDashboard' },
+  { key: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
   { key: 'automation', label: 'Automation', icon: 'Play', children: AUTOMATION_NAV },
   { key: 'apitest', label: 'API Testing', icon: 'Globe2', children: API_TESTING_NAV },
   { key: 'perf', label: 'Performance', icon: 'Gauge', children: PERFORMANCE_NAV },

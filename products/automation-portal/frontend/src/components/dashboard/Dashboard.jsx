@@ -7,8 +7,6 @@ import {
   Layers,
   Monitor,
   HelpCircle,
-  TrendingUp,
-  PieChart,
   Globe2,
   History,
   Timer
@@ -16,10 +14,13 @@ import {
 import { api, auth, API_BASE } from '../../api.js';
 import { Loader } from '../../../../../../shared/ui/Loader.jsx';
 import { useDateRange } from '../../../../../../shared/ui/useDateRange.js';
-import { DATE_RANGE_SCOPES } from '../../../../../../shared/ui/date-range.js';
+import { DATE_RANGE_SCOPES, rangeLabel } from '../../../../../../shared/ui/date-range.js';
+import { ExecutionTrendChart } from '../../../../../../shared/ui/dashboard/ExecutionTrendChart.jsx';
+import { StatusMixDonut } from '../../../../../../shared/ui/dashboard/StatusMixDonut.jsx';
+import { Table } from '../../../../../../shared/ui/dashboard/Table.jsx';
+import { EmptyState } from '../../../../../../shared/ui/dashboard/EmptyState.jsx';
 
 // Import child components
-import { TrendChart } from './TrendChart.jsx';
 import { EnvDistribution } from './EnvDistribution.jsx';
 import './dashboard.css';
 
@@ -238,29 +239,11 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (accuracyPercent / 100) * circumference;
 
-  // Execution Mix calculations
+  // Execution Mix calculations (segments/donut now rendered by shared StatusMixDonut)
   const mixPassRate = summary?.passRate ?? 0;
   const mixPassed = summary?.passedTests ?? 0;
   const mixFailed = summary?.failedTests ?? 0;
   const mixSkipped = summary?.skippedTests ?? 0;
-  const mixCirc = 2 * Math.PI * 36;
-  const mixTotal = mixPassed + mixFailed + mixSkipped;
-  const mixPct = (v) => (mixTotal > 0 ? Math.round((v / mixTotal) * 100) : 0);
-  // Donut segments (pass/fail/skip), drawn clockwise from 12 o'clock
-  const mixSegments = (() => {
-    const parts = [
-      { value: mixPassed, color: 'var(--success-text)' },
-      { value: mixFailed, color: 'var(--danger-text)' },
-      { value: mixSkipped, color: 'var(--warning-text)' },
-    ].filter((p) => p.value > 0);
-    let acc = 0;
-    return parts.map((p) => {
-      const frac = mixTotal > 0 ? p.value / mixTotal : 0;
-      const seg = { ...p, dash: frac * mixCirc, offset: -acc * mixCirc };
-      acc += frac;
-      return seg;
-    });
-  })();
 
   const accuracyColor = (pct) => (pct >= 80 ? 'var(--success-text)' : pct >= 50 ? 'var(--warning-text)' : 'var(--danger-text)');
 
@@ -306,7 +289,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginTop: 14, fontSize: 13 }}>
             <div>
-              <div style={{ color: '#5d7292', fontSize: 11 }}>Total Tests</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>Total Tests</div>
               <strong style={{ color: 'var(--text-primary)', fontSize: 18 }}>{lastRun?.totalTests ?? 0}</strong>
             </div>
             <div>
@@ -398,51 +381,28 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
       {/* Row 2: Charts and Mix */}
       <div className="db-charts-row">
 
-        {/* Execution Trend */}
-        <div className="db-card">
-          <h3 className="db-card-title"><TrendingUp size={16} /> Execution Trend</h3>
-          <TrendChart data={trends} loading={loading} />
-        </div>
+        <ExecutionTrendChart
+          title={`Execution Trend (${rangeLabel(range)})`}
+          data={trends}
+          series={[
+            { key: 'passed', label: 'Passed', color: '--success-text' },
+            { key: 'failed', label: 'Failed', color: '--danger-text' },
+            { key: 'skipped', label: 'Skipped', color: '--warning-text' },
+          ]}
+          loading={loading}
+        />
 
-        {/* Execution Mix */}
-        <div className="db-card" style={{ display: 'flex', flexDirection: 'column' }}>
-          <h3 className="db-card-title"><PieChart size={16} /> Execution Mix</h3>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flex: 1, gap: 12 }}>
-            <div style={{ position: 'relative', width: 92, height: 92, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="92" height="92" viewBox="0 0 92 92">
-                <circle cx="46" cy="46" r="36" fill="transparent" style={{ stroke: 'var(--border)' }} strokeWidth="7" />
-                {mixSegments.map((seg, i) => (
-                  <circle
-                    key={i}
-                    cx="46" cy="46" r="36" fill="transparent"
-                    strokeWidth="7"
-                    strokeDasharray={`${seg.dash} ${mixCirc - seg.dash}`}
-                    strokeDashoffset={seg.offset}
-                    style={{ stroke: seg.color, transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
-                  />
-                ))}
-              </svg>
-              <div style={{ position: 'absolute', textAlign: 'center' }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>{mixPassRate.toFixed(1)}%</div>
-                <div style={{ fontSize: 8, color: '#5d7292', fontWeight: 700, textTransform: 'uppercase', marginTop: 2 }}>Pass Rate</div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, maxWidth: 120 }}>
-              <div className="db-mix-row db-mix-pass">
-                <span>Passed</span>
-                <strong>{mixPassed} ({mixPct(mixPassed)}%)</strong>
-              </div>
-              <div className="db-mix-row db-mix-fail">
-                <span>Failed</span>
-                <strong>{mixFailed} ({mixPct(mixFailed)}%)</strong>
-              </div>
-              <div className="db-mix-row db-mix-skip">
-                <span>Skipped</span>
-                <strong>{mixSkipped} ({mixPct(mixSkipped)}%)</strong>
-              </div>
-            </div>
-          </div>
-        </div>
+        <StatusMixDonut
+          title="Execution Mix"
+          segments={[
+            { key: 'passed', label: 'Passed', value: mixPassed, color: '--success-text' },
+            { key: 'failed', label: 'Failed', value: mixFailed, color: '--danger-text' },
+            { key: 'skipped', label: 'Skipped', value: mixSkipped, color: '--warning-text' },
+          ]}
+          centerValue={`${mixPassRate.toFixed(1)}%`}
+          centerLabel="Pass Rate"
+          loading={loading}
+        />
 
         {/* Environment Distribution */}
         <div className="db-card" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -474,7 +434,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         </div>
 
         <div style={{ overflowX: 'auto' }}>
-          <table className="db-table">
+          <Table>
             <thead>
               <tr>
                 <th>Module</th>
@@ -513,7 +473,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Table>
         </div>
       </div>
 
@@ -524,7 +484,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         <div className="db-card">
           <h3 className="db-card-title"><Clock3 size={16} /> Slowest Test Cases</h3>
           <div style={{ overflowY: 'auto', maxHeight: 250 }}>
-            <table className="db-table">
+            <Table>
               <thead>
                 <tr>
                   <th>Test Case</th>
@@ -549,13 +509,13 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
                 ))}
                 {slowTests.length === 0 && (
                   <tr>
-                    <td colSpan="3" style={{ padding: 20, textAlign: 'center', color: '#5d7292', fontSize: 12 }}>
-                      No slow test data found.
+                    <td colSpan="3">
+                      <EmptyState message="No slow test data found." />
                     </td>
                   </tr>
                 )}
               </tbody>
-            </table>
+            </Table>
           </div>
         </div>
 
@@ -612,7 +572,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
           <h3 className="db-card-title"><History size={16} /> Recent Executions</h3>
 
           <div style={{ overflowX: 'auto' }}>
-            <table className="db-table">
+            <Table>
               <thead>
                 <tr>
                   <th>Code</th>
@@ -646,7 +606,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Table>
           </div>
         </div>
 

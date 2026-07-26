@@ -45,9 +45,6 @@ export function methodColor(method) {
 // The small bordered text-input style used across every form in this app.
 export const INPUT_CLASS = 'w-full bg-[var(--bg-surface-2)] border border-[var(--border)] rounded px-3 py-2 text-sm outline-none placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]';
 
-export function resolveThemeColors(names) {
-  const styles = getComputedStyle(document.documentElement);
-  const out = {};
-  for (const name of names) out[name] = styles.getPropertyValue(name).trim();
-  return out;
-}
+// Re-export: the implementation now lives in shared/ui/dashboard so Shell and
+// Automation (which also render Chart.js canvases now) share the same resolver.
+export { resolveThemeColors } from '../../../../../shared/ui/dashboard/resolveThemeColors.js';

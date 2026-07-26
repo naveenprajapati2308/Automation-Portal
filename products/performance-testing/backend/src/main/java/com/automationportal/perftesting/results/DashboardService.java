@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -74,5 +75,35 @@ public class DashboardService {
                 .scheduledCount(scheduledCount)
                 .dailyRuns(dailyRuns)
                 .build();
+    }
+
+    /** Day-by-day passed/failed counts for the Global Date Range Filter's Execution Trend chart. */
+    public List<PerfTrendPoint> getTrend(String range) {
+        int days = daysFor(range);
+        List<PerfTestRun> allRuns = runRepository.findAll();
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        LocalDate today = LocalDate.now();
+
+        List<PerfTrendPoint> out = new ArrayList<>();
+        for (int i = days - 1; i >= 0; i--) {
+            LocalDate day = today.minusDays(i);
+            List<PerfTestRun> dayRuns = allRuns.stream()
+                    .filter(r -> r.getCreatedAt() != null && r.getCreatedAt().toLocalDate().equals(day))
+                    .toList();
+            long passed = dayRuns.stream().filter(r -> r.getStatus() == RunStatus.PASSED).count();
+            long failed = dayRuns.stream().filter(r -> r.getStatus() == RunStatus.FAILED).count();
+            out.add(new PerfTrendPoint(day.format(dateFmt), passed, failed));
+        }
+        return out;
+    }
+
+    private static int daysFor(String range) {
+        if (range == null) return 7;
+        return switch (range.toLowerCase()) {
+            case "today" -> 1;
+            case "30d" -> 30;
+            case "90d" -> 90;
+            default -> 7;
+        };
     }
 }

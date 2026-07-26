@@ -39,13 +39,20 @@
   font-weight: 600;
 }
 
-/* ── Cards ─────────────────────────────────────────────────────────────────── */
+/* ── Cards (shared platform card treatment — see shared/ui/dashboard/tokens.css .tx-card) ── */
 .db-card {
   background: var(--bg-inset);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   padding: 18px;
   margin-top: 15px;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.db-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
 
 .db-card-title {
@@ -114,7 +121,7 @@
 .db-kpi-sub {
   display: block;
   font-size: 11px;
-  color: #5d7292;
+  color: var(--text-muted);
   margin-top: 3px;
 }
 .db-mono {
@@ -135,7 +142,7 @@
   cursor: pointer;
 }
 .db-select:focus {
-  border-color: #4f6ef7;
+  border-color: var(--accent);
 }
 .db-select option {
   background: var(--bg-surface);
@@ -181,35 +188,7 @@
   border-color: var(--accent);
 }
 
-/* ── Tables ────────────────────────────────────────────────────────────────── */
-.db-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-.db-table th {
-  padding: 10px 12px;
-  font-size: 11px;
-  color: var(--text-muted);
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-}
-.db-table td {
-  padding: 12px;
-  font-size: 13px;
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border-soft);
-}
-.db-table tr:last-child td {
-  border-bottom: none;
-}
-.db-table tbody tr:hover td {
-  background: var(--bg-hover);
-}
-
+/* ── Table cell content (table-level rules now live in shared/ui/dashboard/tokens.css .tx-table) ── */
 .db-cell-strong {
   font-size: 13px;
   font-weight: 700;
@@ -217,7 +196,7 @@
 }
 .db-cell-sub {
   font-size: 11px;
-  color: #5d7292;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -272,7 +251,7 @@
 }
 .db-sys-tile span {
   font-size: 10px;
-  color: #5d7292;
+  color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -285,7 +264,7 @@
   word-break: break-word;
 }
 .db-sys-foot {
-  color: #5d7292;
+  color: var(--text-muted);
   font-size: 11px;
   margin-top: 16px;
   border-top: 1px solid var(--border);
@@ -293,32 +272,6 @@
 }
 .db-sys-foot strong {
   color: var(--indigo-text-soft);
-}
-
-/* Execution mix legend rows */
-.db-mix-row {
-  border-radius: 8px;
-  padding: 5px 10px;
-  font-size: 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border: 1px solid;
-}
-.db-mix-pass {
-  background: rgba(46, 204, 113, 0.08);
-  border-color: rgba(46, 204, 113, 0.25);
-  color: var(--success-text);
-}
-.db-mix-fail {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: var(--danger-text);
-}
-.db-mix-skip {
-  background: rgba(224, 166, 74, 0.08);
-  border-color: rgba(224, 166, 74, 0.25);
-  color: var(--warning-text);
 }
 
 /* Empty note (flaky) */
@@ -334,7 +287,7 @@
   text-align: center;
 }
 .db-empty-note svg {
-  color: #7c3aed;
+  color: var(--indigo-text);
   filter: drop-shadow(0 0 12px rgba(124, 58, 237, 0.5));
   margin-bottom: 12px;
 }
@@ -342,7 +295,6 @@
 /* ── KPI card tints (bright theme; dark keeps the original flat cards) ─────── */
 .db-card {
   background: var(--bg-surface);
-  box-shadow: 0 1px 2px var(--shadow-a10);
 }
 .db-tint-violet {
   background: linear-gradient(150deg, var(--bg-surface) 45%, #f4f0ff 100%);
@@ -363,5 +315,4 @@
 :root[data-theme="dark"] .db-tint-green {
   background: var(--bg-inset);
   border-color: var(--border);
-  box-shadow: none;
 }

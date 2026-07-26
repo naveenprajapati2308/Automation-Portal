@@ -66,13 +66,6 @@ export function healthColor(pct) {
   return 'text-[var(--danger-text)]';
 }
 
-// Resolves the CSS variables' *actual* current color at call time, for
-// contexts that can't read CSS directly (Chart.js color props draw to a
-// <canvas>, not the DOM). Re-resolve after `data-theme` changes — callers
-// should use the `useThemeVersion()` hook below to know when to re-run this.
-export function resolveThemeColors(names) {
-  const styles = getComputedStyle(document.documentElement);
-  const out = {};
-  for (const name of names) out[name] = styles.getPropertyValue(name).trim();
-  return out;
-}
+// Re-export: the implementation now lives in shared/ui/dashboard so Shell and
+// Automation (which also render Chart.js canvases now) share the same resolver.
+export { resolveThemeColors } from '../../../../../shared/ui/dashboard/resolveThemeColors.js';

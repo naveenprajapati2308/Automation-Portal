@@ -12,8 +12,8 @@ import { ApiTestingWorkspace } from './components/apitesting/ApiTestingWorkspace
 import { PerformanceWorkspace } from './components/performance/PerformanceWorkspace.jsx';
 import { Profile } from './components/profile/Profile.jsx';
 import { AuthPage } from './components/auth/AuthPage.jsx';
-import { TrendChart } from './components/dashboard/TrendChart.jsx';
-import { DonutChart } from './components/dashboard/DonutChart.jsx';
+import { ExecutionTrendChart } from '../../../shared/ui/dashboard/ExecutionTrendChart.jsx';
+import { StatusMixDonut } from '../../../shared/ui/dashboard/StatusMixDonut.jsx';
 import { FullScreenLoader } from '../../../shared/ui/Loader.jsx';
 import { useDateRange } from '../../../shared/ui/useDateRange.js';
 import { DateRangeFilter } from '../../../shared/ui/DateRangeFilter.jsx';
@@ -220,9 +220,9 @@ function formatWhen(iso) {
   }
 }
 
-// API Testing's trend endpoint returns { date, passed, failed } — reshape to the
-// { date, totalTests, passed, failed, skipped } shape TrendChart expects (it derives
-// pass/fail/skip rates from these itself, same as it does for Automation's own trend data).
+// API Testing's trend endpoint returns { date, passed, failed } — reshape to a superset
+// shape (extra fields are simply ignored by the shared ExecutionTrendChart, which only
+// reads `date`/`label` plus whichever series keys it's given).
 function toTrendChartData(points) {
   return (points || []).map((p) => {
     const passed = p.passed ?? 0;
@@ -247,6 +247,7 @@ export default function App() {
   const [apiSummary, setApiSummary] = useState(null);
   const [apiTrend, setApiTrend] = useState(null);
   const [perfSummary, setPerfSummary] = useState(null);
+  const [perfTrend, setPerfTrend] = useState(null);
   const [recentActivity, setRecentActivity] = useState(null);
   const [dashboardRefreshing, setDashboardRefreshing] = useState(false);
   const [range, setRange] = useDateRange(DATE_RANGE_SCOPES.GLOBAL, '7d');
@@ -350,6 +351,7 @@ export default function App() {
           loadSummary(`/apitest/api/v1/dashboard/summary?days=${days}`, setApiSummary),
           loadSummary(`/apitest/api/v1/dashboard/trend?days=${days}`, setApiTrend),
           loadSummary(`/perf/api/v1/dashboard/stats?range=${range}`, setPerfSummary),
+          loadSummary(`/perf/api/v1/dashboard/trend?range=${range}`, setPerfTrend),
           api.dashboardRecentActivity().then((rows) => setRecentActivity(rows.slice(0, 5))).catch(() => setRecentActivity(null)),
         ]);
       } finally {
@@ -423,7 +425,7 @@ export default function App() {
           ? (apitestPage === 'dashboard' ? 'API Testing Overview' : (API_TESTING_NAV.find((i) => i.key === apitestPage)?.label ?? 'API Testing'))
           : page === 'perf'
             ? (perfPage === 'dashboard' ? 'Performance Overview' : (PERFORMANCE_NAV.find((i) => i.key === perfPage)?.label ?? 'Performance'))
-            : page === 'profile' ? 'Profile' : 'Global Dashboard';
+            : page === 'profile' ? 'Profile' : 'Dashboard';
 
     document.title = title ? `${title} | TESTRIX` : 'TESTRIX Unified Testing Platform';
   }, [authed, page, adminPage, automationPage, apitestPage, perfPage]);
@@ -540,20 +542,20 @@ export default function App() {
   // One entry per embedded product — each one's NAV array (constants.js) is the
   // single source of truth for its sub-page labels, so adding a future product
   // only means adding one entry here, not another copy-pasted if/else branch.
-  // The Home + Global Dashboard root, is the one and only true "Dashboard";
-  // every product's own landing sub-page is labeled "Overview" (its `dashboard`
-  // NAV key), never "Dashboard", so the hierarchy can't be misread as if a
-  // product's landing page were a sibling of the platform root.
+  // Home + Dashboard is the platform root, and the one and only page named
+  // "Dashboard"; every product's own landing sub-page is labeled "Overview"
+  // (its `dashboard` NAV key), never "Dashboard", so the hierarchy can't be
+  // misread as if a product's landing page were a sibling of the platform root.
   const MODULE_CONFIG = {
     automation: { label: 'Automation', nav: AUTOMATION_NAV, activeSubPage: automationPage, goOverview: () => setAutomationPageAndHash('dashboard') },
     apitest:    { label: 'API Testing', nav: API_TESTING_NAV, activeSubPage: apitestPage, goOverview: () => setApitestPageAndHash('dashboard') },
     perf:       { label: 'Performance', nav: PERFORMANCE_NAV, activeSubPage: perfPage, goOverview: () => setPerfPageAndHash('dashboard') },
   };
 
-  let pageTitle = 'Global Dashboard';
+  let pageTitle = 'Dashboard';
   let breadcrumbItems = [
     { label: 'Home', onClick: goDashboard },
-    { label: 'Global Dashboard' }
+    { label: 'Dashboard' }
   ];
 
   if (page === 'admin') {
@@ -655,16 +657,15 @@ export default function App() {
             </div>
 
             <div className="panel-row">
-              <div className="panel-box">
-                <div className="mini-block-title">Execution Status Mix</div>
-                <DonutChart
-                  segments={[
-                    { key: 'passed', label: 'Passed', value: autoSummary.passedTests ?? 0, color: 'var(--success-text)' },
-                    { key: 'failed', label: 'Failed', value: autoSummary.failedTests ?? 0, color: 'var(--danger-text)' },
-                    { key: 'skipped', label: 'Skipped', value: autoSummary.skippedTests ?? 0, color: 'var(--warning-text)' },
-                  ]}
-                />
-              </div>
+              <StatusMixDonut
+                title="Execution Status Mix"
+                segments={[
+                  { key: 'passed', label: 'Passed', value: autoSummary.passedTests ?? 0, color: '--success-text' },
+                  { key: 'failed', label: 'Failed', value: autoSummary.failedTests ?? 0, color: '--danger-text' },
+                  { key: 'skipped', label: 'Skipped', value: autoSummary.skippedTests ?? 0, color: '--warning-text' },
+                ]}
+                centerLabel="Total"
+              />
               <div className="panel-box">
                 <div className="mini-block-title">Run Summary</div>
                 <div className="tile-row">
@@ -688,10 +689,16 @@ export default function App() {
             </div>
 
             {autoTrends && autoTrends.length > 0 && (
-              <div className="mini-block">
-                <div className="mini-block-title">Execution Trend ({rangeLabel(range)})</div>
-                <TrendChart data={autoTrends} />
-              </div>
+              <ExecutionTrendChart
+                className="mini-block-spaced"
+                title={`Execution Trend (${rangeLabel(range)})`}
+                data={autoTrends}
+                series={[
+                  { key: 'passed', label: 'Passed', color: '--success-text' },
+                  { key: 'failed', label: 'Failed', color: '--danger-text' },
+                  { key: 'skipped', label: 'Skipped', color: '--warning-text' },
+                ]}
+              />
             )}
 
             <div className="mini-block">
@@ -761,12 +768,16 @@ export default function App() {
               </div>
             </div>
 
-            <div className="mini-block">
-              <div className="mini-block-title">Execution Trend ({rangeLabel(range)})</div>
-              {apiTrendPoints.length > 0
-                ? <TrendChart data={apiTrendPoints} />
-                : <p className="panel-empty">No trend data yet.</p>}
-            </div>
+            <ExecutionTrendChart
+              className="mini-block-spaced"
+              title={`Execution Trend (${rangeLabel(range)})`}
+              data={apiTrendPoints}
+              series={[
+                { key: 'passed', label: 'Passed', color: '--success-text' },
+                { key: 'failed', label: 'Failed', color: '--danger-text' },
+              ]}
+              emptyMessage="No trend data yet."
+            />
 
             {apiSummary.moduleStats && apiSummary.moduleStats.length > 0 && (
               <div className="mini-block">
@@ -792,16 +803,15 @@ export default function App() {
             </div>
 
             <div className="panel-row">
-              <div className="panel-box">
-                <div className="mini-block-title">Run Status Mix</div>
-                <DonutChart
-                  segments={[
-                    { key: 'passed', label: 'Passed', value: perfSummary.passedRuns ?? 0, color: 'var(--success-text)' },
-                    { key: 'failed', label: 'Failed', value: perfSummary.failedRuns ?? 0, color: 'var(--danger-text)' },
-                    { key: 'running', label: 'Running', value: perfSummary.runningRuns ?? 0, color: 'var(--accent-text)' },
-                  ]}
-                />
-              </div>
+              <StatusMixDonut
+                title="Run Status Mix"
+                segments={[
+                  { key: 'passed', label: 'Passed', value: perfSummary.passedRuns ?? 0, color: '--success-text' },
+                  { key: 'failed', label: 'Failed', value: perfSummary.failedRuns ?? 0, color: '--danger-text' },
+                  { key: 'running', label: 'Running', value: perfSummary.runningRuns ?? 0, color: '--accent-text' },
+                ]}
+                centerLabel="Total"
+              />
               <div className="panel-box">
                 <div className="mini-block-title">Suite Summary</div>
                 <div className="tile-row">
@@ -818,6 +828,18 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {perfTrend && perfTrend.length > 0 && (
+              <ExecutionTrendChart
+                className="mini-block-spaced"
+                title={`Execution Trend (${rangeLabel(range)})`}
+                data={perfTrend}
+                series={[
+                  { key: 'passed', label: 'Passed', color: '--success-text' },
+                  { key: 'failed', label: 'Failed', color: '--danger-text' },
+                ]}
+              />
+            )}
           </>
         ) : <p className="panel-empty">Performance stats unavailable.</p>}
       </section>

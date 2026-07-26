@@ -1,7 +1,7 @@
 /**
  * dashboardProvider.js
  * ────────────────────
- * Search items for the Global Dashboard module.
+ * Search items for the Dashboard module.
  */
 import { ENTITY_TYPE, PROVIDER_TYPE } from '../core/searchTypes.js';
 
@@ -11,7 +11,7 @@ const ITEMS = [
     entityType:  ENTITY_TYPE.PAGE,
     module:      'Dashboard',
     category:    'Pages',
-    page:        'Global Dashboard',
+    page:        'Dashboard',
     section:     null,
     description: 'Unified overview of all testing products — Automation, API and Performance.',
     icon:        'LayoutDashboard',
@@ -20,7 +20,7 @@ const ITEMS = [
     nav:         { page: 'dashboard', sub: null, tab: null, section: null, anchor: null, action: null },
     keywords:    ['dashboard', 'home', 'overview', 'main', 'global', 'portal', 'landing'],
     synonyms:    ['home page', 'main page', 'start'],
-    acronyms:    ['gd'],
+    acronyms:    [],
     disabled:    false,
     permission:  null,
     metadata:    {},
