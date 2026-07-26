@@ -1,10 +1,4 @@
-/**
- * adminProvider.js
- * ────────────────
- * Search items for the Admin Workspace.
- * All items are SUPER_ADMIN only.
- * Covers: pages, sections, actions, settings, docs.
- */
+
 import { ENTITY_TYPE, PROVIDER_TYPE } from '../core/searchTypes.js';
 
 const ITEMS = [

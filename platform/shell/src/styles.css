@@ -50,6 +50,7 @@ select {
   align-items: center;
   padding-bottom: 24px;
   border-bottom: 1px solid var(--sidebar-edge);
+  margin-left: 20px;
 }
 
 .brand-logo {
@@ -59,14 +60,13 @@ select {
 }
 
 .sidebar-logo {
-  width: 42px;
-  height: 42px;
-  border-radius: 6px;
-  background: #fff;
-  /*padding: 4px;
-  */
-  margin-left: 20px;
-
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  margin-left: 0px;
 }
 
 .brand strong,
@@ -417,6 +417,16 @@ main,
   align-items: center;
 }
 
+/* ── Interactive Breadcrumb ────────────────────────────────────────────────────
+   Full rule set lives further down (search "Breadcrumb (under the page title
+   in Topbar)") — this one selector doesn't exist there, so it stays here
+   rather than getting shadowed/duplicated. */
+.tb-breadcrumb-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .topbar-right {
   display: flex;
   align-items: center;
@@ -490,11 +500,11 @@ h2 {
 
 .metric,
 .panel {
-  background: var(--bg-inset);
+  background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 4px 20px var(--shadow-a35);
-  transition: all 0.25s ease;
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
   margin-top: 15px;
 }
 
@@ -527,8 +537,9 @@ h2 {
 }
 
 .metric:hover {
-  border-color: #b8d4e4;
-  box-shadow: 0 4px 20px rgba(23, 107, 135, 0.12);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-4px);
 }
 
 .metric span {
@@ -1230,33 +1241,219 @@ tr:last-child td {
   font-size: 14px;
 }
 
-/* ── Auth Screen ─────────────────────────────────────────────────────────── */
+/* ── Enhanced Auth Screen & Glassmorphism Animation ───────────────────────── */
+/* ── Enhanced Bright Theme Auth Screen ───────────────────────────────────── */
 .auth-screen {
+  position: relative;
   min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(135deg, var(--bg-inset) 0%, var(--bg-surface-2) 100%);
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f0f4fb 0%, #e6edf8 50%, #f4f7fd 100%);
+  overflow: hidden;
+  padding: 20px;
 }
 
+/* Background Soft Pastel Ambient Glow Orbs */
+.auth-bg-orbs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.auth-grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    radial-gradient(circle at 1px 1px, rgba(99, 102, 241, 0.14) 1px, transparent 0);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at center, black 50%, transparent 90%);
+  -webkit-mask-image: radial-gradient(circle at center, black 50%, transparent 90%);
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.65;
+  animation: orbFloat 14s ease-in-out infinite alternate;
+}
+
+.orb-1 {
+  width: 460px;
+  height: 460px;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.35) 0%, rgba(96, 165, 250, 0.15) 100%);
+  top: -120px;
+  left: -80px;
+  animation-duration: 16s;
+}
+
+.orb-2 {
+  width: 420px;
+  height: 420px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.3) 0%, rgba(129, 140, 248, 0.15) 100%);
+  bottom: -100px;
+  right: -60px;
+  animation-duration: 18s;
+  animation-delay: -5s;
+}
+
+.orb-3 {
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(244, 114, 182, 0.2) 0%, rgba(192, 132, 252, 0.15) 100%);
+  top: 40%;
+  right: 15%;
+  opacity: 0.3;
+  animation-duration: 20s;
+  animation-delay: -8s;
+}
+
+@keyframes orbFloat {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(35px, -25px) scale(1.06); }
+  100% { transform: translate(-25px, 35px) scale(0.96); }
+}
+
+/* Bright Glassmorphism Card */
 .auth-panel {
-  width: min(480px, calc(100vw - 32px));
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 24px 60px var(--shadow-a35);
-  padding: 32px;
+  position: relative;
+  z-index: 2;
+  width: min(440px, 100%);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  box-shadow: 
+    0 20px 50px -8px rgba(15, 23, 42, 0.08),
+    0 4px 16px -2px rgba(15, 23, 42, 0.04),
+    0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+  padding: 36px 32px;
+  animation: authCardEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes authCardEnter {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Brand Section inside Auth Panel */
 .auth-brand {
-  color: #17202a;
-  border-bottom: 1px solid #e2eaf3;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid #e2e8f0;
   padding-bottom: 20px;
-  margin-bottom: 22px;
+  margin-bottom: 24px;
+  justify-content: flex-start;
+}
+
+.auth-logo-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 
-.auth-logo {
-  width: 80px;
-  height: 50px;
+.logo-glow-ring {
+  position: absolute;
+  inset: -4px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #818cf8, #38bdf8);
+  opacity: 0.4;
+  filter: blur(6px);
+  transition: opacity 0.3s;
+}
+
+.auth-logo-wrap:hover .logo-glow-ring {
+  opacity: 0.8;
+}
+
+.auth-title-gradient {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #0f172a;
+  background: linear-gradient(135deg, #0f172a 0%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.auth-subtitle-tag {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+
+/* Auth Form Controls in Bright Theme */
+.auth-screen .form-row label,
+.auth-screen .form-row > span {
+  color: #334155;
+  font-weight: 600;
+}
+
+.auth-screen .form-row input {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #0f172a;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.auth-screen .form-row input:focus {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.14);
+}
+
+.auth-screen .check-row {
+  color: #475569;
+  font-size: 13px;
+}
+
+.auth-screen .forgot-link,
+.auth-screen .back-login-link {
+  color: #4f46e5;
+  font-weight: 600;
+}
+
+.auth-screen .forgot-link:hover,
+.auth-screen .back-login-link:hover {
+  color: #4338ca;
+}
+
+.auth-screen .primary-action {
+  position: relative;
+  overflow: hidden;
+  height: 44px;
+  min-height: 44px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 14px;
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 0;
+  cursor: pointer;
+}
+
+.auth-screen .primary-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(79, 70, 229, 0.45);
+  background: linear-gradient(135deg, #4338ca 0%, #1d4ed8 100%);
+}
+
+.auth-screen .auth-message {
+  color: #64748b;
+  font-size: 13px;
+  text-align: center;
+  margin-top: 16px;
 }
 
 .auth-tabs {
@@ -3893,7 +4090,13 @@ button.tb-chip:hover {
    navigation link; the current page is plain text. No underline in any state —
    color change + pointer is the only affordance, matching the rest of the nav. */
 .tb-breadcrumb {
+  /* The generic `nav { flex-direction: column }` rule (meant for the sidebar's
+     own <nav>) matches this <nav> too, since a bare tag selector still beats a
+     class selector on any property the class rule doesn't itself set — row +
+     nowrap must be declared explicitly here rather than assumed as the default. */
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
   margin-top: 4px;
@@ -3902,6 +4105,17 @@ button.tb-chip:hover {
 }
 
 .tb-breadcrumb-link {
+  /* `nav button, nav a { height:40px; width:100%; background:...; }` (the
+     sidebar's own item styling) matches this too, since it's also a <nav>
+     with <button> children — every property that generic rule sets must be
+     reset here explicitly, not just the ones this breadcrumb happens to care
+     about, or it silently inherits sidebar-button sizing/backgrounds again. */
+  display: inline-flex;
+  align-items: center;
+  height: auto;
+  min-height: 0;
+  width: auto;
+  flex: none;
   border: 0;
   background: transparent;
   padding: 0;
@@ -3909,13 +4123,16 @@ button.tb-chip:hover {
   color: var(--text-muted);
   cursor: pointer;
   text-decoration: none;
+  text-align: left;
   font: inherit;
   font-weight: 600;
-  transition: color 0.15s;
+  box-sizing: border-box;
+  transition: color 0.15s ease;
 }
 
 .tb-breadcrumb-link:hover,
 .tb-breadcrumb-link:focus-visible {
+  background: transparent;
   color: var(--accent-text);
   text-decoration: none;
 }
@@ -3956,17 +4173,18 @@ button.tb-chip:hover {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
 }
 
 .card:not(.card-soon):hover {
   transform: translateY(-4px);
-  box-shadow: 0 14px 28px var(--shadow-a45);
-  border-color: var(--accent-border-soft);
+  box-shadow: var(--shadow-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
 }
 
 .card:not(.card-soon):hover .card-icon {
-  transform: scale(1.1) rotate(-6deg);
+  transform: scale(1.12) rotate(-5deg);
 }
 
 .card-soon {
@@ -4088,19 +4306,26 @@ button.tb-chip:hover {
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 4px 20px var(--shadow-a35);
+  box-shadow: var(--shadow-card);
   padding: 22px;
   margin-top: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.product-overview:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
 
 .panel-title {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .panel-empty {
@@ -4160,7 +4385,7 @@ button.tb-chip:hover {
 /* ── Dashboard panels — richer per-product sections ──────────────────────── */
 .mini-block {
   margin-top: 14px;
-  padding-top: 12px;
+  padding-top: 14px;
   border-top: 1px solid var(--border);
 }
 
@@ -4168,9 +4393,9 @@ button.tb-chip:hover {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .panel-subrow {
@@ -4218,9 +4443,8 @@ button.tb-chip:hover {
   color: var(--danger-text);
 }
 
-
 .module-health-meter {
-  width: 90px;
+  width: 100px;
   flex-shrink: 0;
   height: 6px;
   border-radius: 999px;
@@ -4232,7 +4456,7 @@ button.tb-chip:hover {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #2d7e9a, #16a34a);
+  background: linear-gradient(90deg, #6366f1, #16a34a);
 }
 
 /* API Testing: response status-class chips */
@@ -4282,20 +4506,48 @@ button.tb-chip:hover {
   gap: 12px;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 4px 14px var(--shadow-a35);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .kpi-tile:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 14px 28px var(--shadow-a45);
-  border-color: var(--accent-border-soft);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
 
 .kpi-tile:hover .kpi-icon {
-  transform: scale(1.1) rotate(-6deg);
+  transform: scale(1.12) rotate(-5deg);
+}
+
+.kpi-tile-enhanced {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 16px;
+  min-height: 120px;
+}
+
+.kpi-tile-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kpi-label-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.kpi-trend {
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
 }
 
 .kpi-icon {
@@ -4365,7 +4617,14 @@ button.tb-chip:hover {
   border-radius: 14px;
   padding: 18px;
   background: var(--bg-surface);
-  box-shadow: 0 4px 14px var(--shadow-a35);
+  box-shadow: var(--shadow-card);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease;
+}
+
+.panel-box:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
 }
 
 .donut-legend {

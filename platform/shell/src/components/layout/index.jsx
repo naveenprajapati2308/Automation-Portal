@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Bell,
   Bot,
@@ -302,33 +302,47 @@ export function PortalLayout({ sidebar, topbar, children, shellClassName = '', m
 }
 
 // ── Breadcrumb: "{rootLabel} [> {mid.label}] > {pageTitle}", each non-current
-// segment is a real nav link. `mid` is optional — pages that live directly
-// under root (e.g. Admin's own sub-pages) render the original 2-level trail;
-// pages nested under a product section (API Testing, Automation) pass `mid`
-// so the section itself shows up instead of jumping straight to the leaf page.
-export function Breadcrumb({ rootLabel, mid, pageTitle, onNavigateRoot }) {
-  if (!pageTitle || pageTitle === rootLabel) return null;
-  return (
-    <div className="tb-breadcrumb" role="navigation" aria-label="Breadcrumb">
-      <button type="button" className="tb-breadcrumb-link" onClick={onNavigateRoot}>
-        {rootLabel}
-      </button>
-      {mid && mid.label !== pageTitle && (
-        <>
-          <ChevronRight size={12} className="tb-breadcrumb-sep" />
-          <button type="button" className="tb-breadcrumb-link" onClick={mid.onClick}>
-            {mid.label}
-          </button>
-        </>
-      )}
-      <ChevronRight size={12} className="tb-breadcrumb-sep" />
-      <span className="tb-breadcrumb-current">{pageTitle}</span>
-    </div>
-  );
+// ── Breadcrumb: dynamic, interactive trail [ { label, onClick }, ... ] ─────
+// Every segment except the current (last) item renders as an interactive button link.
+export function Breadcrumb({ items = [], rootLabel = 'Home', mid, pageTitle, onNavigateRoot }) {
+  if (items && items.length > 0) {
+    return (
+      <nav className="tb-breadcrumb" aria-label="Breadcrumb">
+        {items.map((item, idx) => {
+          const isLast = idx === items.length - 1;
+          return (
+            <span key={idx} className="tb-breadcrumb-segment">
+              {idx > 0 && <ChevronRight size={12} className="tb-breadcrumb-sep" />}
+              {isLast || !item.onClick ? (
+                <span className="tb-breadcrumb-current">{item.label}</span>
+              ) : (
+                <button
+                  type="button"
+                  className="tb-breadcrumb-link"
+                  onClick={item.onClick}
+                >
+                  {item.label}
+                </button>
+              )}
+            </span>
+          );
+        })}
+      </nav>
+    );
+  }
+
+  if (!pageTitle) return null;
+  const legacyItems = [
+    { label: rootLabel, onClick: onNavigateRoot },
+    ...(mid && mid.label !== pageTitle ? [{ label: mid.label, onClick: mid.onClick }] : []),
+    { label: pageTitle }
+  ];
+
+  return <Breadcrumb items={legacyItems} />;
 }
 
 // ── Layout: Topbar ───────────────────────────────────────────────────────────
-export function Topbar({ pageTitle, breadcrumbMid, superAdmin, onOpenAdmin, onNavigateHome, notifications, user, onNavigateProfile, onNavigate }) {
+export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, onOpenAdmin, onNavigateHome, notifications, user, onNavigateProfile, onNavigate }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [themePref, setThemePref] = useState(() => getStoredThemePref());
 
@@ -361,7 +375,7 @@ export function Topbar({ pageTitle, breadcrumbMid, superAdmin, onOpenAdmin, onNa
         <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)', fontSize: '22px', fontWeight: 800 }}>
           {pageTitle}
         </h1>
-        <Breadcrumb rootLabel="Dashboard" mid={breadcrumbMid} pageTitle={pageTitle} onNavigateRoot={onNavigateHome} />
+        <Breadcrumb items={breadcrumbItems} rootLabel="Home" mid={breadcrumbMid} pageTitle={pageTitle} onNavigateRoot={onNavigateHome} />
       </div>
 
       <div className="topbar-right">

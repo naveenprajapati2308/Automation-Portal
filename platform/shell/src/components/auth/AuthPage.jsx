@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Activity, CheckCircle2, Gauge, Play, ShieldCheck, Zap } from 'lucide-react';
 import { api } from '../../api.js';
 import { Field } from '../shared/Field.jsx';
 import { Loader } from '../../../../../shared/ui/Loader.jsx';
@@ -89,12 +90,25 @@ export function AuthPage({ onAuthenticated }) {
 
   return (
     <main className="auth-screen">
+      {/* ── Background animated glowing ambient orbs ────────────────────── */}
+      <div className="auth-bg-orbs" aria-hidden="true">
+        <div className="orb orb-1" />
+        <div className="orb orb-2" />
+        <div className="orb orb-3" />
+        <div className="auth-grid-overlay" />
+      </div>
+
+
+
       <section className="auth-panel">
         <div className="brand auth-brand">
-          <img src={testrixLogo} alt="TESTRIX" className="brand-logo" style={{ width: 40, height: 40 }} />
+          <div className="auth-logo-wrap">
+            <div className="logo-glow-ring" />
+            <img src={testrixLogo} alt="TESTRIX" className="brand-logo" style={{ width: 40, height: 40, position: 'relative', zIndex: 1 }} />
+          </div>
           <div>
-            <strong>TESTRIX</strong>
-
+            <strong className="auth-title-gradient">TESTRIX</strong>
+            <span className="auth-subtitle-tag">Unified Testing Platform</span>
           </div>
         </div>
 

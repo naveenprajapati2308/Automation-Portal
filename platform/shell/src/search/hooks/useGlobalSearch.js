@@ -1,13 +1,4 @@
-/**
- * useGlobalSearch.js
- * ──────────────────
- * React hook — the single entry point for all search state.
- *
- * Returns everything the GlobalSearchDropdown needs:
- *   query, setQuery, results (flat / byCategory / byModule),
- *   recentSearches, suggestions, selectedIndex, handleKeyDown,
- *   clearRecent, removeRecent, addToRecent, isOpen, setIsOpen, isLoading
- */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { searchEngine }    from '../core/searchEngine.js';
 import { searchAnalytics } from '../core/searchAnalytics.js';

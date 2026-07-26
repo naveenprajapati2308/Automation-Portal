@@ -73,7 +73,7 @@ export const MODULE_COLOR = {
   apitest:    '#60b3e0',  // cyan/blue
   admin:      '#f97316',  // orange
   profile:    '#a78bfa',  // purple
-  performance:'#facc15',  // yellow
+  perf:       '#facc15',  // yellow
 };
 
 // ── Suggestion Seeds ──────────────────────────────────────────────────────────

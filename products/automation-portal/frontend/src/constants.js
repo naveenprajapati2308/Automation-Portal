@@ -1,5 +1,5 @@
 export const USER_NAV = [
-  { key: 'dashboard', label: 'Dashboard', icon: 'Gauge' },
+  { key: 'dashboard', label: 'Overview', icon: 'Gauge' },
   { key: 'execution', label: 'Execution Center', icon: 'Play' },
   { key: 'reports', label: 'Reports Center', icon: 'FileText' },
   { key: 'logs', label: 'Test Logs', icon: 'TerminalSquare' },

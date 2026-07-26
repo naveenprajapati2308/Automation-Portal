@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import {
-  AlertTriangle, ArrowUpRight, CalendarCheck, CalendarClock, CheckCircle2, Clock,
-  Layers, ListTodo, Loader2, Play, Sparkles, Timer, TimerReset, XCircle, Zap
+  Activity, AlertTriangle, ArrowUpRight, CalendarCheck, CalendarClock, CheckCircle2, Clock,
+  Layers, ListTodo, Loader2, Play, Sparkles, Timer, TimerReset, TrendingUp, XCircle, Zap
 } from 'lucide-react';
 import { api, auth } from './api.js';
-import { ADMIN_WORKSPACE_NAV_FLAT, API_TESTING_NAV, AUTOMATION_NAV, isSuperAdmin } from './constants.js';
+import { ADMIN_WORKSPACE_NAV_FLAT, API_TESTING_NAV, AUTOMATION_NAV, PERFORMANCE_NAV, isSuperAdmin } from './constants.js';
 import { AiSupportPanel, PortalLayout, Sidebar, Topbar } from './components/layout/index.jsx';
 import { AdminSidebar, AdminTopbar, AdminContent, adminPageTitle } from './components/admin/AdminWorkspace.jsx';
 import { AutomationWorkspace } from './components/automation/AutomationWorkspace.jsx';
 import { ApiTestingWorkspace } from './components/apitesting/ApiTestingWorkspace.jsx';
+import { PerformanceWorkspace } from './components/performance/PerformanceWorkspace.jsx';
 import { Profile } from './components/profile/Profile.jsx';
 import { AuthPage } from './components/auth/AuthPage.jsx';
 import { TrendChart } from './components/dashboard/TrendChart.jsx';
@@ -34,8 +35,9 @@ const fetchJson = async (url, headers) => {
 const ADMIN_PAGE_KEYS = new Set(ADMIN_WORKSPACE_NAV_FLAT.map((item) => item.key));
 const AUTOMATION_PAGE_KEYS = new Set(AUTOMATION_NAV.map((item) => item.key));
 const API_TESTING_PAGE_KEYS = new Set(API_TESTING_NAV.map((item) => item.key));
+const PERFORMANCE_PAGE_KEYS = new Set(PERFORMANCE_NAV.map((item) => item.key));
 
-const DEFAULT_ROUTE = { adminPage: 'admin-dashboard', automationPage: 'dashboard', apitestPage: 'dashboard' };
+const DEFAULT_ROUTE = { adminPage: 'admin-dashboard', automationPage: 'dashboard', apitestPage: 'dashboard', perfPage: 'dashboard' };
 
 const parseHashRoute = () => {
   const [head, sub] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -47,6 +49,9 @@ const parseHashRoute = () => {
   }
   if (head === 'apitest') {
     return { ...DEFAULT_ROUTE, page: 'apitest', apitestPage: API_TESTING_PAGE_KEYS.has(sub) ? sub : 'dashboard' };
+  }
+  if (head === 'perf') {
+    return { ...DEFAULT_ROUTE, page: 'perf', perfPage: PERFORMANCE_PAGE_KEYS.has(sub) ? sub : 'dashboard' };
   }
   if (head === 'profile') {
     return { ...DEFAULT_ROUTE, page: 'profile' };
@@ -69,9 +74,7 @@ function Stat({ label, value, tone }) {
   );
 }
 
-// ── Dashboard: compact KPI tile (icon + big value + label) — the redesigned
-// per-product overview sections use a row of these in place of the plain
-// `.stats` list, matching the new dashboard layout.
+// ── Dashboard: compact KPI tile (icon + big value + label) ──
 function KpiTile({ icon: Icon, tone, value, label }) {
   return (
     <div className="kpi-tile">
@@ -239,6 +242,7 @@ export default function App() {
   const [autoModuleHealth, setAutoModuleHealth] = useState(null);
   const [apiSummary, setApiSummary] = useState(null);
   const [apiTrend, setApiTrend] = useState(null);
+  const [perfSummary, setPerfSummary] = useState(null);
   const [recentActivity, setRecentActivity] = useState(null);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -247,6 +251,7 @@ export default function App() {
   const [adminPage, setAdminPage] = useState(initialRoute.adminPage);
   const [automationPage, setAutomationPage] = useState(initialRoute.automationPage);
   const [apitestPage, setApitestPage] = useState(initialRoute.apitestPage);
+  const [perfPage, setPerfPage] = useState(initialRoute.perfPage);
   const [notice, setNoticeState] = useState(null);
   const notify = (text) => setNoticeState(text ? { text } : null);
   const [adminNotice, setAdminNotice] = useState('Administration workspace — Super Admin only.');
@@ -305,6 +310,7 @@ export default function App() {
     fetch('/health/automation').then((r) => setHealth((h) => ({ ...h, automation: r.ok ? 'up' : 'down' }))).catch(() => setHealth((h) => ({ ...h, automation: 'down' })));
     fetch('/health/apitest').then((r) => setHealth((h) => ({ ...h, apitest: r.ok ? 'up' : 'down' }))).catch(() => setHealth((h) => ({ ...h, apitest: 'down' })));
     fetch('/health/genai').then((r) => setHealth((h) => ({ ...h, genai: r.ok ? 'up' : 'down' }))).catch(() => setHealth((h) => ({ ...h, genai: 'down' })));
+    fetch('/health/perf').then((r) => setHealth((h) => ({ ...h, perf: r.ok ? 'up' : 'down' }))).catch(() => setHealth((h) => ({ ...h, perf: 'down' })));
 
     const loadSummary = async (url, setter) => {
       try {
@@ -326,6 +332,7 @@ export default function App() {
     loadSummary('/automation/api/dashboard/module-health?range=30d', setAutoModuleHealth);
     loadSummary('/apitest/api/v1/dashboard/summary', setApiSummary);
     loadSummary('/apitest/api/v1/dashboard/trend?days=7', setApiTrend);
+    loadSummary('/perf/api/v1/dashboard/stats', setPerfSummary);
     api.dashboardRecentActivity().then((rows) => setRecentActivity(rows.slice(0, 5))).catch(() => setRecentActivity(null));
   }, [authed]);
 
@@ -351,20 +358,52 @@ export default function App() {
   // navigating, so the browser never resets scroll on its own; do it here.
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [page, adminPage, automationPage, apitestPage]);
+  }, [page, adminPage, automationPage, apitestPage, perfPage]);
+
+  // Every internal nav click already does `window.location.hash = ...`, which
+  // pushes a real browser history entry — but nothing was listening for the
+  // reverse direction, so back/forward changed the URL without changing what
+  // was on screen. Re-parsing the hash on every hashchange (back/forward,
+  // manual URL edit, or a fresh `#/...` link) keeps the two in sync both ways.
+  useEffect(() => {
+    const onHashChange = () => {
+      const r = parseHashRoute();
+      setPage(r.page);
+      setAdminPage(r.adminPage);
+      setAutomationPage(r.automationPage);
+      setApitestPage(r.apitestPage);
+      setPerfPage(r.perfPage);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   // ── Register search action handlers ────────────────────────────────────────
   // Must live here (before the early returns) to satisfy Rules of Hooks.
   // Guards on authed so actions are only registered for a logged-in session.
   useEffect(() => {
     if (!authed) return;
-    // These reference the state setters directly — the setters are stable
-    // across renders so no closure-staleness issues.
     registerAction('auto-run',            () => setAutomationPage('execution'));
     registerAction('api-create',          () => { setApitestPage('regular-apis'); setPage('apitest'); });
     registerAction('api-schedule-create', () => { setApitestPage('scheduler');    setPage('apitest'); });
     registerAction('admin-create-user',   () => { setPage('admin'); setAdminPage('user-management'); });
   }, [authed]);
+
+  // ── Document title sync ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!authed) return;
+    const title = page === 'admin'
+      ? adminPageTitle(adminPage)
+      : page === 'automation'
+        ? (automationPage === 'dashboard' ? 'Automation Overview' : (AUTOMATION_NAV.find((i) => i.key === automationPage)?.label ?? 'Automation'))
+        : page === 'apitest'
+          ? (apitestPage === 'dashboard' ? 'API Testing Overview' : (API_TESTING_NAV.find((i) => i.key === apitestPage)?.label ?? 'API Testing'))
+          : page === 'perf'
+            ? (perfPage === 'dashboard' ? 'Performance Overview' : (PERFORMANCE_NAV.find((i) => i.key === perfPage)?.label ?? 'Performance'))
+            : page === 'profile' ? 'Profile' : 'Global Dashboard';
+
+    document.title = title ? `${title} | TESTRIX` : 'TESTRIX Unified Testing Platform';
+  }, [authed, page, adminPage, automationPage, apitestPage, perfPage]);
 
   if (authed === null) return <FullScreenLoader logoSrc={appLogo} subtitle="Loading TESTRIX" />;
   if (!authed) {
@@ -397,7 +436,6 @@ export default function App() {
     window.location.hash = `#/admin/${nextAdminPage}`;
   };
 
-
   const setAutomationPageAndHash = (nextAutomationPage) => {
     setAutomationPage(nextAutomationPage);
     setPage('automation');
@@ -410,6 +448,12 @@ export default function App() {
     window.location.hash = `#/apitest/${nextApitestPage}`;
   };
 
+  const setPerfPageAndHash = (nextPerfPage) => {
+    setPerfPage(nextPerfPage);
+    setPage('perf');
+    window.location.hash = `#/perf/${nextPerfPage}`;
+  };
+
   const logout = () => {
     api.logout(session?.refreshToken).catch(() => { });
     forceLogout();
@@ -417,8 +461,6 @@ export default function App() {
 
   // ── Search navigation ───────────────────────────────────────────────────
   // Called by GlobalSearchDropdown when user selects a result.
-  // Existing navigation functions (goDashboard, setAutomationPageAndHash, etc.)
-  // are unchanged — navigateFromSearch simply orchestrates them.
   const navigateFromSearch = (item) => {
     const { nav, permission, disabled } = item;
     if (disabled) return;
@@ -430,29 +472,25 @@ export default function App() {
     setTimeout(() => {
       setSearchNavLoading(false);
 
-      // Page navigation
       if (nav.page === 'dashboard')           goDashboard();
       else if (nav.page === 'automation')     setAutomationPageAndHash(nav.sub);
       else if (nav.page === 'apitest')        setApitestPageAndHash(nav.sub);
+      else if (nav.page === 'perf')           setPerfPageAndHash(nav.sub);
       else if (nav.page === 'admin' && superAdmin) {
         setPage('admin');
         setAdminPageAndHash(nav.sub);
       }
       else if (nav.page === 'profile')        goProfile();
 
-      // Inline anchor scroll (for admin pages rendered in the shell)
       if (nav.anchor) {
         requestAnimationFrame(() => {
           document.getElementById(nav.anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
       }
 
-      // Trigger destination highlight
       setDestHighlight({ active: true, color });
     }, 800);
   };
-
-
 
   const sendChat = async () => {
     const text = chatInput.trim();
@@ -475,22 +513,51 @@ export default function App() {
     }
   };
 
-  const pageTitle = page === 'admin'
-    ? adminPageTitle(adminPage)
-    : page === 'automation'
-      ? (AUTOMATION_NAV.find((i) => i.key === automationPage)?.label ?? 'Automation')
-      : page === 'apitest'
-        ? (API_TESTING_NAV.find((i) => i.key === apitestPage)?.label ?? 'API Testing')
-        : page === 'profile' ? 'Profile' : 'Global Dashboard';
+  // ── Dynamic Breadcrumbs & Page Titles ──────────────────────────────────────
+  // One entry per embedded product — each one's NAV array (constants.js) is the
+  // single source of truth for its sub-page labels, so adding a future product
+  // only means adding one entry here, not another copy-pasted if/else branch.
+  // The Home + Global Dashboard root, is the one and only true "Dashboard";
+  // every product's own landing sub-page is labeled "Overview" (its `dashboard`
+  // NAV key), never "Dashboard", so the hierarchy can't be misread as if a
+  // product's landing page were a sibling of the platform root.
+  const MODULE_CONFIG = {
+    automation: { label: 'Automation', nav: AUTOMATION_NAV, activeSubPage: automationPage, goOverview: () => setAutomationPageAndHash('dashboard') },
+    apitest:    { label: 'API Testing', nav: API_TESTING_NAV, activeSubPage: apitestPage, goOverview: () => setApitestPageAndHash('dashboard') },
+    perf:       { label: 'Performance', nav: PERFORMANCE_NAV, activeSubPage: perfPage, goOverview: () => setPerfPageAndHash('dashboard') },
+  };
 
-  // Middle breadcrumb segment for pages nested under a product section (e.g.
-  // "Dashboard > API Testing > History") — omitted for pages that live
-  // directly under the root (Global Dashboard, Admin, Profile).
-  const breadcrumbMid = page === 'automation'
-    ? { label: 'Automation', onClick: () => setAutomationPageAndHash('dashboard') }
-    : page === 'apitest'
-      ? { label: 'API Testing', onClick: () => setApitestPageAndHash('dashboard') }
-      : null;
+  let pageTitle = 'Global Dashboard';
+  let breadcrumbItems = [
+    { label: 'Home', onClick: goDashboard },
+    { label: 'Global Dashboard' }
+  ];
+
+  if (page === 'admin') {
+    const subLabel = adminPageTitle(adminPage);
+    pageTitle = subLabel;
+    breadcrumbItems = [
+      { label: 'Home', onClick: goDashboard },
+      { label: 'Administration', onClick: () => setAdminPageAndHash('admin-dashboard') },
+      { label: subLabel }
+    ];
+  } else if (page === 'profile') {
+    pageTitle = 'Profile';
+    breadcrumbItems = [
+      { label: 'Home', onClick: goDashboard },
+      { label: 'Profile' }
+    ];
+  } else if (MODULE_CONFIG[page]) {
+    const { label: moduleLabel, nav, activeSubPage, goOverview } = MODULE_CONFIG[page];
+    const sub = nav.find((i) => i.key === activeSubPage);
+    const subLabel = sub ? sub.label : 'Overview';
+    pageTitle = activeSubPage === 'dashboard' ? `${moduleLabel} Overview` : subLabel;
+    breadcrumbItems = [
+      { label: 'Home', onClick: goDashboard },
+      { label: moduleLabel, onClick: goOverview },
+      { label: subLabel }
+    ];
+  }
 
   const apiTrendPoints = toTrendChartData(apiTrend);
 
@@ -532,8 +599,13 @@ export default function App() {
           icon={TimerReset}
           tone="success"
           label="Performance"
-          soon
-          summary="Developed separately as its own product — joins this dashboard soon."
+          health={health.perf}
+          kpiValue={perfSummary ? perfSummary.totalRuns ?? 0 : '—'}
+          kpiLabel="Test Runs"
+          summary={perfSummary
+            ? `${perfSummary.totalRuns > 0 ? Math.round((perfSummary.passedRuns / perfSummary.totalRuns) * 100) : 0}% pass rate · ${perfSummary.runningRuns ?? 0} running`
+            : 'Stats unavailable'}
+          onSeeMore={() => setPerfPageAndHash('dashboard')}
         />
         <OverviewCard
           icon={Sparkles}
@@ -683,21 +755,48 @@ export default function App() {
         ) : <p className="panel-empty">API Testing stats unavailable.</p>}
       </section>
 
-      <section className="product-overview card-soon">
-        <div className="panel-title"><TimerReset size={16} /> Performance Testing Overview <span className="soon">Soon</span></div>
-        <p className="panel-empty" style={{ marginBottom: 14 }}>
-          Performance Testing runs as its own product today and isn't wired into this gateway yet. Once
-          connected, this section will surface active tests, response times, throughput, error rate,
-          concurrent users, the latest run, plus trend and resource-usage charts.
-        </p>
-        <div className="stats">
-          <Stat label="Active tests" value="—" />
-          <Stat label="Avg response time" value="—" />
-          <Stat label="Throughput" value="—" />
-          <Stat label="Error rate" value="—" />
-          <Stat label="Concurrent users" value="—" />
-          <Stat label="Latest run" value="—" />
-        </div>
+      <section className="product-overview">
+        <div className="panel-title"><TimerReset size={16} /> Performance Testing Overview <HealthDot state={health.perf} /></div>
+        {perfSummary ? (
+          <>
+            <div className="kpi-row">
+              <KpiTile icon={Activity} tone="accent" value={perfSummary.totalRuns ?? 0} label="Total Runs" />
+              <KpiTile icon={CheckCircle2} tone="success" value={`${perfSummary.totalRuns > 0 ? Math.round((perfSummary.passedRuns / perfSummary.totalRuns) * 100) : 0}%`} label="Pass Rate" />
+              <KpiTile icon={XCircle} tone="danger" value={perfSummary.failedRuns ?? 0} label="Failed Runs" />
+              <KpiTile icon={Loader2} tone="info" value={perfSummary.runningRuns ?? 0} label="Running" />
+              <KpiTile icon={Zap} tone="accent" value={perfSummary.performanceTestCount ?? 0} label="Perf Tests" />
+              <KpiTile icon={TrendingUp} tone="warning" value={perfSummary.loadTestCount ?? 0} label="Load Tests" />
+            </div>
+
+            <div className="panel-row">
+              <div className="panel-box">
+                <div className="mini-block-title">Run Status Mix</div>
+                <DonutChart
+                  segments={[
+                    { key: 'passed', label: 'Passed', value: perfSummary.passedRuns ?? 0, color: 'var(--success-text)' },
+                    { key: 'failed', label: 'Failed', value: perfSummary.failedRuns ?? 0, color: 'var(--danger-text)' },
+                    { key: 'running', label: 'Running', value: perfSummary.runningRuns ?? 0, color: 'var(--accent-text)' },
+                  ]}
+                />
+              </div>
+              <div className="panel-box">
+                <div className="mini-block-title">Suite Summary</div>
+                <div className="tile-row">
+                  <div className="tile">
+                    <div className="tile-icon kpi-icon-info"><Layers size={15} /></div>
+                    <div className="tile-value">{perfSummary.testGroupCount ?? 0}</div>
+                    <div className="tile-label">Test Groups</div>
+                  </div>
+                  <div className="tile">
+                    <div className="tile-icon kpi-icon-warning"><CalendarClock size={15} /></div>
+                    <div className="tile-value">{perfSummary.scheduledCount ?? 0}</div>
+                    <div className="tile-label">Active Schedules</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : <p className="panel-empty">Performance stats unavailable.</p>}
       </section>
     </>
   );
@@ -723,17 +822,19 @@ export default function App() {
         ) : (
           <Sidebar
             active={page}
-            activeChildKey={page === 'automation' ? automationPage : page === 'apitest' ? apitestPage : null}
+            activeChildKey={page === 'automation' ? automationPage : page === 'apitest' ? apitestPage : page === 'perf' ? perfPage : null}
             logout={logout}
             onNavigate={(key) => {
               if (key === 'dashboard') goDashboard();
               if (key === 'profile') goProfile();
               if (key === 'automation') setAutomationPageAndHash(automationPage);
               if (key === 'apitest') setApitestPageAndHash(apitestPage);
+              if (key === 'perf') setPerfPageAndHash(perfPage);
             }}
             onNavigateChild={(parentKey, childKey) => {
               if (parentKey === 'automation') setAutomationPageAndHash(childKey);
               if (parentKey === 'apitest') setApitestPageAndHash(childKey);
+              if (parentKey === 'perf') setPerfPageAndHash(childKey);
             }}
             isCollapsed={isSidebarCollapsed}
             onToggle={() => setSidebarCollapsed((c) => !c)}
@@ -751,7 +852,7 @@ export default function App() {
         ) : (
           <Topbar
             pageTitle={pageTitle}
-            breadcrumbMid={breadcrumbMid}
+            breadcrumbItems={breadcrumbItems}
             superAdmin={superAdmin}
             onOpenAdmin={openAdmin}
             onNavigateHome={goDashboard}
@@ -772,6 +873,8 @@ export default function App() {
           <AutomationWorkspace activePage={automationPage} />
         ) : page === 'apitest' ? (
           <ApiTestingWorkspace activePage={apitestPage} />
+        ) : page === 'perf' ? (
+          <PerformanceWorkspace activePage={perfPage} />
         ) : page === 'profile' ? (
           <Profile setNotice={notify} />
         ) : dashboardLoading ? (

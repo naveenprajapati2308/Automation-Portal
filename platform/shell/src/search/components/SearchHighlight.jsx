@@ -1,12 +1,3 @@
-/**
- * SearchHighlight.jsx
- * ───────────────────
- * Renders text with matched query characters highlighted via <mark>.
- * Handles case-insensitive, multi-word queries.
- *
- * Example: text="Execution Center", query="exec"
- * Output:  <><mark>Exec</mark>ution Center</>
- */
 
 /**
  * @param {{ text: string, query: string }} props

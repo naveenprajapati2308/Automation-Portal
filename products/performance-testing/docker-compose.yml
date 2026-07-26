@@ -1,0 +1,38 @@
+services:
+  performance-testing-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: performance-testing-backend
+    restart: unless-stopped
+    depends_on:
+      testrix-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    environment:
+      TZ: ${SCHEDULER_TZ:-Asia/Kolkata}
+      DB_URL: jdbc:mysql://testrix-mysql:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      K6_OUTPUT_DIR: /app/k6-runs
+      PERF_QUEUE_MAX_CONCURRENT: ${PERF_MAX_CONCURRENT:-3}
+      PERF_QUEUE_JOB_TIMEOUT: ${PERF_JOB_TIMEOUT_MINUTES:-60}
+    volumes:
+      - performance_testing_k6_runs:/app/k6-runs
+    ports:
+      - "8082:8080"
+    networks:
+      - testrix
+
+networks:
+  testrix:
+    name: testrix_network
+
+volumes:
+  performance_testing_k6_runs:
+    name: performance_testing_k6_runs

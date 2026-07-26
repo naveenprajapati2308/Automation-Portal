@@ -5,7 +5,7 @@ import testrixLogo from '../assets/testrix_logo.png';
 import { reportHeightToParent } from '../../../../../shared/ui/iframe-resize.js';
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/tester', label: 'API Tester', icon: Send },
   { to: '/base-apis', label: 'Base APIs', icon: Database },
   { to: '/regular-apis', label: 'Regular APIs', icon: Workflow },

@@ -1,9 +1,4 @@
-/**
- * apiTestingProvider.js
- * ─────────────────────
- * Search items for the API Testing module.
- * Covers: pages, sections, actions, and reports.
- */
+
 import { ENTITY_TYPE, PROVIDER_TYPE } from '../core/searchTypes.js';
 
 const ITEMS = [
@@ -13,12 +8,12 @@ const ITEMS = [
     entityType:  ENTITY_TYPE.PAGE,
     module:      'API Testing',
     category:    'Pages',
-    page:        'API Testing Dashboard',
+    page:        'API Testing Overview',
     section:     null,
     description: 'API Testing overview — execution counts, success rates, and active schedules.',
     icon:        'LayoutDashboard',
     badge:       null,
-    navPath:     'API Testing › Dashboard',
+    navPath:     'API Testing › Overview',
     nav:         { page: 'apitest', sub: 'dashboard', tab: null, section: null, anchor: null, action: null },
     keywords:    ['api', 'dashboard', 'overview', 'api testing', 'summary', 'kpi', 'success rate'],
     synonyms:    ['api home', 'api overview', 'api summary'],

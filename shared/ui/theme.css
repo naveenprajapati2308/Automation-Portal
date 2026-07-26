@@ -1,93 +1,60 @@
 :root {
   color-scheme: light;
 
-
-  /*--bg-page: #d9e2e9;
-  --bg-inset: #f8fafc;
-
+  /* ── Canvas & Surface Tokens ─────────────────────────────────────────────── */
+  --bg-page: #f8fafc;
+  --bg-inset: #ffffff;
   --bg-surface: #ffffff;
-
-  --bg-surface-2: #f1f5f9;
-
-  --bg-hover: #eef2f7;
-
-  --border-soft: #eef2f6;
-  --border: #e3e8ef;
-  --border-strong: #c9d4e0;*/
-  --bg-page: #f5f7fb;
-
-  --bg-inset: #f8fafc;
-
-  --bg-surface: #ffffff;
-
   --bg-surface-2: #f8fafc;
-
   --bg-hover: #f1f5f9;
 
-  --border-soft: #eef2f7;
+  --border-soft: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
 
-  --border: #e5e7eb;
+  --text-primary: #0f172a;    /* Headings, key numbers */
+  --text-secondary: #334155;  /* Body text */
+  --text-muted: #64748b;     /* Subtitles, labels */
 
-  --border-strong: #222a37;
+  /* ── Sidebar Rail — Sleek Dark Navy in Light Theme for high-contrast enterprise look ── */
+  --sidebar-bg: #0f172a;
+  --sidebar-rail-border: 1px solid rgba(255, 255, 255, 0.08);
+  --sidebar-edge: rgba(255, 255, 255, 0.08);
 
-  --text-primary: #0f172a;
-  /* headings, key values */
-  --text-secondary: #334155;
-  /* body copy */
-  --text-muted: #64748b;
+  --sidebar-text: #f8fafc;
+  --sidebar-muted: #94a3b8;
+  --sidebar-faint: #64748b;
+  --sidebar-section: #64748b;
+  --sidebar-item: #cbd5e1;
+  --sidebar-item-hover-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-item-hover-text: #ffffff;
+  --sidebar-active-bg: linear-gradient(90deg, #4f46e5 0%, #6366f1 100%);
+  --sidebar-active-text: #ffffff;
+  --sidebar-active-icon: #a5b4fc;
+  --sidebar-active-shadow: inset 3px 0 0 #6366f1, 0 4px 14px rgba(99, 102, 241, 0.35);
+  --sidebar-scrollbar: rgba(255, 255, 255, 0.15);
 
-  /* Sidebar rail — white in the bright theme (per the approved dashboard mock),
-     dark navy in the dark theme. */
-  --sidebar-bg: #e2ebf2;
-  --sidebar-rail-border: 1px solid #e9edf3;
-  /* outer edge; `none` in dark */
-  --sidebar-edge: #e9edf3;
-  /* inner dividers */
+  /* Admin Rail */
+  --admin-sidebar-bg: #0a1120;
+  --admin-sidebar-edge: rgba(245, 158, 11, 0.15);
+  --admin-sidebar-item: #f59e0b;
+  --admin-sidebar-active-bg: rgba(245, 158, 11, 0.18);
+  --admin-sidebar-active-text: #fbbf24;
+  --admin-brand-strong: #fbbf24;
+  --admin-brand-sub: #d97706;
+  --admin-back-bg: rgba(255, 255, 255, 0.05);
 
-  --sidebar-text: #0b1222;
-  --sidebar-muted: #64748b;
-  --sidebar-faint: #94a3b8;
-  --sidebar-section: #94a3b8;
-  --sidebar-item: #475569;
-  --sidebar-item-hover-bg: #fdfeff;
-  --sidebar-item-hover-text: #0f172a;
-  --sidebar-active-bg: #ede9fe;
-  --sidebar-active-text: #6d28d9;
-  --sidebar-active-icon: #825ac8;
-  --sidebar-active-shadow: inset 0 0 0 1px #ddd6fe;
-  --sidebar-scrollbar: #cbd5e1;
-
-  --sidebar-bg: #ffffff;
-
-  --sidebar-item: #475569;
-
-  --sidebar-item-hover-bg: #f8fafc;
-
-  --sidebar-active-bg: #ede9fe;
-
-  --sidebar-active-text: #6d28d9;
-
-  /* Admin rail (amber identity) */
-  --admin-sidebar-bg: #ffffff;
-  --admin-sidebar-edge: #e9edf3;
-  --admin-sidebar-item: #a16207;
-  --admin-sidebar-active-bg: #fef3c7;
-  --admin-sidebar-active-text: #92400e;
-  --admin-brand-strong: #92400e;
-  --admin-brand-sub: #b45309;
-  --admin-back-bg: #f8fafc;
-
-  --accent: #7c3aed;
-  /* primary CTA / links / focus */
-  --accent-hover: #6d28d9;
-  --accent-text: #6d28d9;
-  --accent-text-soft: #7c3aed;
-  --accent-bg-soft: #f3e8ff;
-  --accent-border-soft: #e9d5ff;
+  /* ── Color Palette Accent Tokens (Indigo/Purple Primary Accent) ───────────── */
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-text: #4f46e5;
+  --accent-text-soft: #6366f1;
+  --accent-bg-soft: #eef2ff;
+  --accent-border-soft: #c7d2fe;
 
   --indigo-text: #4f46e5;
   --indigo-text-soft: #6366f1;
-  --info-text: #2563eb;
+  --info-text: #0284c7;
   --cyan-text: #0891b2;
   --teal-text: #0d9488;
   --pink-text: #db2777;
@@ -101,29 +68,33 @@
   --warning-bg-soft: #fef3c7;
   --warning-border-soft: #fde68a;
 
-  --danger-text: #e71d1d;
+  --danger-text: #dc2626;
   --danger-bg-soft: #fee2e2;
   --danger-border-soft: #fecaca;
 
-  /* ── Elevation (keyed by the legacy dark alpha they replace) ───────────── */
+  /* ── Elevation & Shadow Tokens (Stripe / Vercel Enterprise Shadows) ───────── */
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.05);
+  --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.06), 0 0 0 1px rgba(15, 23, 42, 0.03);
+  --shadow-card-hover: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(79, 70, 229, 0.2);
+
   --shadow-a10: rgba(15, 23, 42, 0.04);
   --shadow-a30: rgba(15, 23, 42, 0.06);
-  --shadow-a35: rgba(15, 23, 42, 0.07);
-  --shadow-a40: rgba(15, 23, 42, 0.08);
-  --shadow-a45: rgba(15, 23, 42, 0.09);
-  --shadow-a50: rgba(15, 23, 42, 0.10);
-  --shadow-a60: rgba(15, 23, 42, 0.12);
+  --shadow-a35: rgba(15, 23, 42, 0.08);
+  --shadow-a40: rgba(15, 23, 42, 0.10);
+  --shadow-a45: rgba(15, 23, 42, 0.13);
+  --shadow-a50: rgba(15, 23, 42, 0.16);
+  --shadow-a60: rgba(15, 23, 42, 0.20);
 
   /* ── Component tokens ───────────────────────────────────────────────────── */
   --heatmap-empty: #e9eef5;
 
   --radius-sm: 8px;
   --radius-md: 10px;
-  --radius-lg: 14px;
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius-lg: 12px;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "Cascadia Code", "Fira Code", ui-monospace, monospace;
 
-  /* ── Bootstrap bridge (keeps any Bootstrap component on-theme) ──────────── */
+  /* ── Bootstrap bridge ─────────────────────────────────────────────────── */
   --bs-body-bg: var(--bg-page);
   --bs-body-color: var(--text-secondary);
   --bs-border-color: var(--border);
@@ -135,46 +106,49 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Sidebar rail — original dark navy look */
-  --sidebar-bg: #0f1923;
-  --sidebar-rail-border: none;
-  --sidebar-edge: #253041;
-  --sidebar-text: #f7fbff;
+  /* ── Canvas & Surface Tokens (Dark Mode) ────────────────────────────────── */
+  --bg-page: #050a14;
+  --bg-inset: #091120;
+  --bg-surface: #0e1726;
+  --bg-surface-2: #142136;
+  --bg-hover: #16253d;
+
+  --border-soft: #121e33;
+  --border: #1e2e4a;
+  --border-strong: #334b6e;
+
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #8fa2b8;
+
+  /* ── Sidebar Rail (Dark Mode) ───────────────────────────────────────────── */
+  --sidebar-bg: #070d18;
+  --sidebar-rail-border: 1px solid rgba(255, 255, 255, 0.06);
+  --sidebar-edge: rgba(255, 255, 255, 0.07);
+
+  --sidebar-text: #f8fafc;
   --sidebar-muted: #8a9bb0;
   --sidebar-faint: #587086;
-  --sidebar-section: #4e6275;
-  --sidebar-item: #9db0c2;
-  --sidebar-item-hover-bg: #243443;
-  --sidebar-item-hover-text: #fff;
-  --sidebar-active-bg: linear-gradient(90deg, rgba(79, 70, 229, 0.4), rgba(124, 58, 237, 0.12));
-  --sidebar-active-text: #fff;
-  --sidebar-active-icon: #a78bfa;
-  --sidebar-active-shadow: inset 3px 0 0 #7c3aed;
-  --sidebar-scrollbar: #2d4256;
+  --sidebar-section: #587086;
+  --sidebar-item: #94a3b8;
+  --sidebar-item-hover-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-item-hover-text: #ffffff;
+  --sidebar-active-bg: linear-gradient(90deg, rgba(124, 58, 237, 0.8), rgba(99, 102, 241, 0.6));
+  --sidebar-active-text: #ffffff;
+  --sidebar-active-icon: #c4b5fd;
+  --sidebar-active-shadow: inset 3px 0 0 #a78bfa, 0 4px 14px rgba(124, 58, 237, 0.4);
+  --sidebar-scrollbar: #1e2e4a;
 
-  --admin-sidebar-bg: #0a1520;
-  --admin-sidebar-edge: #1e3348;
+  --admin-sidebar-bg: #070c16;
+  --admin-sidebar-edge: rgba(245, 158, 11, 0.2);
   --admin-sidebar-item: #c49a40;
-  --admin-sidebar-active-bg: #1e2e14;
+  --admin-sidebar-active-bg: rgba(245, 158, 11, 0.2);
   --admin-sidebar-active-text: #f0c060;
   --admin-brand-strong: #f3d496;
   --admin-brand-sub: #8a6100;
-  --admin-back-bg: #0f1f30;
+  --admin-back-bg: #0b1526;
 
-  --bg-page: #070d19;
-  --bg-inset: #0a1220;
-  --bg-surface: #101d31;
-  --bg-surface-2: #1e2f3e;
-  --bg-hover: #16273f;
-
-  --border-soft: #16243a;
-  --border: #1e3348;
-  --border-strong: #dce1ea;
-
-  --text-primary: #e2ecf6;
-  --text-secondary: #c7d6e6;
-  --text-muted: #8fa2b8;
-
+  /* ── Color Palette Accent Tokens (Dark Mode) ────────────────────────────── */
   --accent: #7c3aed;
   --accent-hover: #8b5cf6;
   --accent-text: #a78bfa;
@@ -202,15 +176,20 @@
   --danger-bg-soft: #2a0a0a;
   --danger-border-soft: #5a1a1a;
 
+  /* ── Elevation & Shadow Tokens (Dark Mode) ─────────────────────────────── */
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 6px 20px -2px rgba(0, 0, 0, 0.45), 0 2px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-card-hover: 0 20px 40px -6px rgba(0, 0, 0, 0.7), 0 6px 16px -2px rgba(0, 0, 0, 0.5);
+
   --heatmap-empty: #0f1923;
 
-  --shadow-a10: rgba(0, 0, 0, 0.1);
-  --shadow-a30: rgba(0, 0, 0, 0.3);
-  --shadow-a35: rgba(0, 0, 0, 0.35);
-  --shadow-a40: rgba(0, 0, 0, 0.4);
-  --shadow-a45: rgba(0, 0, 0, 0.45);
-  --shadow-a50: rgba(0, 0, 0, 0.5);
-  --shadow-a60: rgba(0, 0, 0, 0.6);
+  --shadow-a10: rgba(0, 0, 0, 0.15);
+  --shadow-a30: rgba(0, 0, 0, 0.35);
+  --shadow-a35: rgba(0, 0, 0, 0.40);
+  --shadow-a40: rgba(0, 0, 0, 0.45);
+  --shadow-a45: rgba(0, 0, 0, 0.52);
+  --shadow-a50: rgba(0, 0, 0, 0.60);
+  --shadow-a60: rgba(0, 0, 0, 0.70);
 }
 
 html {
@@ -219,4 +198,4 @@ html {
 
 html::-webkit-scrollbar {
   display: none;
-}
+}
