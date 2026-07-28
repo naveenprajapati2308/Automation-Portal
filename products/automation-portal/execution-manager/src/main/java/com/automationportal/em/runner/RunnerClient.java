@@ -21,20 +21,23 @@ public class RunnerClient {
                 .build();
     }
 
-    public boolean triggerRun(String runnerUrl, String executionId, String suiteXml, String portalUrl, String apiKey) {
+    public boolean triggerRun(String runnerUrl, String executionId, String suiteXml, String portalUrl, String apiKey, String envConfigJson) {
         try {
             String url = runnerUrl + "/runner/run";
+            // envConfigJson is already a JSON object (or null) — embedded raw, not as a string field.
+            String envConfig = (envConfigJson == null || envConfigJson.isBlank()) ? "{}" : envConfigJson;
             // JSON body
             String jsonBody = String.format(
-                    "{\"executionId\":\"%s\",\"suiteXml\":\"%s\",\"portalUrl\":\"%s\",\"apiKey\":\"%s\",\"openReport\":false}",
-                    executionId, suiteXml, portalUrl, apiKey
+                    "{\"executionId\":\"%s\",\"suiteXml\":\"%s\",\"portalUrl\":\"%s\",\"apiKey\":\"%s\",\"openReport\":false,\"envConfig\":%s}",
+                    executionId, suiteXml, portalUrl, apiKey, envConfig
             );
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                    .timeout(Duration.ofSeconds(10))
+  
+                    .timeout(Duration.ofSeconds(30))
                     .build();
 
             log.info("Sending run request to runner: {} with body: {}", url, jsonBody);

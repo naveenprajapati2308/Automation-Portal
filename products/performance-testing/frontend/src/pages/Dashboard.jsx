@@ -86,65 +86,65 @@ export default function Dashboard() {
       </div>
 
       <div className={`flex flex-col gap-8 ${refreshing && !firstLoad ? 'dr-refreshing' : ''}`}>
-      <div className="flex flex-wrap gap-3">
-        <StatTile icon={Activity} label="Total Runs" value={stats?.totalRuns ?? 0} />
-        <StatTile icon={CheckCircle2} label="Passed" tone="success" value={`${stats?.passedRuns ?? 0} (${passRate}%)`} />
-        <StatTile icon={XCircle} label="Failed" tone="danger" value={stats?.failedRuns ?? 0} />
-        <StatTile icon={Zap} label="Perf Tests" value={stats?.performanceTestCount ?? 0} />
-        <StatTile icon={TrendingUp} label="Load Tests" value={stats?.loadTestCount ?? 0} />
-        <StatTile icon={Clock} label="Scheduled" value={stats?.scheduledCount ?? 0} />
-      </div>
+        <div className="flex flex-wrap gap-3">
+          <StatTile icon={Activity} label="Total Runs" value={stats?.totalRuns ?? 0} />
+          <StatTile icon={CheckCircle2} label="Passed" tone="success" value={`${stats?.passedRuns ?? 0} (${passRate}%)`} />
+          <StatTile icon={XCircle} label="Failed" tone="danger" value={stats?.failedRuns ?? 0} />
+          <StatTile icon={Zap} label="Perf Tests" value={stats?.performanceTestCount ?? 0} />
+          <StatTile icon={TrendingUp} label="Load Tests" value={stats?.loadTestCount ?? 0} />
+          <StatTile icon={Clock} label="Scheduled" value={stats?.scheduledCount ?? 0} />
+        </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <ExecutionTrendChart
-          className="col-span-2"
-          title={`Execution Trend (${rangeLabel(range)})`}
-          data={trend}
-          series={[
-            { key: 'passed', label: 'Passed', color: '--success-text' },
-            { key: 'failed', label: 'Failed', color: '--danger-text' },
-          ]}
-        />
-        <StatusMixDonut
-          title="Run Status Mix"
-          segments={[
-            { key: 'passed', label: 'Passed', value: stats?.passedRuns ?? 0, color: '--success-text' },
-            { key: 'failed', label: 'Failed', value: stats?.failedRuns ?? 0, color: '--danger-text' },
-            { key: 'running', label: 'Running', value: stats?.runningRuns ?? 0, color: '--accent-text' },
-          ]}
-          centerLabel="Total"
-        />
-      </div>
+        <div className="grid grid-cols-3 gap-4">
+          <ExecutionTrendChart
+            className="col-span-2"
+            title={`Execution Trend (${rangeLabel(range)})`}
+            data={trend}
+            series={[
+              { key: 'passed', label: 'Passed', color: '--success-text' },
+              { key: 'failed', label: 'Failed', color: '--danger-text' },
+            ]}
+          />
+          <StatusMixDonut
+            title="Run Status Mix"
+            segments={[
+              { key: 'passed', label: 'Passed', value: stats?.passedRuns ?? 0, color: '--success-text' },
+              { key: 'failed', label: 'Failed', value: stats?.failedRuns ?? 0, color: '--danger-text' },
+              { key: 'running', label: 'Running', value: stats?.runningRuns ?? 0, color: '--accent-text' },
+            ]}
+            centerLabel="Total"
+          />
+        </div>
 
-      {stats?.dailyRuns?.length > 0 && (
+        {/*{stats?.dailyRuns?.length > 0 && (
         <Card>
           <h2 className="tx-card-title">Runs (Last 20 Days)</h2>
           <MiniHistoryBar data={stats.dailyRuns} />
         </Card>
-      )}
+      )}*/}
 
-      <Card>
-        <h2 className="tx-card-title">Recent Runs</h2>
-        {recentRuns.length === 0 ? (
-          <EmptyState message="No runs yet. Run a test to see results." />
-        ) : (
-          <div className="flex flex-col">
-            {recentRuns.map((run) => (
-              <ListRow key={run.id}>
-                <StatusBadge status={run.status} />
-                <span className="flex-1 font-semibold text-sm tx-list-row-main">{run.testName || `Run #${run.id}`}</span>
-                <TypeBadge type={run.testType} />
-                <span className="text-xs text-[var(--text-muted)] font-mono min-w-[80px] text-right">
-                  {run.p95Ms ? `P95: ${run.p95Ms.toFixed(1)}ms` : ''}
-                </span>
-                <span className="text-xs text-[var(--text-muted)]">
-                  {run.startedAt ? new Date(run.startedAt).toLocaleString() : '—'}
-                </span>
-              </ListRow>
-            ))}
-          </div>
-        )}
-      </Card>
+        <Card>
+          <h2 className="tx-card-title">Recent Runs</h2>
+          {recentRuns.length === 0 ? (
+            <EmptyState message="No runs yet. Run a test to see results." />
+          ) : (
+            <div className="flex flex-col">
+              {recentRuns.map((run) => (
+                <ListRow key={run.id}>
+                  <StatusBadge status={run.status} />
+                  <span className="flex-1 font-semibold text-sm tx-list-row-main">{run.testName || `Run #${run.id}`}</span>
+                  <TypeBadge type={run.testType} />
+                  <span className="text-xs text-[var(--text-muted)] font-mono min-w-[80px] text-right">
+                    {run.p95Ms ? `P95: ${run.p95Ms.toFixed(1)}ms` : ''}
+                  </span>
+                  <span className="text-xs text-[var(--text-muted)]">
+                    {run.startedAt ? new Date(run.startedAt).toLocaleString() : '—'}
+                  </span>
+                </ListRow>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

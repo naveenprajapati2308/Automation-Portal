@@ -15,10 +15,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -120,6 +123,7 @@ public class FrameworkRunnerService {
         String suiteXml = getJsonVal(body, "suiteXml");
         String portalUrl = getJsonVal(body, "portalUrl");
         String apiKey = getJsonVal(body, "apiKey");
+        Map<String, String> envConfig = parseFlatJsonObject(getJsonObjectVal(body, "envConfig"));
 
         if (executionId.isEmpty() || suiteXml.isEmpty()) {
             send(exchange, 400, "{\"error\":\"executionId and suiteXml are required\"}", "application/json");
@@ -130,12 +134,20 @@ public class FrameworkRunnerService {
         currentJobId = executionId;
 
         // Run Maven in a separate thread
-        new Thread(() -> runMaven(executionId, suiteXml, portalUrl, apiKey), "framework-maven-executor").start();
+        new Thread(() -> runMaven(executionId, suiteXml, portalUrl, apiKey, envConfig), "framework-maven-executor").start();
 
         send(exchange, 202, "{\"status\":\"STARTING\",\"executionId\":\"" + executionId + "\"}", "application/json");
     }
 
-    private static void runMaven(String executionId, String suiteXml, String portalUrl, String apiKey) {
+    // Keys the runner already sets explicitly as its own -D flags below — an env config entry
+    // reusing one of these names would silently override a required run parameter, so it's
+    // skipped rather than applied. Lowercase because entry keys are lowercased before this
+    // check runs (see the envConfig loop below).
+    private static final java.util.Set<String> RESERVED_PROPERTY_KEYS = java.util.Set.of(
+            "suitexmlfile", "executionid", "portalurl", "openreport", "usedefaultlisteners", "portalapikey");
+    private static final Pattern SECRET_KEY_PATTERN = Pattern.compile("pass|secret|token|captcha|captch|key", Pattern.CASE_INSENSITIVE);
+
+    private static void runMaven(String executionId, String suiteXml, String portalUrl, String apiKey, Map<String, String> envConfig) {
         try {
             System.out.println("Starting Maven run for job " + executionId + ", suite: " + suiteXml);
 
@@ -173,8 +185,23 @@ public class FrameworkRunnerService {
             if (apiKey != null && !apiKey.isEmpty()) {
                 command.add("-DportalApiKey=" + apiKey);
             }
+            // Selected environment's saved config (base URLs, credentials, captcha keys, …) —
+            // ConfigUtils.getPropertyData() prefers a matching System property over the
+            // framework's checked-in properties file, so this is what actually switches the run
+            // between QA/UAT/etc. without ever touching framework code.
+            // Keys are lowercased here because they're typed by hand in the portal's Environment
+            // config UI — a user saving "CMS_URL" should still match the framework's actual
+            // "CMS_url" property lookup, which lowercases the same way (see ConfigUtils.getPropertyData).
+            for (Map.Entry<String, String> entry : envConfig.entrySet()) {
+                String key = entry.getKey().toLowerCase();
+                if (RESERVED_PROPERTY_KEYS.contains(key)) {
+                    System.out.println("Skipping env config key '" + entry.getKey() + "' — reserved for the runner's own parameters.");
+                    continue;
+                }
+                command.add("-D" + key + "=" + entry.getValue());
+            }
 
-            System.out.println("Command: " + String.join(" ", command));
+            System.out.println("Command: " + String.join(" ", maskSecrets(command)));
 
             ProcessBuilder pb = new ProcessBuilder(command);
             pb.directory(new File(frameworkPath));
@@ -295,6 +322,56 @@ public class FrameworkRunnerService {
         } catch (Exception e) {
             send(exchange, 500, "{\"error\":\"" + e.getMessage() + "\"}", "application/json");
         }
+    }
+
+    // Masks the value of any -D<key>=<value> command argument whose key looks secret-ish
+    // (password/captcha/token/…), so it never lands in plaintext in process/console logs.
+    private static List<String> maskSecrets(List<String> command) {
+        List<String> masked = new ArrayList<>(command.size());
+        for (String arg : command) {
+            if (arg.startsWith("-D") && arg.contains("=")) {
+                int eq = arg.indexOf('=');
+                String key = arg.substring(2, eq);
+                if (SECRET_KEY_PATTERN.matcher(key).find()) {
+                    masked.add(arg.substring(0, eq + 1) + "****");
+                    continue;
+                }
+            }
+            masked.add(arg);
+        }
+        return masked;
+    }
+
+    // Extracts the raw substring (including braces) of a nested JSON object value for `key`,
+    // e.g. getJsonObjectVal({"envConfig":{"a":"1"}}, "envConfig") -> {"a":"1"}. Returns "{}" if
+    // the key or a balanced object isn't found.
+    private static String getJsonObjectVal(String json, String key) {
+        int idx = json.indexOf("\"" + key + "\"");
+        if (idx == -1) return "{}";
+        int brace = json.indexOf("{", idx);
+        if (brace == -1) return "{}";
+        int depth = 0;
+        for (int i = brace; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '{') depth++;
+            else if (c == '}') {
+                depth--;
+                if (depth == 0) return json.substring(brace, i + 1);
+            }
+        }
+        return "{}";
+    }
+
+    // Parses a flat JSON object of string values (no nesting, no numbers/booleans expected —
+    // every value coming from the portal's environment config editor is a string).
+    private static Map<String, String> parseFlatJsonObject(String objJson) {
+        Map<String, String> result = new LinkedHashMap<>();
+        Matcher m = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"").matcher(objJson);
+        while (m.find()) {
+            String value = m.group(2).replace("\\\"", "\"").replace("\\\\", "\\");
+            result.put(m.group(1), value);
+        }
+        return result;
     }
 
     private static String getJsonVal(String json, String key) {

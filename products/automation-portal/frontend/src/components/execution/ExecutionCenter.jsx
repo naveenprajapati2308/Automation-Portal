@@ -204,6 +204,7 @@ export function ExecutionCenter({
       executionCode: execution.executionCode,
       status: execution.status,
       suiteName: execution.suiteName || 'Suite Run',
+      environmentId: execution.environmentId,
       totalTests: execution.totalTests || 0,
       passedTests: execution.passedTests || 0,
       failedTests: execution.failedTests || 0,
@@ -499,12 +500,16 @@ export function ExecutionCenter({
             </div>
           )}
 
-          {/* Environment selector */}
+          {/* Environment selector — locked while a run is active: the environment is resolved
+              once when a run is queued and baked into that run's process, so changing this
+              selector mid-run would only affect the *next* launch, never the live one. */}
           <label className="xc-label" style={{ marginTop: 16 }}>Execution Environment</label>
           <select
             className="xc-select"
             value={selectedEnv}
             onChange={(e) => setSelectedEnv(Number(e.target.value))}
+            disabled={activeExec && activeExec.status === 'RUNNING'}
+            title={activeExec && activeExec.status === 'RUNNING' ? 'Locked while a run is in progress — this only applies to the next run' : undefined}
           >
             {environments.map(env => (
               <option key={env.id} value={env.id}>{env.name} ({env.url})</option>
@@ -537,6 +542,11 @@ export function ExecutionCenter({
               <div>
                 <h3 className="xc-live-suite">{activeExec.suiteName}</h3>
                 <span className="xc-live-started">Started: {new Date(activeExec.startTime).toLocaleTimeString()}</span>
+                {activeExec.environmentId != null && (
+                  <span className="xc-live-started" style={{ marginLeft: 10 }}>
+                    Env: {(environments || []).find(e => String(e.id) === String(activeExec.environmentId))?.name || activeExec.environmentId}
+                  </span>
+                )}
               </div>
               <span className={`xc-status xc-status-${activeExec.status.toLowerCase()}`}>
                 <span className="xc-dot" />

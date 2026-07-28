@@ -50,7 +50,7 @@ select {
   align-items: center;
   padding-bottom: 24px;
   border-bottom: 1px solid var(--sidebar-edge);
-    margin-left: 20px;
+  margin-left: 20px;
 
 }
 
@@ -350,7 +350,7 @@ main,
 /* ── Topbar ──────────────────────────────────────────────────────────────── */
 .topbar {
   position: sticky;
-  top: -20px;
+  top: -15px;
   z-index: 100;
   background: var(--bg-page);
   margin-top: -24px;

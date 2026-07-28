@@ -63,6 +63,20 @@ public class ExecutionEventService {
         }
 
         Execution execution = list.get(0);
+
+        // A dispatch timeout / stale-RUNNING sweep can already have moved this execution to a
+        // terminal status while its runner process (started fire-and-forget, orphaned from this
+        // execution's own tracking) keeps sending real lifecycle events. Without this guard a
+        // late event resurrects a terminal execution back to RUNNING with no way back - the
+        // orphaned process was never going to send a matching SUITE_COMPLETED (it may already be
+        // killed), so the execution gets stuck RUNNING forever and blocks the single-concurrency
+        // queue behind it indefinitely.
+        if (isTerminal(execution.getStatus())) {
+            log.warn("Ignoring {} event for execution {} - already in terminal status {} (likely a late event from an orphaned/already-finished run)",
+                    payload.getEventType(), payload.getExecutionId(), execution.getStatus());
+            return;
+        }
+
         Map<String, Object> data = payload.getData();
 
         switch (payload.getEventType()) {
@@ -408,6 +422,12 @@ public class ExecutionEventService {
         } catch (Exception e) {
             log.error("Exception notifying Execution Manager for execution: {}", executionCode, e);
         }
+    }
+
+    private boolean isTerminal(ExecutionStatus status) {
+        return status == ExecutionStatus.PASSED || status == ExecutionStatus.FAILED
+                || status == ExecutionStatus.PARTIAL || status == ExecutionStatus.CANCELLED
+                || status == ExecutionStatus.COMPLETED || status == ExecutionStatus.ERROR;
     }
 
     private void logToDb(Long executionId, String level, String message, String source) {

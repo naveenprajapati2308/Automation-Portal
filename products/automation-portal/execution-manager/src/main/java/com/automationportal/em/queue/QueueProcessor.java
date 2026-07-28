@@ -127,7 +127,8 @@ public class QueueProcessor {
                 job.getJobId(),
                 job.getSuiteXml(),
                 portalBackendUrl,
-                portalApiKey
+                portalApiKey,
+                job.getEnvConfigJson()
         );
 
         if (success) {

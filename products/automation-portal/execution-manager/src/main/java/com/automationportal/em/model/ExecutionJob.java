@@ -16,6 +16,10 @@ public class ExecutionJob {
     @Column(name = "suite_xml", nullable = false, length = 255)
     private String suiteXml;
 
+    /** Resolved environment config (JSON object of key/values) to inject into the run as -D system properties. */
+    @Column(name = "env_config_json", columnDefinition = "TEXT")
+    private String envConfigJson;
+
     @Column(name = "priority", nullable = false, length = 20)
     private String priority = "MEDIUM";
 
@@ -58,6 +62,9 @@ public class ExecutionJob {
 
     public String getSuiteXml() { return suiteXml; }
     public void setSuiteXml(String suiteXml) { this.suiteXml = suiteXml; }
+
+    public String getEnvConfigJson() { return envConfigJson; }
+    public void setEnvConfigJson(String envConfigJson) { this.envConfigJson = envConfigJson; }
 
     public String getPriority() { return priority; }
     public void setPriority(String priority) { this.priority = priority; }

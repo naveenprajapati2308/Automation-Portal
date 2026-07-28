@@ -1,8 +1,12 @@
 package com.automationportal.executions;
 
 import com.automationportal.config.PortalAutomationProperties;
+import com.automationportal.environments.EnvironmentEntity;
+import com.automationportal.environments.EnvironmentRepository;
 import com.automationportal.modules.ModuleEntity;
 import com.automationportal.modules.ModuleRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,7 +40,9 @@ public class ExecutionWorker {
     private final TestStepRepository testStepRepository;
     private final TagRepository tagRepository;
     private final TestNGXmlParser testNGXmlParser;
+    private final EnvironmentRepository environmentRepository;
     private final HttpClient httpClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${portal.execution-manager.url:http://localhost:8090}")
     private String executionManagerUrl;
@@ -49,7 +55,8 @@ public class ExecutionWorker {
                            ExecutionTestCaseRepository testCaseRepository,
                            TestStepRepository testStepRepository,
                            TagRepository tagRepository,
-                           TestNGXmlParser testNGXmlParser) {
+                           TestNGXmlParser testNGXmlParser,
+                           EnvironmentRepository environmentRepository) {
         this.executionRepository = executionRepository;
         this.artifactRepository = artifactRepository;
         this.logRepository = logRepository;
@@ -59,6 +66,7 @@ public class ExecutionWorker {
         this.testStepRepository = testStepRepository;
         this.tagRepository = tagRepository;
         this.testNGXmlParser = testNGXmlParser;
+        this.environmentRepository = environmentRepository;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -159,10 +167,11 @@ public class ExecutionWorker {
         log.info("Submitting execution {} to Execution Manager...", execution.getExecutionCode());
         try {
             String url = executionManagerUrl + "/em/executions";
+            String envConfigJson = resolveEnvConfigJson(execution.getEnvironmentId());
             // Map request payload matching EM ExecutionJob entity
             String jsonPayload = String.format(
-                    "{\"jobId\":\"%s\",\"executionId\":%d,\"suiteXml\":\"%s\",\"priority\":\"MEDIUM\",\"maxRetries\":0,\"timeoutMinutes\":120,\"submittedBy\":\"admin\"}",
-                    execution.getExecutionCode(), execution.getId(), xmlFileName
+                    "{\"jobId\":\"%s\",\"executionId\":%d,\"suiteXml\":\"%s\",\"priority\":\"MEDIUM\",\"maxRetries\":0,\"timeoutMinutes\":120,\"submittedBy\":\"admin\",\"envConfigJson\":%s}",
+                    execution.getExecutionCode(), execution.getId(), xmlFileName, objectMapper.writeValueAsString(envConfigJson)
             );
 
             HttpRequest request = HttpRequest.newBuilder()
@@ -192,6 +201,34 @@ public class ExecutionWorker {
             executionRepository.save(execution);
             logToDb(execId, "ERROR", "Exception calling Execution Manager: " + e.getMessage(), "SYSTEM");
         }
+    }
+
+    /**
+     * Resolves the selected Environment's saved config (base credentials, URLs, captcha keys,
+     * …) into a flat JSON object to hand off to the Execution Manager / Framework Runner, which
+     * inject each entry into the Maven run as a -D system property. environment.code/name are
+     * added automatically so the framework can log which environment it's actually running
+     * against without the user having to define those keys themselves.
+     */
+    private String resolveEnvConfigJson(Long environmentId) {
+        ObjectNode node = objectMapper.createObjectNode();
+        if (environmentId == null) {
+            return node.toString();
+        }
+        EnvironmentEntity env = environmentRepository.findById(environmentId).orElse(null);
+        if (env == null) {
+            return node.toString();
+        }
+        if (env.getConfigJson() != null && !env.getConfigJson().isBlank()) {
+            try {
+                node.setAll((ObjectNode) objectMapper.readTree(env.getConfigJson()));
+            } catch (Exception e) {
+                log.warn("Environment {} has invalid config_json, skipping saved config for this run", environmentId, e);
+            }
+        }
+        if (env.getCode() != null) node.put("environment.code", env.getCode());
+        if (env.getName() != null) node.put("environment.name", env.getName());
+        return node.toString();
     }
 
     private String resolveReportPathForXml(String xmlFileName) {
