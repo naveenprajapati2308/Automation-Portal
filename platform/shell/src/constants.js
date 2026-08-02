@@ -30,6 +30,20 @@ export const PERFORMANCE_NAV = [
   { key: 'runs', label: 'Run History', icon: 'History', path: '/runs' }
 ];
 
+// Module control — Automation-only config (which Selenium/Playwright modules exist, which
+// environments they run in, per-combo overrides), so it belongs nested under "Automation" in
+// the sidebar, not as its own top-level menu. Rendered as an extra item appended to Automation's
+// sub-menu (see Sidebar in components/layout/index.jsx), superAdmin-only for now (today's only
+// real permission check, same as the Topbar's "Admin Panel" chip) — once granular
+// user-management roles exist, that's the one gate to swap for a real per-role check.
+// Environment management deliberately has NO separate admin entry here — AUTOMATION_NAV's own
+// "Environments" page already covers create/edit/delete/config/health in one place; a second
+// "Manage Environments" screen was tried and reverted the same day for duplicating it without
+// adding real capability (see project memory).
+export const MODULES_ENV_NAV = [
+  { key: 'module-management', label: 'Manage Modules', icon: 'Package' }
+];
+
 export const SIDEBAR_NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
   { key: 'automation', label: 'Automation', icon: 'Play', children: AUTOMATION_NAV },

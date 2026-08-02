@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api.js';
 import { Panel, DataTable, Modal, ConfirmDialog } from '../shared/index.jsx';
-import { Package, Plus, Edit2, Trash2, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Globe2 } from 'lucide-react';
 import { Field } from '../shared/Field.jsx';
+import { ModuleEnvironmentMappingPanel } from './ModuleEnvironmentMappingPanel.jsx';
+
+const ALL_ROLES = ['SUPER_ADMIN', 'ADMIN', 'QA_LEAD', 'AUTOMATION_ENGINEER', 'VIEWER'];
 
 export function ModuleManagement({ setNotice }) {
   const [modules, setModules] = useState([]);
@@ -10,6 +13,7 @@ export function ModuleManagement({ setNotice }) {
   const [showCreate, setShowCreate] = useState(false);
   const [editModule, setEditModule] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [envTarget, setEnvTarget] = useState(null);
 
   const fetchModules = async () => {
     setLoading(true);
@@ -75,19 +79,17 @@ export function ModuleManagement({ setNotice }) {
       render: (val) => <span className="status">{val || 'MAVEN_TESTNG'}</span>
     },
     {
-      key: 'envCodes',
-      label: 'Environments',
-      render: (val) => val
-        ? <span style={{ fontSize: '12px', fontWeight: 600 }}>{val.split(',').join(', ')}</span>
-        : <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>All</span>
-    },
-    {
-      key: 'active',
+      key: 'visible',
       label: 'Status',
-      render: (val) => (
-        <span className={`status ${val ? 'passed' : 'failed'}`}>
-          {val ? 'ACTIVE' : 'INACTIVE'}
-        </span>
+      render: (_, mod) => (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span className={`status ${mod.active ? 'passed' : 'failed'}`}>
+            {mod.active ? 'ACTIVE' : 'INACTIVE'}
+          </span>
+          {mod.active && mod.visible === false && (
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Hidden from pickers</span>
+          )}
+        </div>
       )
     },
     {
@@ -101,6 +103,13 @@ export function ModuleManagement({ setNotice }) {
             style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
           >
             <Edit2 size={12} /> Edit
+          </button>
+          <button
+            className="action-btn"
+            onClick={() => setEnvTarget(mod)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+          >
+            <Globe2 size={12} /> Environments
           </button>
           <button
             className="action-btn"
@@ -174,6 +183,13 @@ export function ModuleManagement({ setNotice }) {
         </Modal>
       )}
 
+      {/* Manage Environments (assign supported environments + per-environment overrides) */}
+      {envTarget && (
+        <Modal title={`Environments for: ${envTarget.name}`} onClose={() => setEnvTarget(null)} closeOnBackdrop={false}>
+          <ModuleEnvironmentMappingPanel mod={envTarget} setNotice={setNotice} />
+        </Modal>
+      )}
+
       {/* Delete Confirmation */}
       {deleteTarget && (
         <ConfirmDialog onClose={() => setDeleteTarget(null)}>
@@ -193,33 +209,34 @@ export function ModuleManagement({ setNotice }) {
 
 function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
   const [form, setForm] = useState({
-    name:        mod?.name        || '',
-    code:        mod?.code        || '',
-    description: mod?.description || '',
-    xmlFile:     mod?.xmlFile     || '',
-    reportPath:  mod?.reportPath  || '',
-    runnerType:  mod?.runnerType  || 'MAVEN_TESTNG',
-    envCodes:    mod?.envCodes    || '',
-    active:      mod ? mod.active : true
+    name:         mod?.name         || '',
+    code:         mod?.code         || '',
+    description:  mod?.description  || '',
+    xmlFile:      mod?.xmlFile      || '',
+    reportPath:   mod?.reportPath   || '',
+    runnerType:   mod?.runnerType   || 'MAVEN_TESTNG',
+    visible:      mod ? mod.visible !== false : true,
+    allowedRoles: mod?.allowedRoles || '',
+    active:       mod ? mod.active : true
   });
   const [errors, setErrors] = useState({});
 
-  // Environment availability — checkboxes fed from the Environments section.
-  // Nothing checked = module available in every environment.
-  const [environments, setEnvironments] = useState([]);
+  // Frameworks — drives the Runner Type select. Fetched from the backend's FrameworkRegistry
+  // rather than hardcoded, so new frameworks (e.g. Playwright) are creatable here too.
+  const [frameworks, setFrameworks] = useState([]);
   useEffect(() => {
-    api.environments().then((envs) => setEnvironments(envs || [])).catch(() => setEnvironments([]));
+    api.frameworks().then((list) => setFrameworks(list || [])).catch(() => setFrameworks([]));
   }, []);
 
-  const selectedEnvCodes = form.envCodes
-    ? form.envCodes.split(',').map((c) => c.trim()).filter(Boolean)
+  const selectedRoles = form.allowedRoles
+    ? form.allowedRoles.split(',').map((r) => r.trim()).filter(Boolean)
     : [];
 
-  const toggleEnvCode = (code) => {
-    const next = selectedEnvCodes.includes(code)
-      ? selectedEnvCodes.filter((c) => c !== code)
-      : [...selectedEnvCodes, code];
-    update('envCodes', next.join(','));
+  const toggleRole = (role) => {
+    const next = selectedRoles.includes(role)
+      ? selectedRoles.filter((r) => r !== role)
+      : [...selectedRoles, role];
+    update('allowedRoles', next.join(','));
   };
 
   const update = (field, value) => {
@@ -263,39 +280,50 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
 
       <div className="form-field">
         <label className="form-row">
-          <span>Runner Type</span>
+          <span>Runner Type (Framework)</span>
           <div className="field-input-wrap">
             <select
               value={form.runnerType}
               onChange={(e) => update('runnerType', e.target.value)}
+              disabled={!!mod}
               style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '6px', padding: '0 10px', background: '#fff' }}
             >
-              <option value="MAVEN_TESTNG">Maven + TestNG (MPHIDB framework)</option>
+              {frameworks.length === 0 ? (
+                <option value={form.runnerType}>Loading frameworks…</option>
+              ) : (
+                frameworks.map((fw) => <option key={fw.code} value={fw.code}>{fw.displayName}</option>)
+              )}
             </select>
           </div>
         </label>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>More runner types can be added here as new frameworks are integrated.</span>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          Options come from the backend's Framework registry — a new framework appears here automatically once registered.
+          {mod ? ' Locked on edit: the same code can exist once per framework.' : ''}
+        </span>
       </div>
 
+      <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 10px' }}>
+        Supported environments (and their per-environment overrides) are managed separately via the
+        "Environments" action on this module's row — a module has none by default until assigned there.
+      </p>
+
       <div className="form-field">
-        <label className="form-row">
-          <span>Available Environments</span>
-        </label>
+        <label className="form-row"><span>Allowed Roles (Execution Permission)</span></label>
         <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', margin: '6px 0 2px' }}>
-          {environments.map((env) => (
-            <label key={env.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+          {ALL_ROLES.map((role) => (
+            <label key={role} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
               <input
                 type="checkbox"
-                checked={selectedEnvCodes.includes(env.code)}
-                onChange={() => toggleEnvCode(env.code)}
+                checked={selectedRoles.includes(role)}
+                onChange={() => toggleRole(role)}
                 style={{ width: '16px', height: '16px', cursor: 'pointer' }}
               />
-              {env.name} ({env.code})
+              {role}
             </label>
           ))}
         </div>
         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-          Leave all unchecked to make this module available in every environment.
+          Leave all unchecked to allow any signed-in user to execute this module.
         </span>
       </div>
 
@@ -308,7 +336,20 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
           style={{ width: '18px', height: '18px', cursor: 'pointer' }}
         />
         <label htmlFor="mod-active-chk" style={{ cursor: 'pointer', fontWeight: 600, fontSize: '13px', color: '#555' }}>
-          Active (Show in Execution Center)
+          Active (fully enabled)
+        </label>
+      </div>
+
+      <div className="form-field" style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '14px 0' }}>
+        <input
+          type="checkbox"
+          id="mod-visible-chk"
+          checked={form.visible}
+          onChange={(e) => update('visible', e.target.checked)}
+          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+        />
+        <label htmlFor="mod-visible-chk" style={{ cursor: 'pointer', fontWeight: 600, fontSize: '13px', color: '#555' }}>
+          Visible (show in Execution Center / Dashboard pickers)
         </label>
       </div>
 

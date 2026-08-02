@@ -2,8 +2,7 @@ package com.automationportal.config;
 
 import com.automationportal.environments.EnvironmentEntity;
 import com.automationportal.environments.EnvironmentRepository;
-import com.automationportal.modules.ModuleEntity;
-import com.automationportal.modules.ModuleRepository;
+import com.automationportal.modules.ModuleSyncService;
 import com.automationportal.users.*;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -12,14 +11,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
-    private final ModuleRepository moduleRepository;
+    private final ModuleSyncService moduleSyncService;
     private final EnvironmentRepository environmentRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public DataSeeder(UserRepository userRepository, ModuleRepository moduleRepository,
+    public DataSeeder(UserRepository userRepository, ModuleSyncService moduleSyncService,
                       EnvironmentRepository environmentRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
-        this.moduleRepository = moduleRepository;
+        this.moduleSyncService = moduleSyncService;
         this.environmentRepository = environmentRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -62,34 +61,36 @@ public class DataSeeder implements CommandLineRunner {
         seedEnvironment("QA", "QA");
         seedEnvironment("UAT", "UAT");
 
-        seedModule("LAND",          "Land Management",       "land-v2.xml",          "reports/Land_Management_Suite.html");
-        seedModule("EMP_ARCH",      "Architect Empanelment", "Emp_Arch-v2.xml",      "reports/Architect_Empanelment_Suite.html");
-        seedModule("ARCH_WORKFLOW", "Architect Workflow",    "Arch_workflow-v2.xml", "reports/Architect_workflow_Suite.html");
+        moduleSyncService.upsert("LAND",          "Land Management",       "land-v2.xml",          "reports/Land_Management_Suite.html", "MAVEN_TESTNG");
+        moduleSyncService.upsert("EMP_ARCH",      "Architect Empanelment", "Emp_Arch-v2.xml",      "reports/Architect_Empanelment_Suite.html", "MAVEN_TESTNG");
+        moduleSyncService.upsert("ARCH_WORKFLOW", "Architect Workflow",    "Arch_workflow-v2.xml", "reports/Architect_workflow_Suite.html", "MAVEN_TESTNG");
+
+        // Playwright's own module folders (tests/specs/mphidb/<land|architect>/*.spec.ts) —
+        // a new "ARCHITECT" code rather than reusing Selenium's EMP_ARCH/ARCH_WORKFLOW, since
+        // Playwright's single "architect" spec folder maps loosely to both and forcing it onto
+        // either would misrepresent coverage.
+        moduleSyncService.upsert("LAND",     "Land Management",       "tests/specs/mphidb/land",      null, "PLAYWRIGHT");
+        moduleSyncService.upsert("ARCHITECT", "Architect Empanelment", "tests/specs/mphidb/architect", null, "PLAYWRIGHT");
+
+        // Per-type Architect Empanelment modules (2026-07-31): each points at its own single
+        // spec file (not the whole folder) so a user can pick exactly one registration type from
+        // the Execution Center, same as "ARCHITECT" above does for all 6 at once. Each of these
+        // spec files now owns its own literal test() titles carrying @smoke/@regression (see
+        // empanelment-flow-helpers.ts's runSmokeFlow/runRegressionFlow split) specifically so
+        // framework-runner's handleTags() - which regex-scans the exact file a module's xmlFile
+        // points at - finds those tags. Before this, the tagged test() calls lived only in the
+        // shared helper file, so a module scoped to one type's spec would report zero tags.
+        moduleSyncService.upsert("ARCHITECT_INDIVIDUAL",     "Architect Empanelment - Individual",     "tests/specs/mphidb/architect/individual-empanelment.spec.ts",     null, "PLAYWRIGHT");
+        moduleSyncService.upsert("ARCHITECT_PROPRIETORSHIP", "Architect Empanelment - Proprietorship", "tests/specs/mphidb/architect/proprietorship-empanelment.spec.ts", null, "PLAYWRIGHT");
+        moduleSyncService.upsert("ARCHITECT_PARTNERSHIP",    "Architect Empanelment - Partnership",    "tests/specs/mphidb/architect/partnership-empanelment.spec.ts",    null, "PLAYWRIGHT");
+        moduleSyncService.upsert("ARCHITECT_PVTLTD",         "Architect Empanelment - Pvt Ltd",         "tests/specs/mphidb/architect/pvt-ltd-empanelment.spec.ts",        null, "PLAYWRIGHT");
+        moduleSyncService.upsert("ARCHITECT_PUBLICLTD",      "Architect Empanelment - Public Ltd",      "tests/specs/mphidb/architect/public-ltd-empanelment.spec.ts",     null, "PLAYWRIGHT");
+        moduleSyncService.upsert("ARCHITECT_LLP",            "Architect Empanelment - LLP",             "tests/specs/mphidb/architect/llp-empanelment.spec.ts",            null, "PLAYWRIGHT");
     }
 
     private void seedEnvironment(String code, String name) {
         if (environmentRepository.findByCode(code).isEmpty()) {
             environmentRepository.save(new EnvironmentEntity(code, name));
         }
-    }
-
-    private void seedModule(String code, String name, String xmlFile, String reportPath) {
-        moduleRepository.findByCode(code).ifPresentOrElse(m -> {
-            boolean changed = false;
-            if (xmlFile != null && !xmlFile.equals(m.getXmlFile())) {
-                m.setXmlFile(xmlFile);
-                changed = true;
-            }
-            if (reportPath != null && !reportPath.equals(m.getReportPath())) {
-                m.setReportPath(reportPath);
-                changed = true;
-            }
-            if (changed) moduleRepository.save(m);
-        }, () -> {
-            ModuleEntity m = new ModuleEntity(code, name);
-            m.setXmlFile(xmlFile);
-            m.setReportPath(reportPath);
-            moduleRepository.save(m);
-        });
     }
 }

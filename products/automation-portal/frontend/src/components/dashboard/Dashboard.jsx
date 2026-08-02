@@ -52,6 +52,13 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   const [trends, setTrends] = useState([]);
   const [slowTests, setSlowTests] = useState([]);
   const [flakyTests, setFlakyTests] = useState([]);
+  const [frameworks, setFrameworks] = useState([]);
+
+  useEffect(() => {
+    api.frameworks()
+      .then(list => setFrameworks(Array.isArray(list) ? list : []))
+      .catch(() => {});
+  }, []);
 
   // Load API Data
   const loadData = async () => {
@@ -186,11 +193,23 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   // Module Analytics rows come from the admin-registered modules (active only),
   // merged with the range-scoped health aggregates by module code. The ALL
   // master-suite module is excluded — the "Run All Modules" button owns that.
-  // A module with envCodes set is only shown for those environments.
-  const selectedEnvCode = environments.find(e => String(e.id) === String(selectedEnvId))?.code;
-  const availableInEnv = (m) =>
-    !m.envCodes || !selectedEnvCode ||
-    m.envCodes.split(',').map(c => c.trim()).includes(selectedEnvCode);
+  // Which modules are shown for the selected environment now comes from the backend's
+  // Module<->Environment mapping (single source of truth) rather than the old envCodes CSV.
+  const [envSupportedModules, setEnvSupportedModules] = useState(null);
+  useEffect(() => {
+    if (!selectedEnvId) { setEnvSupportedModules(null); return; }
+    let cancelled = false;
+    api.environmentModules(selectedEnvId)
+      .then(list => { if (!cancelled) setEnvSupportedModules(Array.isArray(list) ? list : []); })
+      .catch(e => { console.error('Failed to load supported modules for this environment', e); if (!cancelled) setEnvSupportedModules([]); });
+    return () => { cancelled = true; };
+  }, [selectedEnvId]);
+
+  const availableInEnv = (m) => {
+    if (!selectedEnvId) return true;
+    if (envSupportedModules === null) return false; // still loading — don't flash unsupported modules
+    return envSupportedModules.some(sm => sm.code === m.code && sm.runnerType === m.runnerType);
+  };
 
   const moduleRows = useMemo(() => {
     return modules
@@ -200,6 +219,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         return {
           code: m.code,
           name: m.name,
+          runnerType: m.runnerType,
           total: health ? (health.totalTests ?? health.total ?? 0) : 0,
           passed: health ? (health.passed ?? 0) : 0,
           failed: health ? (health.failed ?? 0) : 0,
@@ -207,10 +227,10 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
           accuracy: health ? (health.passRate ?? 0) : 0
         };
       });
-  }, [modules, modulesHealthData, selectedEnvId, environments]);
+  }, [modules, modulesHealthData, selectedEnvId, envSupportedModules]);
 
   // Trigger run for a module
-  const handleRunModule = async (moduleCode) => {
+  const handleRunModule = async (moduleCode, framework) => {
     if (!selectedEnvId) {
       alert('Please select an environment first.');
       return;
@@ -219,7 +239,8 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
       const payload = {
         executionType: moduleCode === 'ALL' ? 'ALL_MODULES' : 'MODULE',
         environmentId: Number(selectedEnvId),
-        moduleCode: moduleCode === 'ALL' ? null : moduleCode
+        moduleCode: moduleCode === 'ALL' ? null : moduleCode,
+        framework: moduleCode === 'ALL' ? undefined : framework
       };
       await api.runExecution(payload);
       const moduleName = moduleCode === 'ALL'
@@ -465,7 +486,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
                     </div>
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button className="db-run-btn" onClick={() => handleRunModule(row.code)}>
+                    <button className="db-run-btn" onClick={() => handleRunModule(row.code, row.runnerType)}>
                       <Play size={12} />
                       Run Module
                     </button>
@@ -550,14 +571,22 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
                 <strong>{lastRun?.osName || 'Windows/Linux'}</strong>
               </div>
 
-              <div className="db-sys-tile">
-                <span>Java Version</span>
-                <strong>{lastRun?.javaVersion || 'Java 21'}</strong>
-              </div>
+              {(!lastRun || lastRun.framework === 'MAVEN_TESTNG') && (
+                <div className="db-sys-tile">
+                  <span>Java Version</span>
+                  <strong>{lastRun?.javaVersion || 'Java 21'}</strong>
+                </div>
+              )}
 
               <div className="db-sys-tile">
                 <span>Automation Browser</span>
-                <strong>{lastRun ? `${lastRun.browserName || 'Chrome'} / Selenium` : 'Chrome / Selenium'}</strong>
+                <strong>
+                  {lastRun?.browserName || 'Chrome'} / {
+                    frameworks.find(fw => fw.code === lastRun?.framework)?.displayName
+                      || lastRun?.framework
+                      || 'Selenium'
+                  }
+                </strong>
               </div>
             </div>
           </div>

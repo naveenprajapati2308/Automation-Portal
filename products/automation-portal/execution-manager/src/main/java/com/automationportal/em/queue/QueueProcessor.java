@@ -115,7 +115,7 @@ public class QueueProcessor {
         log.info("Attempting to dispatch job: {} for execution: {}", job.getJobId(), job.getExecutionId());
 
         // Find an IDLE runner or register the default one if registry is empty
-        String runnerUrl = selectRunner();
+        String runnerUrl = selectRunner(job.getFramework());
         if (runnerUrl == null) {
             log.warn("No active/idle runners found for job: {}", job.getJobId());
             return;
@@ -128,7 +128,10 @@ public class QueueProcessor {
                 job.getSuiteXml(),
                 portalBackendUrl,
                 portalApiKey,
-                job.getEnvConfigJson()
+                job.getEnvConfigJson(),
+                job.getFramework(),
+                job.getBrowser(),
+                job.getTagFilter()
         );
 
         if (success) {
@@ -150,7 +153,7 @@ public class QueueProcessor {
         }
     }
 
-    private String selectRunner() {
+    private String selectRunner(String framework) {
         List<RunnerRegistry> runners = runnerRepository.findAll();
         if (runners.isEmpty()) {
             // Registry is empty, register the default configured runner
@@ -164,8 +167,18 @@ public class QueueProcessor {
             return defaultRunnerUrl;
         }
 
+        List<RunnerRegistry> capable = runners.stream()
+                .filter(r -> supportsFramework(r, framework))
+                .toList();
+        if (capable.isEmpty()) {
+            // No runner explicitly declares support for this framework — fall back to the
+            // full list rather than refuse dispatch, since today's single shared runner
+            // handles every framework and rarely declares supportedFrameworks explicitly.
+            capable = runners;
+        }
+
         // Find first runner which is IDLE or whose status is active
-        for (RunnerRegistry r : runners) {
+        for (RunnerRegistry r : capable) {
             if ("IDLE".equalsIgnoreCase(r.getStatus())) {
                 return r.getRunnerUrl();
             }
@@ -174,6 +187,17 @@ public class QueueProcessor {
         // Fallback: If all are BUSY or none are IDLE but we have default, return it
         // Or if we run sequential (maxConcurrent = 1), just return default-runner's URL
         return defaultRunnerUrl;
+    }
+
+    // null/empty supportedFrameworks = this runner handles everything (today's default, and
+    // the only case that exists in practice until a second, specialized runner is registered).
+    private boolean supportsFramework(RunnerRegistry runner, String framework) {
+        String csv = runner.getSupportedFrameworks();
+        if (csv == null || csv.isBlank() || framework == null) return true;
+        for (String code : csv.split(",")) {
+            if (code.trim().equalsIgnoreCase(framework)) return true;
+        }
+        return false;
     }
 
     private void updateRunnerStatus(String url, String status) {

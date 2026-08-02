@@ -1,518 +1,336 @@
- UI/UX Improvements & Platform Stability (High Priority)
+We are now starting Phase 2 of the Execution Center redesign.
 
-Implement the following improvements across the entire Testrix platform. These are mandatory UX fixes and should be applied consistently without breaking any existing functionality.
+IMPORTANT
 
----
+Do NOT start coding immediately.
 
-## 1. Scroll Behavior
+First analyze the existing implementation, identify every affected backend, frontend and database component, prepare the implementation plan, then begin development.
 
-Currently, when a page has little or no content, the page can still be scrolled, leaving a large empty area at the bottom.
+The objective of this phase is to redesign the relationship between Frameworks, Modules and Environments.
 
-### Expected Behavior
+Phase 1 introduced Framework selection.
 
-- The page should scroll **only when the content exceeds the viewport height**.
-- If the content fits within the viewport, **scrolling must be completely disabled**.
-- There should never be unnecessary blank space below the content.
-- Every module should follow the same scrolling behavior.
+Phase 2 must make Framework → Module → Environment fully dynamic and metadata-driven.
 
----
+The architecture should support future Frameworks without requiring redesign.
 
-## 2. Modal Behavior
+=========================================================
+1. Framework → Module Mapping
+=========================================================
 
-Although the current modal implementation is improved, verify every modal in the application.
+Every Framework owns its own modules.
 
-Requirements:
+Example
 
-- Open smoothly.
-- Close smoothly.
-- Always centered.
-- Proper backdrop.
-- Correct z-index.
-- No page shift.
-- No hidden or partially visible modal.
-- Responsive on every screen size.
-- Background scroll should be locked while a modal is open.
+Maven Selenium
 
-Audit every modal across the application.
+- Land
+- Architect
+- Survey
 
----
+Playwright
 
-## 3. Loader Standardization
+- Land
+- Login
+- Dashboard
 
-Create one global loader component and use it everywhere.
+Module names may be identical across different Frameworks.
 
-Requirements:
+Example
 
-- Same loader design.
-- Same animation.
-- Perfectly centered.
-- Proper overlay.
-- Consistent spacing.
-- No layout shifting.
-- Works for page loading, API calls, table loading and form submission.
+Land (Maven Selenium)
 
-No module should use a different loader implementation.
+Land (Playwright)
 
----
+These are different implementations.
 
-## 4. Pagination (Mandatory)
+The system must never assume module names are globally unique.
 
-Pagination must be implemented consistently across the platform.
+The relationship should always be
 
-Requirements:
+Framework
++
+Module
 
-- Every table that displays records must support pagination.
-- If total records > 5, pagination should automatically appear.
-- If records ≤ 5, pagination should remain hidden.
+=========================================================
+2. Module → Environment Mapping
+=========================================================
 
-Pagination should include:
+Every module must explicitly define which environments it supports.
 
-- Previous
-- Next
-- Page Numbers
-- Current Page Indicator
+Example
 
-Also add a page-size selector.
+Land (Maven Selenium)
 
-Example:
+Supported
 
+QA
 
-Show:
-5 ▼
-10
-20
-50
-100
+UAT
 
+Not Supported
 
-Changing the page size should update the table immediately.
+Production
 
-Apply this to every table in every module.
+-------------------------------------
 
----
+Land (Playwright)
 
-## 5. Expandable Group View
+Supported
 
-Current implementation is incorrect.
+QA
 
-When a user expands a Group, do NOT navigate to another listing or display the details separately.
+Not Supported
 
-Instead, follow the same UX used in the Scheduler module.
+UAT
 
-Expected Behavior:
+Production
 
+When a user selects a Framework and then selects a Module, only supported environments should be displayed.
 
-Group Name
-──────────────────────────
+Unsupported environments must never appear in the Execution Center.
 
-▼ Group A
+=========================================================
+3. Environment Configuration
+=========================================================
 
-API 1
-API 2
-API 3
+Each Module + Environment combination should maintain its own configuration.
+
+Example
+
+Land
+
+QA
+
+Base URL
+
+Credentials
+
+API Endpoint
+
+Browser
+
+Timeout
+
+Execution Parameters
+
+-------------------------------------
+
+Land
+
+UAT
+
+Different Base URL
+
+Different Credentials
+
+Different API Keys
+
+Different Browser
+
+Different Timeout
+
+Configuration must belong to the Module + Environment combination.
+
+Do not assume one configuration can be shared across every environment.
+
+=========================================================
+4. Dynamic Execution Flow
+=========================================================
+
+Execution flow should become
+
+Select Framework
+
+↓
+
+Load Modules
+
+↓
+
+Select Module
+
+↓
+
+Load Supported Environments
+
+↓
+
+Select Environment
+
+↓
+
+Load Configuration
+
+↓
+
+Load Browser Options
+
+↓
+
+Execute
+
+Every dropdown must be loaded dynamically.
+
+Nothing should be hardcoded.
+
+=========================================================
+5. Browser Mapping
+=========================================================
+
+Browser availability depends on
+
+Framework
+
+Module
+
 Environment
-Description
-Execution Count
 
-▶ Group B
+Example
 
-▶ Group C
+Playwright
 
-similar as schedular currentlly have .reuse same functionality and 
-i strictlly said in histroy tav also have same functionalty like first i execute api after that and group and after that schedular then after one more single api manully and after that regular api singlly so table shuld be like 
+QA
 
-1 regular api
-2 base api 
- 3schedular (when click on the it open like expend this row with their data like have dunctionlity in schedular tab )
-4group (when click on the it open like expend this row with their data like have dunctionlity in schedular tab )
- 5sigle api 
+Chrome
 
- and pagination also 
+Firefox
 
+-------------------------------------
 
-The selected row should simply expand and display its related information directly beneath it.
+Selenium
 
-Do not open another page.
-Do not redirect.
-Do not display another listing.
+QA
 
-Reuse the Scheduler module's expandable row behavior throughout the application.
+Chrome
 
----
+Edge
 
-## 6. Session Expiry & Authentication
+Only supported browsers should be displayed.
 
-This is mandatory.
+=========================================================
+6. Future Module Management
+=========================================================
 
-If the user's session expires or the JWT becomes invalid:
+This phase must prepare the backend for a future Module Controller.
 
-- Immediately clear all authentication data.
-- Remove tokens from storage.
-- Remove user data.
-- Redirect directly to the Login page.
-- Do NOT continue showing protected pages.
-- Do NOT display stale or cached data.
-- Do NOT allow any further API calls using the expired token.
+The future Module Controller will manage
 
-The user must authenticate again before accessing the application.
+Module Creation
 
-Implement this globally using the Axios interceptor / authentication middleware.
+Module Editing
 
----
+Framework Assignment
 
-## 7. Global UI Audit
+Environment Assignment
 
-Perform a complete UI audit across the platform and fix any remaining inconsistencies, including:
+Browser Assignment
 
-- Spacing
-- Alignment
-- Empty states
-- Hover effects
-- Active states
-- Focus states
-- Responsive behavior
-- Card heights
-- Table alignment
-- Button consistency
-- Icon alignment
-- Typography
-- Form spacing
-- Input heights
-- Dropdown consistency
+Configuration
 
-Every module should follow the same design system.
+Execution Permissions
 
-## and we can implement ui shre in image not to change just ui in which card have hover efeect aura effect on user name and clean structure 
+Although this UI will be developed later, the architecture should be prepared now so integration requires minimal changes.
 
-## and one more thing that isbedcrum of the pages ae still have old even we changed all architeture 
-## 8 
-# Implement Enterprise-Level Global Search (Application-Wide)
+=========================================================
+7. Dashboard Compatibility
+=========================================================
 
-I want to replace the current **dummy Global Search** with a fully functional **enterprise-grade application-wide search system**.
+Current dashboard functionality must continue working.
 
-Before implementing anything, **analyze the complete project architecture, routing structure, modules, shared components, layouts, and navigation flow** so the solution fits naturally into the existing application.
-
-## Core Requirements
-
-The Global Search must be a **shared feature**, not a page-specific implementation.
-
-Create it inside the shared/common layer so every current and future module can use the same search engine.
-
-Example:
-
-* Shared Components
-* Shared Services
-* Shared Hooks
-* Shared Search Provider
-* Shared Search Index
-
-Do **not** duplicate search logic inside individual modules.
-
----
-
-# Search Scope
-
-The search should work across the **entire application**, including every module.
-
-Examples:
-
-* Dashboard
-* API Testing
-* Automation
-* Performance Testing
-* Reports
-* Scheduler
-* Executions
-* Collections
-* Settings
-* Users
-* Roles
-* Analytics
-* Future modules
-
-Every searchable page, feature, menu item, tab, card, button, configuration page, and major section should be indexed automatically.
-
----
-
-# Intelligent Search Index
-
-Build a centralized search index.
-
-Each searchable item should contain information like:
-
-* Module Name
-* Page Name
-* Section
-* Route
-* Keywords
-* Synonyms
-* Description
-* Navigation Path
-* Icon
-* Permission (if applicable)
-
-The search should never depend on hardcoded conditions inside components.
-
-Instead, maintain one centralized searchable registry.
-
----
-
-# Real-Time Search
-
-Search should start while typing.
-
-No Search button.
-
-Results should update instantly.
-
-Implement:
-
-* Debouncing
-* Ranking
-* Relevance scoring
-* Fast filtering
-
-Search should remain smooth even after thousands of searchable items are added.
-
----
-
-# Search Ranking
-
-Exact match should appear first.
-
-Then:
-
-* Starts with
-* Partial match
-* Keyword match
-* Synonym match
-
-Example:
-
-Searching:
-
-```
-report
-```
-
-Should return:
+Execution History
 
 Reports
 
-Execution Report
+Analytics
 
-Performance Report
+Evidence
 
-API Report
+KPIs
 
-Automation Report
+must continue using standardized execution metadata.
 
-Analytics Report
+Avoid Framework-specific logic inside dashboard components.
 
----
+=========================================================
+8. Before Coding
+=========================================================
 
-Searching:
+Analyze
 
-```
-api
-```
+Current module structure
 
-Should return every API-related page across the application.
+Current environment structure
 
----
+Current Framework implementation
 
-# Multiple Match Support
+Current execution flow
 
-If the same keyword exists in multiple modules, display all matching results.
+Current APIs
 
-Example:
+Current database schema
 
-Search:
+Current dashboard dependencies
 
-```
-Settings
-```
+Identify every affected component.
 
-Results:
+Prepare an implementation plan.
 
-Automation → Settings
+Only then begin development.
 
-API Testing → Settings
+The final architecture must be scalable, modular and ready for future Framework additions.
 
-Performance → Settings
+=========================================================
+9. Module & Environment Management
+=========================================================
 
-System → Settings
+The current system already has Module Management on the Admin side.
 
-Admin → Settings
+As Frameworks and Environments become dynamic, Module and Environment management must also be redesigned.
 
-Each result should clearly show where it belongs.
+Modules and Environments are closely related and should be managed from a single administration area instead of separate disconnected screens.
 
----
+The administration module should support:
 
-# Search Result Design
+- Create Module
+- Edit Module
+- Enable / Disable Module
+- Assign Framework
+- Assign Supported Environments
+- Assign Supported Browsers
+- Configure Module Visibility
+- Configure Execution Permissions
 
-Use the Docker Desktop search experience as inspiration.
+Environment management should support:
 
-The dropdown should include:
+- Create Environment
+- Edit Environment
+- Enable / Disable Environment
+- Configure Environment Settings
+- Configure Default Values
 
-* Recent Searches
-* Suggested Searches
-* Live Search Results
-* Grouped Results by Module
-* Icons
-* Route Information
-
-Recent searches should be stored locally.
-
-Suggested searches should be based on the available application features.
-
----
-
-# Navigation Behavior
-
-When the user clicks a result:
-
-Navigate automatically to the correct page.
-
-If required:
-
-* Open the correct module
-* Expand the required sidebar
-* Open the correct tab
-* Scroll to the target section
-* Highlight the destination briefly
-
-The user should land exactly where the searched item exists.
-
----
-
-# Loading Experience
-
-When navigating from search:
-
-Show a global loading indicator for approximately **1 second** to create a smooth transition before opening the destination.
-
-The transition should feel intentional and polished.
-
----
-
-# Highlight Search Matches
-
-Highlight the matching text inside search results.
+Every Module should maintain its own Environment mapping.
 
 Example:
 
-Search:
+Framework
+    ↓
+Module
+        ↓
+Supported Environments
+                ↓
+Configuration
 
-```
-report
-```
+The Execution Center must never maintain this information directly.
 
-Display:
+Instead, it should dynamically consume whatever has been configured in the administration module.
 
-Execution **Report**
+The same metadata should also be available inside the Testrix dashboard for viewing and quick operational management.
 
-Performance **Report**
+However, there must be only one source of truth.
 
----
+Changes made from either interface must update the same backend data instead of maintaining duplicate configurations.
 
-# Recent Searches
-
-Maintain a history of recent searches.
-
-Features:
-
-* Most recent first
-* Remove individual items
-* Clear all history
-* Persist using Local Storage (or backend later if required)
-
----
-
-# Suggested Searches
-
-Before typing anything, show useful suggestions such as:
-
-* API Testing
-* Automation
-* Performance Testing
-* Reports
-* Executions
-* Scheduler
-* Analytics
-* Collections
-* Settings
-
----
-
-# Keyboard Support
-
-Support:
-
-* Arrow Up
-* Arrow Down
-* Enter
-* Escape
-* Tab
-
-The search should be fully keyboard accessible.
-
----
-
-# Scalability
-
-The implementation should be designed for future growth.
-
-When new pages or modules are added, developers should only need to register them in the centralized search registry. No changes should be required in the search component itself.
-
----
-
-# Performance
-
-Optimize for speed.
-
-Implement:
-
-* Debounced searching
-* Memoization
-* Efficient indexing
-* Lazy loading where appropriate
-* Minimal unnecessary re-renders
-
-The search should remain fast even with hundreds or thousands of searchable entries.
-
----
-
-# Code Architecture
-
-Create a reusable architecture with shared components such as:
-
-* Global Search Provider
-* Search Service
-* Search Registry
-* Search Hook
-* Search Dropdown
-* Search Result Item
-* Recent Search Manager
-* Search Utilities
-
-Keep the code modular, reusable, and maintainable.
-
----
-
-# Final Goal
-
-The final result should feel comparable to enterprise products like Docker Desktop, VS Code Command Palette, Notion Search, or modern developer platforms.
-
-This should become the single, centralized search system for the entire Testrix platform, providing fast, intelligent, scalable, and reusable navigation across every module.
+Prepare the architecture so future administration features can be added without redesigning the Execution Center.
 
 
----
-
-## Final Requirement
-
-- Do not break any existing functionality.
-- Reuse existing components wherever possible.
-- Maintain a consistent UI/UX across the platform.
-- Verify every module after implementation.
-- Ensure the application behaves like a production-grade enterprise SaaS platform.

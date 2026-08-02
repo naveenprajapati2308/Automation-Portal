@@ -53,13 +53,22 @@ function ReachBadge({ env }) {
   return <span className="ev-reach ev-reach-nourl"><Link2 size={13} /> No URL set</span>;
 }
 
-function EnvCard({ env, onSaved }) {
+function EnvCard({ env, onSaved, onDeleted }) {
   const [expanded, setExpanded] = useState(false);
   const [baseUrl, setBaseUrl] = useState(env.baseUrl || '');
   const [rows, setRows] = useState(parseConfig(env.configJson));
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [showSecrets, setShowSecrets] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  // Read-only view of which modules are enabled for this environment — the actual
+  // enable/override editing happens in the admin's Module Management area (single source of
+  // truth); this is visibility only, per the "only one source of truth" requirement.
+  const [usedByModules, setUsedByModules] = useState(null);
+  useEffect(() => {
+    api.environmentModules(env.id).then((mods) => setUsedByModules(mods || [])).catch(() => setUsedByModules([]));
+  }, [env.id]);
 
   useEffect(() => {
     setBaseUrl(env.baseUrl || '');
@@ -90,6 +99,30 @@ function EnvCard({ env, onSaved }) {
 
   const lastRun = env.lastRunAt ? new Date(env.lastRunAt).toLocaleString() : '—';
 
+  const toggleActive = async () => {
+    setSaving(true);
+    try {
+      await api.updateEnvironment(env.id, { active: !env.active });
+      onSaved();
+    } catch (e) {
+      alert('Failed to update: ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!window.confirm(`Delete environment "${env.name}"? Past execution logs referring to it are kept, but you won't be able to run new sessions against it.`)) return;
+    setDeleting(true);
+    try {
+      await api.deleteEnvironment(env.id);
+      onDeleted();
+    } catch (e) {
+      alert('Failed to delete: ' + e.message);
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className={`ev-card${env.active ? '' : ' ev-card-disabled'}`}>
       <div className="ev-card-head">
@@ -97,12 +130,30 @@ function EnvCard({ env, onSaved }) {
           <span className="ev-code">{env.code}</span>
           <div>
             <h3>{env.name}</h3>
-            <span className={`ev-active-pill ${env.active ? 'on' : 'off'}`}>
+            <button
+              type="button"
+              className={`ev-active-pill ${env.active ? 'on' : 'off'}`}
+              onClick={toggleActive}
+              disabled={saving}
+              title="Click to toggle Active / Disabled"
+              style={{ cursor: 'pointer', font: 'inherit' }}
+            >
               {env.active ? 'Active' : 'Disabled'}
-            </span>
+            </button>
           </div>
         </div>
-        <ReachBadge env={env} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <ReachBadge env={env} />
+          <button
+            type="button"
+            className="ev-row-del"
+            onClick={remove}
+            disabled={deleting}
+            title="Delete environment"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
 
       <div className="ev-url-row">
@@ -140,6 +191,12 @@ function EnvCard({ env, onSaved }) {
           </div>
         </div>
       </div>
+
+      {usedByModules && usedByModules.length > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 8px' }}>
+          Used by: {usedByModules.map((m) => `${m.name} (${m.runnerType})`).join(', ')}
+        </div>
+      )}
 
       <button className="ev-config-toggle" onClick={() => setExpanded((v) => !v)}>
         <Settings2 size={14} />
@@ -283,7 +340,7 @@ export function EnvironmentView({ onRefresh }) {
 
       <div className="ev-grid">
         {envs.map((env) => (
-          <EnvCard key={env.id} env={env} onSaved={reloadEverywhere} />
+          <EnvCard key={env.id} env={env} onSaved={reloadEverywhere} onDeleted={reloadEverywhere} />
         ))}
       </div>
 

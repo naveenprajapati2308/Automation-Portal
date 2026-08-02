@@ -298,6 +298,11 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                               <ExternalLink size={14} /> Open Report
                             </a>
                           )}
+                          {art.artifactType === 'VIDEO' && (
+                            <a href={`/uploads/${art.filePath}`} target="_blank" rel="noreferrer" className="secondary-action" style={{ display: 'inline-flex', padding: '6px 8px', minHeight: 'unset' }}>
+                              <Play size={14} /> Play
+                            </a>
+                          )}
                           <a href={`/uploads/${art.filePath}`} download className="secondary-action" style={{ display: 'inline-flex', padding: '6px 8px', minHeight: 'unset' }}>
                             <Download size={14} /> Download
                           </a>
@@ -561,9 +566,15 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                 {artifacts.map(art => (
                   <div key={art.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '14px', background: 'var(--bg-inset)', border: '1px solid var(--border)', borderRadius: '8px', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                      <div style={{ width: '40px', height: '40px', background: 'rgba(124,58,237,0.15)', borderRadius: '8px', display: 'grid', placeItems: 'center', color: 'var(--accent-text)' }}>
-                        <FileText size={20} />
-                      </div>
+                      {art.artifactType === 'SCREENSHOT' ? (
+                        <a href={`/uploads/${art.filePath}`} target="_blank" rel="noreferrer">
+                          <img src={`/uploads/${art.filePath}`} alt={art.fileName} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }} />
+                        </a>
+                      ) : (
+                        <div style={{ width: '40px', height: '40px', background: 'rgba(124,58,237,0.15)', borderRadius: '8px', display: 'grid', placeItems: 'center', color: 'var(--accent-text)' }}>
+                          {art.artifactType === 'VIDEO' ? <Play size={20} /> : <FileText size={20} />}
+                        </div>
+                      )}
                       <div>
                         <strong style={{ display: 'block', fontSize: '14px' }}>{art.fileName}</strong>
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{art.artifactType} • {(art.sizeBytes / 1024).toFixed(1)} KB</span>
@@ -573,6 +584,11 @@ export function ExecutionDetailPage({ executionId, onClose }) {
                       {art.artifactType === 'EXTENT_REPORT' && (
                         <a href={`/api/reports/${executionId}/view`} target="_blank" rel="noreferrer" className="secondary-action" style={{ display: 'inline-flex', padding: '6px 12px', minHeight: 'unset', gap: '6px' }}>
                           <ExternalLink size={14} /> View HTML Report
+                        </a>
+                      )}
+                      {art.artifactType === 'VIDEO' && (
+                        <a href={`/uploads/${art.filePath}`} target="_blank" rel="noreferrer" className="secondary-action" style={{ display: 'inline-flex', padding: '6px 12px', minHeight: 'unset', gap: '6px' }}>
+                          <Play size={14} /> Play Video
                         </a>
                       )}
                       <a href={`/uploads/${art.filePath}`} download className="primary-action" style={{ display: 'inline-flex', padding: '6px 12px', minHeight: 'unset', width: 'auto', gap: '6px' }}>

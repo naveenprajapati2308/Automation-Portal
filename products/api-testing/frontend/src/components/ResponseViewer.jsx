@@ -76,7 +76,7 @@ export default function ResponseViewer({ response, loading }) {
   }
 
   return (
-    <div className="h-[360px] shrink-0 flex flex-col min-h-0">
+    <div className="shrink-0 flex flex-col min-h-0">
       <div className="flex items-center gap-5 px-4 py-2 border-b border-[var(--border)] text-xs">
         <span className={`font-semibold ${statusColor(response.statusCode)}`}>
           {response.statusCode} {response.statusText}

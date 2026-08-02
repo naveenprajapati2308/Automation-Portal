@@ -13,4 +13,13 @@ sleep 1
 fluxbox &
 sleep 1
 
+# The Playwright project directory is bind-mounted from the Windows host, but its
+# node_modules (if the host has one) is Windows-native and won't run in this Linux
+# container — node_modules itself is a separate Docker volume (see docker-compose.yml) so
+# it starts empty here. Install into it once; later boots reuse it unless it's missing.
+if [ -d "$PLAYWRIGHT_FRAMEWORK_PATH" ] && [ ! -x "$PLAYWRIGHT_FRAMEWORK_PATH/node_modules/.bin/playwright" ]; then
+    echo "Installing Playwright framework npm dependencies (first run)..."
+    (cd "$PLAYWRIGHT_FRAMEWORK_PATH" && npm ci)
+fi
+
 exec java -cp /app/framework-runner.jar runner.FrameworkRunnerService

@@ -1,9 +1,17 @@
 package com.automationportal.executions;
 
+import com.automationportal.auth.AuthenticatedUserService;
 import com.automationportal.config.PortalAutomationProperties;
 import com.automationportal.events.LiveBroadcastService;
 import com.automationportal.events.ExecutionEventPayload;
 import com.automationportal.events.ExecutionEventType;
+import com.automationportal.frameworks.FrameworkRegistry;
+import com.automationportal.moduleenvironments.ModuleEnvironmentEntity;
+import com.automationportal.moduleenvironments.ModuleEnvironmentRepository;
+import com.automationportal.moduleenvironments.ModuleEnvironmentResolver;
+import com.automationportal.modules.ModuleEntity;
+import com.automationportal.modules.ModuleRepository;
+import com.automationportal.users.UserRole;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -18,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +50,10 @@ public class ExecutionService {
     private final PortalAutomationProperties properties;
     private final ExecutionWorker worker;
     private final LiveBroadcastService broadcastService;
+    private final ModuleRepository moduleRepository;
+    private final ModuleEnvironmentRepository moduleEnvironmentRepository;
+    private final FrameworkRegistry frameworkRegistry;
+    private final AuthenticatedUserService authenticatedUserService;
 
     public ExecutionService(ExecutionRepository repository,
                             ExecutionTestCaseRepository testCaseRepository,
@@ -48,7 +61,11 @@ public class ExecutionService {
                             ExecutionLogRepository logRepository,
                             PortalAutomationProperties properties,
                             @Lazy ExecutionWorker worker,
-                            LiveBroadcastService broadcastService) {
+                            LiveBroadcastService broadcastService,
+                            ModuleRepository moduleRepository,
+                            ModuleEnvironmentRepository moduleEnvironmentRepository,
+                            FrameworkRegistry frameworkRegistry,
+                            AuthenticatedUserService authenticatedUserService) {
         this.repository = repository;
         this.testCaseRepository = testCaseRepository;
         this.artifactRepository = artifactRepository;
@@ -56,18 +73,82 @@ public class ExecutionService {
         this.properties = properties;
         this.worker = worker;
         this.broadcastService = broadcastService;
+        this.moduleRepository = moduleRepository;
+        this.moduleEnvironmentRepository = moduleEnvironmentRepository;
+        this.frameworkRegistry = frameworkRegistry;
+        this.authenticatedUserService = authenticatedUserService;
     }
 
     public Execution queue(RunExecutionRequest request, Long triggeredByUserId) {
+        String framework = request.framework() != null && !request.framework().isBlank() ? request.framework() : "MAVEN_TESTNG";
+
+        if (request.executionType() == ExecutionType.MODULE) {
+            validateModuleEnvironmentBrowser(request.moduleCode(), framework, request.environmentId(), request.requestedBrowser());
+        }
+
         Execution execution = new Execution();
-        execution.setExecutionCode("AUTO-" + DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(java.time.ZoneOffset.UTC).format(Instant.now()));
+        execution.setExecutionCode(generateExecutionCode());
         execution.setExecutionType(request.executionType());
         execution.setEnvironmentId(request.environmentId());
         execution.setModuleCode(request.executionType() == ExecutionType.ALL_MODULES ? "ALL" : request.moduleCode());
         execution.setSuiteXmlPath(request.suiteXmlPath());
+        execution.setFramework(framework);
+        execution.setRequestedBrowser(request.requestedBrowser());
+        execution.setTagFilter(request.tagFilter());
         execution.setTriggeredBy(triggeredByUserId);
         execution.setStatus(ExecutionStatus.QUEUED);
         return repository.save(execution);
+    }
+
+    // "AUTO-yyyyMMddHHmmss" alone collides whenever two runs are queued within the same second
+    // (e.g. launching a Playwright and a Selenium run back to back) — execution_code has a
+    // unique DB constraint, so the second insert threw an unhandled DataIntegrityViolationException
+    // (500) instead of a clean error. The random suffix makes same-second collisions effectively
+    // impossible without changing anything that reads this code as an opaque string elsewhere.
+    private static String generateExecutionCode() {
+        String timestamp = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(java.time.ZoneOffset.UTC).format(Instant.now());
+        int suffix = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000, 10000);
+        return "AUTO-" + timestamp + "-" + suffix;
+    }
+
+    /**
+     * Server-side enforcement of the Framework -> Module -> Environment -> Browser
+     * relationship — the frontend already hides invalid combinations, but nothing previously
+     * stopped a raw API call from bypassing that. Also enforces the module's optional
+     * allowedRoles execution-permission list.
+     */
+    private void validateModuleEnvironmentBrowser(String moduleCode, String framework, Long environmentId, String requestedBrowser) {
+        if (moduleCode == null || moduleCode.isBlank()) {
+            return;
+        }
+        ModuleEntity module = moduleRepository.findByCodeAndRunnerType(moduleCode.toUpperCase(), framework)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Module '" + moduleCode + "' does not exist for framework " + framework));
+
+        ModuleEnvironmentEntity mapping = moduleEnvironmentRepository
+                .findByModuleIdAndEnvironmentIdAndEnabledTrue(module.getId(), environmentId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Module '" + module.getCode() + "' is not enabled for the selected environment"));
+
+        if (requestedBrowser != null && !requestedBrowser.isBlank()) {
+            List<String> frameworkBrowsers = frameworkRegistry.find(framework)
+                    .map(fw -> fw.browsers())
+                    .orElse(List.of());
+            List<String> allowedBrowsers = ModuleEnvironmentResolver.resolveBrowsers(mapping, frameworkBrowsers);
+            if (!allowedBrowsers.contains(requestedBrowser)) {
+                throw new IllegalArgumentException(
+                        "Browser '" + requestedBrowser + "' is not supported for this module/environment (supported: " + allowedBrowsers + ")");
+            }
+        }
+
+        if (module.getAllowedRoles() != null && !module.getAllowedRoles().isBlank()) {
+            UserRole currentRole = authenticatedUserService.currentUser().getRole();
+            List<String> allowedRoles = Arrays.stream(module.getAllowedRoles().split(","))
+                    .map(String::trim).filter(s -> !s.isEmpty()).toList();
+            if (currentRole == null || !allowedRoles.contains(currentRole.name())) {
+                throw new IllegalArgumentException("You do not have permission to execute this module.");
+            }
+        }
     }
 
     /**
@@ -112,10 +193,11 @@ public class ExecutionService {
         return repository.findTop25ByOrderByCreatedAtDesc();
     }
 
-    public List<Execution> filter(String status, String module, Instant from, Instant to) {
+    public List<Execution> filter(String status, String module, String framework, Instant from, Instant to) {
         return repository.findAll().stream()
                 .filter(e -> status == null || status.trim().isEmpty() || e.getStatus().toString().equalsIgnoreCase(status))
                 .filter(e -> module == null || module.trim().isEmpty() || (e.getModuleCode() != null && e.getModuleCode().equalsIgnoreCase(module)))
+                .filter(e -> framework == null || framework.trim().isEmpty() || (e.getFramework() != null && e.getFramework().equalsIgnoreCase(framework)))
                 .filter(e -> from == null || (e.getCreatedAt() != null && e.getCreatedAt().isAfter(from)))
                 .filter(e -> to == null || (e.getCreatedAt() != null && e.getCreatedAt().isBefore(to)))
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
@@ -132,7 +214,10 @@ public class ExecutionService {
                 old.getExecutionType(),
                 old.getEnvironmentId(),
                 old.getModuleCode(),
-                old.getSuiteXmlPath()
+                old.getSuiteXmlPath(),
+                old.getFramework(),
+                old.getRequestedBrowser(),
+                old.getTagFilter()
         );
         return queue(req, triggeredByUserId);
     }
@@ -153,7 +238,7 @@ public class ExecutionService {
         }
 
         // Create new execution code
-        String newCode = "AUTO-" + DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(java.time.ZoneOffset.UTC).format(Instant.now());
+        String newCode = generateExecutionCode();
         String tempSuiteName = "testng-failed-temp-" + newCode + ".xml";
         Path dest = Path.of(properties.getRepositoryPath(), tempSuiteName);
 
@@ -169,9 +254,12 @@ public class ExecutionService {
         execution.setEnvironmentId(old.getEnvironmentId());
         execution.setModuleCode(old.getModuleCode());
         execution.setSuiteXmlPath(tempSuiteName);
+        execution.setFramework(old.getFramework());
+        execution.setRequestedBrowser(old.getRequestedBrowser());
+        execution.setTagFilter(old.getTagFilter());
         execution.setTriggeredBy(triggeredByUserId);
         execution.setStatus(ExecutionStatus.QUEUED);
-        
+
         return repository.save(execution);
     }
 

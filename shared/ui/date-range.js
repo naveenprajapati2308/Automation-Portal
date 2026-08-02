@@ -1,6 +1,4 @@
-// Shared vocabulary for the Global Date Range Filter, used by every dashboard
-// (shell, automation-portal, api-testing, performance-testing). Keep the token
-// set in sync with automation's DashboardService.getSinceInstant on the backend.
+
 
 export const DATE_RANGE_SCOPES = {
   GLOBAL: 'global',

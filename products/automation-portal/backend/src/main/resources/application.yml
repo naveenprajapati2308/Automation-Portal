@@ -49,6 +49,7 @@ portal:
     refresh-expiration-days: ${PORTAL_JWT_REFRESH_EXPIRATION_DAYS:14}
   automation:
     repository-path: "D:/New folder/MPHIDB"
+    playwright-path: "D:/playwright-js"
     maven-command: "mvn test -DsuiteXmlFile={suiteXml} -DopenReport=false"
     artifacts-root: "artifacts"
     suites:

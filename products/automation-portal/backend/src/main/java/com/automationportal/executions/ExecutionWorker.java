@@ -3,6 +3,9 @@ package com.automationportal.executions;
 import com.automationportal.config.PortalAutomationProperties;
 import com.automationportal.environments.EnvironmentEntity;
 import com.automationportal.environments.EnvironmentRepository;
+import com.automationportal.moduleenvironments.ModuleEnvironmentEntity;
+import com.automationportal.moduleenvironments.ModuleEnvironmentRepository;
+import com.automationportal.moduleenvironments.ModuleEnvironmentResolver;
 import com.automationportal.modules.ModuleEntity;
 import com.automationportal.modules.ModuleRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +29,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class ExecutionWorker {
@@ -41,6 +46,7 @@ public class ExecutionWorker {
     private final TagRepository tagRepository;
     private final TestNGXmlParser testNGXmlParser;
     private final EnvironmentRepository environmentRepository;
+    private final ModuleEnvironmentRepository moduleEnvironmentRepository;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -56,7 +62,8 @@ public class ExecutionWorker {
                            TestStepRepository testStepRepository,
                            TagRepository tagRepository,
                            TestNGXmlParser testNGXmlParser,
-                           EnvironmentRepository environmentRepository) {
+                           EnvironmentRepository environmentRepository,
+                           ModuleEnvironmentRepository moduleEnvironmentRepository) {
         this.executionRepository = executionRepository;
         this.artifactRepository = artifactRepository;
         this.logRepository = logRepository;
@@ -67,6 +74,7 @@ public class ExecutionWorker {
         this.tagRepository = tagRepository;
         this.testNGXmlParser = testNGXmlParser;
         this.environmentRepository = environmentRepository;
+        this.moduleEnvironmentRepository = moduleEnvironmentRepository;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -125,6 +133,9 @@ public class ExecutionWorker {
         String xmlFileName = "MPHIDB.xml";
         String suiteName = "Master Automation Suite";
         String suiteReport = "reports/MasterReport2.html";
+        // Set for MODULE-type executions only; ALL_MODULES/XML_SUITE have no single module in
+        // play, so resolveEnvConfigJson()/timeout resolution fall back to environment-only.
+        ModuleEntity resolvedModule = null;
 
         if (execution.getExecutionType() == ExecutionType.ALL_MODULES) {
             PortalAutomationProperties.SuiteInfo suite = properties.getSuites().get("all");
@@ -135,10 +146,13 @@ public class ExecutionWorker {
             }
         } else if (execution.getExecutionType() == ExecutionType.MODULE) {
             String mod = execution.getModuleCode();
-            // Primary: look up module in DB by code
+            // Primary: look up module in DB by code, scoped to this execution's framework —
+            // the same business module can exist once per framework (e.g. "LAND" under both
+            // MAVEN_TESTNG and PLAYWRIGHT) since V14's composite unique key.
             java.util.Optional<ModuleEntity> moduleOpt = mod != null
-                    ? moduleRepository.findByCode(mod.toUpperCase())
+                    ? moduleRepository.findByCodeAndRunnerType(mod.toUpperCase(), execution.getFramework())
                     : java.util.Optional.empty();
+            resolvedModule = moduleOpt.orElse(null);
             if (moduleOpt.isPresent() && moduleOpt.get().getXmlFile() != null) {
                 ModuleEntity m = moduleOpt.get();
                 xmlFileName = m.getXmlFile();
@@ -167,11 +181,16 @@ public class ExecutionWorker {
         log.info("Submitting execution {} to Execution Manager...", execution.getExecutionCode());
         try {
             String url = executionManagerUrl + "/em/executions";
-            String envConfigJson = resolveEnvConfigJson(execution.getEnvironmentId());
+            String envConfigJson = resolveEnvConfigJson(execution.getEnvironmentId(), resolvedModule);
+            int timeoutMinutes = resolveTimeoutMinutes(execution.getEnvironmentId(), resolvedModule);
+            String framework = execution.getFramework() != null && !execution.getFramework().isBlank()
+                    ? execution.getFramework() : "MAVEN_TESTNG";
+            String browser = execution.getRequestedBrowser() != null ? execution.getRequestedBrowser() : "";
             // Map request payload matching EM ExecutionJob entity
             String jsonPayload = String.format(
-                    "{\"jobId\":\"%s\",\"executionId\":%d,\"suiteXml\":\"%s\",\"priority\":\"MEDIUM\",\"maxRetries\":0,\"timeoutMinutes\":120,\"submittedBy\":\"admin\",\"envConfigJson\":%s}",
-                    execution.getExecutionCode(), execution.getId(), xmlFileName, objectMapper.writeValueAsString(envConfigJson)
+                    "{\"jobId\":\"%s\",\"executionId\":%d,\"suiteXml\":\"%s\",\"framework\":\"%s\",\"browser\":\"%s\",\"priority\":\"MEDIUM\",\"maxRetries\":0,\"timeoutMinutes\":%d,\"submittedBy\":\"admin\",\"envConfigJson\":%s,\"tagFilter\":%s}",
+                    execution.getExecutionCode(), execution.getId(), xmlFileName, framework, browser, timeoutMinutes,
+                    objectMapper.writeValueAsString(envConfigJson), objectMapper.writeValueAsString(execution.getTagFilter())
             );
 
             HttpRequest request = HttpRequest.newBuilder()
@@ -204,13 +223,15 @@ public class ExecutionWorker {
     }
 
     /**
-     * Resolves the selected Environment's saved config (base credentials, URLs, captcha keys,
-     * …) into a flat JSON object to hand off to the Execution Manager / Framework Runner, which
-     * inject each entry into the Maven run as a -D system property. environment.code/name are
-     * added automatically so the framework can log which environment it's actually running
-     * against without the user having to define those keys themselves.
+     * Resolves the effective config for this run into a flat JSON object to hand off to the
+     * Execution Manager / Framework Runner, which inject each entry into the Maven run as a -D
+     * system property (or process env for Playwright). Merge order (later wins on key
+     * conflict): environment's base config -> module_environments override -> execution params
+     * -> auto-added environment.code/name/module.code/environment.base_url. `module` is null
+     * for ALL_MODULES/XML_SUITE executions (no single module in play), in which case this is
+     * environment-only, exactly as before Phase 2.
      */
-    private String resolveEnvConfigJson(Long environmentId) {
+    private String resolveEnvConfigJson(Long environmentId, ModuleEntity module) {
         ObjectNode node = objectMapper.createObjectNode();
         if (environmentId == null) {
             return node.toString();
@@ -219,16 +240,43 @@ public class ExecutionWorker {
         if (env == null) {
             return node.toString();
         }
-        if (env.getConfigJson() != null && !env.getConfigJson().isBlank()) {
-            try {
-                node.setAll((ObjectNode) objectMapper.readTree(env.getConfigJson()));
-            } catch (Exception e) {
-                log.warn("Environment {} has invalid config_json, skipping saved config for this run", environmentId, e);
+        mergeJsonInto(node, env.getConfigJson(), environmentId, "environment");
+
+        ModuleEnvironmentEntity mapping = null;
+        if (module != null) {
+            mapping = moduleEnvironmentRepository.findByModuleIdAndEnvironmentId(module.getId(), environmentId).orElse(null);
+            if (mapping != null) {
+                mergeJsonInto(node, mapping.getConfigJson(), environmentId, "module_environments.config_json");
+                mergeJsonInto(node, mapping.getExecutionParamsJson(), environmentId, "module_environments.execution_params_json");
             }
         }
+
         if (env.getCode() != null) node.put("environment.code", env.getCode());
         if (env.getName() != null) node.put("environment.name", env.getName());
+        if (module != null && module.getCode() != null) node.put("module.code", module.getCode());
+        String baseUrl = ModuleEnvironmentResolver.resolveBaseUrl(mapping, env.getBaseUrl());
+        if (baseUrl != null) node.put("environment.base_url", baseUrl);
         return node.toString();
+    }
+
+    private void mergeJsonInto(ObjectNode target, String rawJson, Long environmentId, String sourceLabel) {
+        if (rawJson == null || rawJson.isBlank()) {
+            return;
+        }
+        try {
+            target.setAll((ObjectNode) objectMapper.readTree(rawJson));
+        } catch (Exception e) {
+            log.warn("Environment {} has invalid {}, skipping it for this run", environmentId, sourceLabel, e);
+        }
+    }
+
+    private int resolveTimeoutMinutes(Long environmentId, ModuleEntity module) {
+        if (environmentId == null || module == null) {
+            return 120;
+        }
+        return moduleEnvironmentRepository.findByModuleIdAndEnvironmentId(module.getId(), environmentId)
+                .map(mapping -> ModuleEnvironmentResolver.resolveTimeoutMinutes(mapping, 120))
+                .orElse(120);
     }
 
     private String resolveReportPathForXml(String xmlFileName) {
@@ -252,7 +300,7 @@ public class ExecutionWorker {
             // Resolve suite report: prefer DB lookup by module code, then by xml file
             String suiteReport = "reports/MasterReport2.html";
             if (execution.getModuleCode() != null) {
-                suiteReport = moduleRepository.findByCode(execution.getModuleCode().toUpperCase())
+                suiteReport = moduleRepository.findByCodeAndRunnerType(execution.getModuleCode().toUpperCase(), execution.getFramework())
                         .filter(m -> m.getReportPath() != null)
                         .map(ModuleEntity::getReportPath)
                         .orElseGet(() -> resolveReportPathForXml(execution.getSuiteXmlPath()));
@@ -300,6 +348,65 @@ public class ExecutionWorker {
             log.info("Artifacts successfully copied for execution: {}", executionCode);
         } catch (Exception e) {
             log.error("Failed to copy artifacts for execution: {}", execution.getExecutionCode(), e);
+        }
+    }
+
+    /**
+     * Playwright's counterpart to copyExecutionArtifacts() — no TestNG XML/Extent report to
+     * parse, just walks whatever screenshots/videos/traces the run actually produced under
+     * test-results/ and records them the same way (reusing the same saveArtifactRecord()
+     * helper), so the Artifacts tab/API needs no per-framework branching to consume either.
+     */
+    public void copyPlaywrightArtifacts(Execution execution) {
+        try {
+            String playwrightPath = properties.getPlaywrightPath();
+            if (playwrightPath == null || playwrightPath.isBlank()) {
+                log.warn("portal.automation.playwright-path is not configured — skipping artifact copy for execution: {}", execution.getExecutionCode());
+                return;
+            }
+            String artifactsRoot = properties.getArtifactsRoot();
+            String executionCode = execution.getExecutionCode();
+
+            Path testResultsDir = Path.of(playwrightPath, "test-results");
+            if (!Files.exists(testResultsDir)) {
+                log.warn("No Playwright test-results directory found at {} for execution: {}", testResultsDir, executionCode);
+                return;
+            }
+
+            Path artifactBaseDir = Path.of(artifactsRoot, "executions", executionCode);
+            Files.createDirectories(artifactBaseDir.resolve("screenshots"));
+            Files.createDirectories(artifactBaseDir.resolve("videos"));
+            Files.createDirectories(artifactBaseDir.resolve("traces"));
+
+            List<Path> files;
+            try (Stream<Path> walk = Files.walk(testResultsDir)) {
+                files = walk.filter(Files::isRegularFile).collect(Collectors.toList());
+            }
+
+            for (Path src : files) {
+                String name = src.getFileName().toString();
+                String subDir;
+                String artifactType;
+                if (name.endsWith(".png")) {
+                    subDir = "screenshots";
+                    artifactType = "SCREENSHOT";
+                } else if (name.endsWith(".webm")) {
+                    subDir = "videos";
+                    artifactType = "VIDEO";
+                } else if (name.endsWith(".zip")) {
+                    subDir = "traces";
+                    artifactType = "TRACE";
+                } else {
+                    continue;
+                }
+                File dest = artifactBaseDir.resolve(subDir).resolve(name).toFile();
+                Files.copy(src, dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                saveArtifactRecord(execution.getId(), artifactType, dest);
+            }
+
+            log.info("Playwright artifacts successfully copied for execution: {}", executionCode);
+        } catch (Exception e) {
+            log.error("Failed to copy Playwright artifacts for execution: {}", execution.getExecutionCode(), e);
         }
     }
 

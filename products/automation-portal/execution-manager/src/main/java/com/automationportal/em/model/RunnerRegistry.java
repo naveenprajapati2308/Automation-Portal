@@ -22,6 +22,10 @@ public class RunnerRegistry {
     @Column(name = "last_heartbeat", nullable = false)
     private Instant lastHeartbeat = Instant.now();
 
+    /** CSV of framework codes this runner can execute; null/empty = all frameworks (today's default — one runner handles everything). */
+    @Column(name = "supported_frameworks", length = 255)
+    private String supportedFrameworks;
+
     // Getters and Setters
     public String getRunnerId() { return runnerId; }
     public void setRunnerId(String runnerId) { this.runnerId = runnerId; }
@@ -37,4 +41,7 @@ public class RunnerRegistry {
 
     public Instant getLastHeartbeat() { return lastHeartbeat; }
     public void setLastHeartbeat(Instant lastHeartbeat) { this.lastHeartbeat = lastHeartbeat; }
+
+    public String getSupportedFrameworks() { return supportedFrameworks; }
+    public void setSupportedFrameworks(String supportedFrameworks) { this.supportedFrameworks = supportedFrameworks; }
 }

@@ -1,6 +1,10 @@
 package com.automationportal.environments;
 
 import com.automationportal.common.ApiResponse;
+import com.automationportal.modules.ModuleEntity;
+import com.automationportal.modules.ModuleRepository;
+import com.automationportal.moduleenvironments.ModuleEnvironmentEntity;
+import com.automationportal.moduleenvironments.ModuleEnvironmentRepository;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,15 +15,39 @@ import java.util.Map;
 public class EnvironmentController {
     private final EnvironmentRepository repository;
     private final EnvironmentHealthService healthService;
+    private final ModuleEnvironmentRepository moduleEnvironmentRepository;
+    private final ModuleRepository moduleRepository;
 
-    public EnvironmentController(EnvironmentRepository repository, EnvironmentHealthService healthService) {
+    public EnvironmentController(EnvironmentRepository repository,
+                                  EnvironmentHealthService healthService,
+                                  ModuleEnvironmentRepository moduleEnvironmentRepository,
+                                  ModuleRepository moduleRepository) {
         this.repository = repository;
         this.healthService = healthService;
+        this.moduleEnvironmentRepository = moduleEnvironmentRepository;
+        this.moduleRepository = moduleRepository;
     }
 
     @GetMapping
     public ApiResponse<List<EnvironmentEntity>> list() {
         return ApiResponse.ok(repository.findAll());
+    }
+
+    // Reverse lookup used by Dashboard's "Run Now" quick-launch and the admin cross-link
+    // ("Used by N modules") — which active, visible modules are enabled for this environment.
+    @GetMapping("/{id}/modules")
+    public ApiResponse<List<ModuleEntity>> supportedModules(@PathVariable Long id,
+                                                              @RequestParam(required = false) String framework) {
+        List<Long> moduleIds = moduleEnvironmentRepository.findByEnvironmentId(id).stream()
+                .filter(ModuleEnvironmentEntity::isEnabled)
+                .map(ModuleEnvironmentEntity::getModuleId)
+                .toList();
+        List<ModuleEntity> modules = moduleRepository.findAllById(moduleIds).stream()
+                .filter(ModuleEntity::isActive)
+                .filter(ModuleEntity::isVisible)
+                .filter(m -> framework == null || framework.isBlank() || framework.equals(m.getRunnerType()))
+                .toList();
+        return ApiResponse.ok(modules);
     }
 
     @GetMapping("/health")

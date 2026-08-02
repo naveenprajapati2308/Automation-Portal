@@ -22,9 +22,12 @@ public class ModuleEntity {
     @Column(name = "runner_type", nullable = false)
     private String runnerType = "MAVEN_TESTNG";
 
-    /** CSV of environment codes this module is available in; null/empty = all. */
-    @Column(name = "env_codes")
-    private String envCodes;
+    /** Hides the module from the Execution Center/Dashboard pickers without disabling it. */
+    private boolean visible = true;
+
+    /** CSV of UserRole names allowed to execute this module; null/empty = unrestricted. */
+    @Column(name = "allowed_roles")
+    private String allowedRoles;
 
     protected ModuleEntity() {
     }
@@ -49,6 +52,8 @@ public class ModuleEntity {
     public void setReportPath(String reportPath) { this.reportPath = reportPath; }
     public String getRunnerType() { return runnerType; }
     public void setRunnerType(String runnerType) { this.runnerType = runnerType; }
-    public String getEnvCodes() { return envCodes; }
-    public void setEnvCodes(String envCodes) { this.envCodes = envCodes; }
+    public boolean isVisible() { return visible; }
+    public void setVisible(boolean visible) { this.visible = visible; }
+    public String getAllowedRoles() { return allowedRoles; }
+    public void setAllowedRoles(String allowedRoles) { this.allowedRoles = allowedRoles; }
 }

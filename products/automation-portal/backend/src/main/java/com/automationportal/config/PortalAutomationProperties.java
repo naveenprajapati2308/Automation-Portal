@@ -10,6 +10,7 @@ import java.util.Map;
 public class PortalAutomationProperties {
     private String repositoryPath;
     private String mavenCommand;
+    private String playwrightPath;
     private String artifactsRoot = "artifacts";
     private Map<String, SuiteInfo> suites = new HashMap<>();
     private Map<String, String> resultFiles = new HashMap<>();
@@ -19,6 +20,9 @@ public class PortalAutomationProperties {
 
     public String getMavenCommand() { return mavenCommand; }
     public void setMavenCommand(String mavenCommand) { this.mavenCommand = mavenCommand; }
+
+    public String getPlaywrightPath() { return playwrightPath; }
+    public void setPlaywrightPath(String playwrightPath) { this.playwrightPath = playwrightPath; }
 
     public String getArtifactsRoot() { return artifactsRoot; }
     public void setArtifactsRoot(String artifactsRoot) { this.artifactsRoot = artifactsRoot; }

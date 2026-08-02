@@ -4,9 +4,10 @@ import {
   Layers, ListTodo, Loader2, Play, Sparkles, Timer, TimerReset, TrendingUp, XCircle, Zap
 } from 'lucide-react';
 import { api, auth } from './api.js';
-import { ADMIN_WORKSPACE_NAV_FLAT, API_TESTING_NAV, AUTOMATION_NAV, PERFORMANCE_NAV, isSuperAdmin } from './constants.js';
+import { ADMIN_WORKSPACE_NAV_FLAT, API_TESTING_NAV, AUTOMATION_NAV, MODULES_ENV_NAV, PERFORMANCE_NAV, isSuperAdmin } from './constants.js';
 import { AiSupportPanel, PortalLayout, Sidebar, Topbar } from './components/layout/index.jsx';
 import { AdminSidebar, AdminTopbar, AdminContent, adminPageTitle } from './components/admin/AdminWorkspace.jsx';
+import { ModuleManagement } from './components/admin/ModuleManagement.jsx';
 import { AutomationWorkspace } from './components/automation/AutomationWorkspace.jsx';
 import { ApiTestingWorkspace } from './components/apitesting/ApiTestingWorkspace.jsx';
 import { PerformanceWorkspace } from './components/performance/PerformanceWorkspace.jsx';
@@ -40,8 +41,9 @@ const ADMIN_PAGE_KEYS = new Set(ADMIN_WORKSPACE_NAV_FLAT.map((item) => item.key)
 const AUTOMATION_PAGE_KEYS = new Set(AUTOMATION_NAV.map((item) => item.key));
 const API_TESTING_PAGE_KEYS = new Set(API_TESTING_NAV.map((item) => item.key));
 const PERFORMANCE_PAGE_KEYS = new Set(PERFORMANCE_NAV.map((item) => item.key));
+const MODULES_ENV_PAGE_KEYS = new Set(MODULES_ENV_NAV.map((item) => item.key));
 
-const DEFAULT_ROUTE = { adminPage: 'admin-dashboard', automationPage: 'dashboard', apitestPage: 'dashboard', perfPage: 'dashboard' };
+const DEFAULT_ROUTE = { adminPage: 'admin-dashboard', automationPage: 'dashboard', apitestPage: 'dashboard', perfPage: 'dashboard', modulesEnvPage: 'module-management' };
 
 const parseHashRoute = () => {
   const [head, sub] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -56,6 +58,9 @@ const parseHashRoute = () => {
   }
   if (head === 'perf') {
     return { ...DEFAULT_ROUTE, page: 'perf', perfPage: PERFORMANCE_PAGE_KEYS.has(sub) ? sub : 'dashboard' };
+  }
+  if (head === 'modules-environments') {
+    return { ...DEFAULT_ROUTE, page: 'modules-environments', modulesEnvPage: MODULES_ENV_PAGE_KEYS.has(sub) ? sub : 'module-management' };
   }
   if (head === 'profile') {
     return { ...DEFAULT_ROUTE, page: 'profile' };
@@ -259,6 +264,7 @@ export default function App() {
   const [automationPage, setAutomationPage] = useState(initialRoute.automationPage);
   const [apitestPage, setApitestPage] = useState(initialRoute.apitestPage);
   const [perfPage, setPerfPage] = useState(initialRoute.perfPage);
+  const [modulesEnvPage, setModulesEnvPage] = useState(initialRoute.modulesEnvPage);
   const [notice, setNoticeState] = useState(null);
   const notify = (text) => setNoticeState(text ? { text } : null);
   const [adminNotice, setAdminNotice] = useState('Administration workspace — Super Admin only.');
@@ -383,7 +389,7 @@ export default function App() {
   // navigating, so the browser never resets scroll on its own; do it here.
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [page, adminPage, automationPage, apitestPage, perfPage]);
+  }, [page, adminPage, automationPage, apitestPage, perfPage, modulesEnvPage]);
 
   // Every internal nav click already does `window.location.hash = ...`, which
   // pushes a real browser history entry — but nothing was listening for the
@@ -398,6 +404,7 @@ export default function App() {
       setAutomationPage(r.automationPage);
       setApitestPage(r.apitestPage);
       setPerfPage(r.perfPage);
+      setModulesEnvPage(r.modulesEnvPage);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
@@ -425,10 +432,12 @@ export default function App() {
           ? (apitestPage === 'dashboard' ? 'API Testing Overview' : (API_TESTING_NAV.find((i) => i.key === apitestPage)?.label ?? 'API Testing'))
           : page === 'perf'
             ? (perfPage === 'dashboard' ? 'Performance Overview' : (PERFORMANCE_NAV.find((i) => i.key === perfPage)?.label ?? 'Performance'))
-            : page === 'profile' ? 'Profile' : 'Dashboard';
+            : page === 'modules-environments'
+              ? (MODULES_ENV_NAV.find((i) => i.key === modulesEnvPage)?.label ?? 'Modules & Environments')
+              : page === 'profile' ? 'Profile' : 'Dashboard';
 
     document.title = title ? `${title} | TESTRIX` : 'TESTRIX Unified Testing Platform';
-  }, [authed, page, adminPage, automationPage, apitestPage, perfPage]);
+  }, [authed, page, adminPage, automationPage, apitestPage, perfPage, modulesEnvPage]);
 
   if (authed === null) return <FullScreenLoader logoSrc={appLogo} subtitle="Loading TESTRIX" />;
   if (!authed) {
@@ -477,6 +486,12 @@ export default function App() {
     setPerfPage(nextPerfPage);
     setPage('perf');
     window.location.hash = `#/perf/${nextPerfPage}`;
+  };
+
+  const setModulesEnvPageAndHash = (nextModulesEnvPage) => {
+    setModulesEnvPage(nextModulesEnvPage);
+    setPage('modules-environments');
+    window.location.hash = `#/modules-environments/${nextModulesEnvPage}`;
   };
 
   const logout = () => {
@@ -571,6 +586,16 @@ export default function App() {
     breadcrumbItems = [
       { label: 'Home', onClick: goDashboard },
       { label: 'Profile' }
+    ];
+  } else if (page === 'modules-environments') {
+    // Nested under Automation in the breadcrumb too, matching its sidebar placement — it's
+    // Automation-only config, not a standalone section of the platform.
+    const subLabel = MODULES_ENV_NAV.find((i) => i.key === modulesEnvPage)?.label ?? 'Modules & Environments';
+    pageTitle = subLabel;
+    breadcrumbItems = [
+      { label: 'Home', onClick: goDashboard },
+      { label: 'Automation', onClick: () => setAutomationPageAndHash('dashboard') },
+      { label: subLabel }
     ];
   } else if (MODULE_CONFIG[page]) {
     const { label: moduleLabel, nav, activeSubPage, goOverview } = MODULE_CONFIG[page];
@@ -866,9 +891,10 @@ export default function App() {
           />
         ) : (
           <Sidebar
-            active={page}
-            activeChildKey={page === 'automation' ? automationPage : page === 'apitest' ? apitestPage : page === 'perf' ? perfPage : null}
+            active={page === 'modules-environments' ? 'automation' : page}
+            activeChildKey={page === 'automation' ? automationPage : page === 'apitest' ? apitestPage : page === 'perf' ? perfPage : page === 'modules-environments' ? modulesEnvPage : null}
             logout={logout}
+            superAdmin={superAdmin}
             onNavigate={(key) => {
               if (key === 'dashboard') goDashboard();
               if (key === 'profile') goProfile();
@@ -877,7 +903,16 @@ export default function App() {
               if (key === 'perf') setPerfPageAndHash(perfPage);
             }}
             onNavigateChild={(parentKey, childKey) => {
-              if (parentKey === 'automation') setAutomationPageAndHash(childKey);
+              if (parentKey === 'automation') {
+                // Module control lives nested under Automation's own sub-menu (Automation-only
+                // config) but renders as the shell-native page, not the embedded
+                // automation-portal iframe the rest of Automation's items use.
+                if (childKey === 'module-management') {
+                  setModulesEnvPageAndHash(childKey);
+                } else {
+                  setAutomationPageAndHash(childKey);
+                }
+              }
               if (parentKey === 'apitest') setApitestPageAndHash(childKey);
               if (parentKey === 'perf') setPerfPageAndHash(childKey);
             }}
@@ -921,6 +956,8 @@ export default function App() {
           <ApiTestingWorkspace activePage={apitestPage} />
         ) : page === 'perf' ? (
           <PerformanceWorkspace activePage={perfPage} />
+        ) : page === 'modules-environments' && superAdmin ? (
+          <ModuleManagement setNotice={notify} />
         ) : page === 'profile' ? (
           <Profile setNotice={notify} />
         ) : dashboardLoading ? (

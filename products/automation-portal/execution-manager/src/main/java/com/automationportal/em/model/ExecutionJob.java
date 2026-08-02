@@ -20,6 +20,18 @@ public class ExecutionJob {
     @Column(name = "env_config_json", columnDefinition = "TEXT")
     private String envConfigJson;
 
+    /** Which runner engine to dispatch this job to (e.g. MAVEN_TESTNG, PLAYWRIGHT). Free-text so new frameworks don't need a schema change. */
+    @Column(name = "framework", nullable = false, length = 50)
+    private String framework = "MAVEN_TESTNG";
+
+    /** Pre-execution browser choice (e.g. "chrome"); only meaningful to frameworks whose FrameworkDescriptor declares browsers. */
+    @Column(name = "browser", length = 50)
+    private String browser;
+
+    /** Optional Playwright --grep pattern (e.g. "@smoke"); null/blank means run the suite unfiltered. */
+    @Column(name = "tag_filter", length = 255)
+    private String tagFilter;
+
     @Column(name = "priority", nullable = false, length = 20)
     private String priority = "MEDIUM";
 
@@ -65,6 +77,15 @@ public class ExecutionJob {
 
     public String getEnvConfigJson() { return envConfigJson; }
     public void setEnvConfigJson(String envConfigJson) { this.envConfigJson = envConfigJson; }
+
+    public String getFramework() { return framework; }
+    public void setFramework(String framework) { this.framework = framework; }
+
+    public String getBrowser() { return browser; }
+    public void setBrowser(String browser) { this.browser = browser; }
+
+    public String getTagFilter() { return tagFilter; }
+    public void setTagFilter(String tagFilter) { this.tagFilter = tagFilter; }
 
     public String getPriority() { return priority; }
     public void setPriority(String priority) { this.priority = priority; }

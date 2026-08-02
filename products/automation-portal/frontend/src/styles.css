@@ -1530,10 +1530,7 @@ tr:last-child td {
   }
 }
 
-/* Opacity-only (no transform): this product's `.modal` gets an inline `transform:
-   translate(-50%,-50%)` for iframe-safe centering (see useViewportCenterOffset in
-   components/shared/index.jsx) — animating `transform` here would fight that positioning
-   for the animation's duration. */
+
 @keyframes modal-in {
   from {
     opacity: 0;
@@ -1546,18 +1543,9 @@ tr:last-child td {
 
 .modal {
   animation: modal-in 0.15s ease-out;
-  /* Bootstrap ships its own `.modal` component class with `position: fixed;
-     top: 0; left: 0`. Since bootstrap.min.css loads before this file, our
-     rule below wins the properties it declares, but silently inherits
-     Bootstrap's fixed/top/left for any property it doesn't — pinning this
-     card to the viewport's top-left corner instead of centering in the
-     `.modal-overlay` flex box. Overriding `position` here is what stops that. */
+
   position: relative;
-  /* Same Bootstrap collision as `position` above: its `.modal` sets
-     `height: 100%`, which — since we never declare `height` ourselves —
-     forced this box to always fill max-height (a big empty gap under short
-     forms). `height: auto` lets it size to content; `max-height` still caps
-     it and hands off to `.modal-body`'s scroll for taller forms. */
+
   height: auto;
   background: var(--bg-inset);
   border: 1px solid var(--border);
@@ -1584,13 +1572,7 @@ tr:last-child td {
 }
 
 .modal-body {
-  /* Bootstrap's own `.modal-body` class sets `flex: 1 1 auto`, which — since
-     we don't declare `flex` ourselves — stretches this to fill the modal's
-     full max-height even when the form content is short, leaving a block of
-     empty space below short forms. `flex: 0 1 auto` overrides just the grow
-     factor: the body sizes to its content, but can still shrink (and its
-     `overflow-y: auto` kicks in) when content is taller than the modal's
-     max-height. */
+
   flex: 0 1 auto;
   padding: 20px;
   overflow-y: auto;

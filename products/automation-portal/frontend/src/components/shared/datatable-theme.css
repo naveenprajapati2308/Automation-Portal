@@ -70,6 +70,21 @@
 .datatable-container .datatable-table tbody tr:hover td {
   background: var(--bg-hover);
 }
+
+/* Pinned column (e.g. Actions) — stays fixed at the right edge of the table
+   instead of scrolling away when there are too many columns to fit. Sticks
+   relative to .datatable-table-wrapper, which is the scrolling ancestor. */
+.datatable-container .datatable-table th.datatable-col-sticky,
+.datatable-container .datatable-table td.datatable-col-sticky {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background: var(--bg-inset);
+  border-left: 1px solid var(--border);
+}
+.datatable-container .datatable-table tbody tr:hover td.datatable-col-sticky {
+  background: var(--bg-hover);
+}
 .datatable-container .datatable-empty-state {
   display: flex;
   flex-direction: column;

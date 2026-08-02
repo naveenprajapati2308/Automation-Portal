@@ -19,6 +19,7 @@ import {
   LogOut,
   Monitor,
   Moon,
+  Package,
   Play,
   Send,
   Sun,
@@ -28,13 +29,13 @@ import {
   X
 } from 'lucide-react';
 import { GlobalSearchDropdown } from '../../search/components/GlobalSearchDropdown.jsx';
-import { SIDEBAR_NAV } from '../../constants.js';
+import { SIDEBAR_NAV, MODULES_ENV_NAV } from '../../constants.js';
 import { getStoredThemePref, resolveEffectiveTheme } from '../../../../../shared/ui/theme-sync.js';
 import testrixLogo from '../../assets/testrix_logo.png';
 
 const NAV_ICON_MAP = {
   LayoutDashboard, Play, Globe2, Gauge, UserCircle, FileText, TerminalSquare, Camera, GitCompare,
-  Send, Database, Workflow, CalendarClock, History, FolderTree
+  Send, Database, Workflow, CalendarClock, History, FolderTree, Package
 };
 
 // ── Layout: Sidebar ─────────────────────────────────────────────────────────
@@ -47,7 +48,8 @@ export function Sidebar({
   isCollapsed,
   onToggle,
   chatOpen,
-  onToggleChat
+  onToggleChat,
+  superAdmin
 }) {
   const isExpandable = (key) => SIDEBAR_NAV.some((item) => item.key === key && item.children);
   const [expandedKeys, setExpandedKeys] = useState(() => (isExpandable(active) ? { [active]: true } : {}));
@@ -95,7 +97,13 @@ export function Sidebar({
             padding: isCollapsed ? '0' : '0 12px',
             borderRadius: '8px'
           };
-          if (item.children && !isCollapsed) {
+          // Module & Environment control is Automation-only config, so it's appended to
+          // Automation's own sub-menu rather than being a separate top-level item —
+          // superAdmin-only for now, same gate as the Topbar's "Admin Panel" chip.
+          const children = item.key === 'automation' && superAdmin
+            ? [...item.children, ...MODULES_ENV_NAV]
+            : item.children;
+          if (children && !isCollapsed) {
             const isExpanded = !!expandedKeys[item.key];
             return (
               <div className="nav-group" key={item.key}>
@@ -111,7 +119,7 @@ export function Sidebar({
                 </button>
                 {isExpanded && (
                   <div className="nav-submenu">
-                    {item.children.map((child) => (
+                    {children.map((child) => (
                       <button
                         key={child.key}
                         className={activeChildKey === child.key ? 'active' : ''}
@@ -356,8 +364,7 @@ export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, 
     document.documentElement.dataset.theme = resolveEffectiveTheme(themePref);
   }, []);
 
-  // While the preference is 'system', flip with the OS instead of waiting for
-  // the user to touch the switch again.
+
   useEffect(() => {
     const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
     const onChange = () => { if (themePref === 'system') document.documentElement.dataset.theme = resolveEffectiveTheme('system'); };

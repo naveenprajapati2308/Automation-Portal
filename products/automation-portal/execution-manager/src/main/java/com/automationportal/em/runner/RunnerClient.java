@@ -21,15 +21,18 @@ public class RunnerClient {
                 .build();
     }
 
-    public boolean triggerRun(String runnerUrl, String executionId, String suiteXml, String portalUrl, String apiKey, String envConfigJson) {
+    public boolean triggerRun(String runnerUrl, String executionId, String suiteXml, String portalUrl, String apiKey, String envConfigJson, String framework, String browser, String tagFilter) {
         try {
             String url = runnerUrl + "/runner/run";
             // envConfigJson is already a JSON object (or null) — embedded raw, not as a string field.
             String envConfig = (envConfigJson == null || envConfigJson.isBlank()) ? "{}" : envConfigJson;
+            String frameworkVal = (framework == null || framework.isBlank()) ? "MAVEN_TESTNG" : framework;
+            String browserVal = browser == null ? "" : browser;
+            String tagFilterVal = tagFilter == null ? "" : tagFilter;
             // JSON body
             String jsonBody = String.format(
-                    "{\"executionId\":\"%s\",\"suiteXml\":\"%s\",\"portalUrl\":\"%s\",\"apiKey\":\"%s\",\"openReport\":false,\"envConfig\":%s}",
-                    executionId, suiteXml, portalUrl, apiKey, envConfig
+                    "{\"executionId\":\"%s\",\"suiteXml\":\"%s\",\"portalUrl\":\"%s\",\"apiKey\":\"%s\",\"openReport\":false,\"framework\":\"%s\",\"browser\":\"%s\",\"tagFilter\":\"%s\",\"envConfig\":%s}",
+                    executionId, suiteXml, portalUrl, apiKey, frameworkVal, browserVal, tagFilterVal, envConfig
             );
 
             HttpRequest request = HttpRequest.newBuilder()

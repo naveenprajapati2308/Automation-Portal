@@ -7,11 +7,7 @@ import { EmptyState } from './EmptyState.jsx';
 import { resolveThemeColors } from './resolveThemeColors.js';
 import { useThemeVersion } from './useThemeVersion.js';
 
-// Recipe: the ONE Execution Trend chart every dashboard uses. `series` lets each
-// module chart its own metrics through the same visual language — API Testing/
-// Performance pass 2 series (passed/failed), Automation passes a 3rd (skipped);
-// nothing else about the component changes. Each point in `data` just needs a
-// `date` (yyyy-MM-dd) and/or a pre-formatted `label`, plus one number per series key.
+
 export function ExecutionTrendChart({
   title,
   data = [],

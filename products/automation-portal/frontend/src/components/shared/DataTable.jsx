@@ -30,7 +30,7 @@ export function DataTable({
   const [pageSize, setPageSize] = useState(10);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
   const [visibleColumns, setVisibleColumns] = useState(
-    columns.reduce((acc, col) => ({ ...acc, [col.key]: true }), {})
+    columns.reduce((acc, col) => ({ ...acc, [col.key]: col.defaultVisible !== false }), {})
   );
   const [showColumnToggle, setShowColumnToggle] = useState(false);
 
@@ -226,6 +226,7 @@ export function DataTable({
                   <th
                     key={col.key}
                     onClick={() => requestSort(col.key)}
+                    className={col.sticky === 'right' ? 'datatable-col-sticky' : undefined}
                     style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -249,7 +250,7 @@ export function DataTable({
                   {columns.map(col => {
                     if (!visibleColumns[col.key]) return null;
                     return (
-                      <td key={col.key}>
+                      <td key={col.key} className={col.sticky === 'right' ? 'datatable-col-sticky' : undefined}>
                         <div className="skeleton skeleton-text"></div>
                       </td>
                     );
@@ -275,7 +276,7 @@ export function DataTable({
                     if (!visibleColumns[col.key]) return null;
                     const value = row[col.key];
                     return (
-                      <td key={col.key}>
+                      <td key={col.key} className={col.sticky === 'right' ? 'datatable-col-sticky' : undefined}>
                         {col.render ? col.render(value, row) : (value ?? '-')}
                       </td>
                     );

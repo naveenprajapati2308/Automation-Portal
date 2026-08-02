@@ -6,6 +6,9 @@ public record RunExecutionRequest(
     @NotNull ExecutionType executionType,
     @NotNull Long environmentId,
     String moduleCode,
-    String suiteXmlPath
+    String suiteXmlPath,
+    String framework,
+    String requestedBrowser,
+    String tagFilter
 ) {
 }

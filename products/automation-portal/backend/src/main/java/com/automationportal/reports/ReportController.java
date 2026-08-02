@@ -39,10 +39,11 @@ public class ReportController {
     public ApiResponse<List<Execution>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String module,
+            @RequestParam(required = false) String framework,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to) {
-        
+
         Instant fromInstant = (from != null && !from.trim().isEmpty()) ? Instant.parse(from) : null;
         Instant toInstant = (to != null && !to.trim().isEmpty()) ? Instant.parse(to) : null;
 
@@ -50,6 +51,7 @@ public class ReportController {
                 .filter(e -> e.getStatus() != ExecutionStatus.QUEUED && e.getStatus() != ExecutionStatus.RUNNING)
                 .filter(e -> status == null || status.trim().isEmpty() || e.getStatus().toString().equalsIgnoreCase(status))
                 .filter(e -> module == null || module.trim().isEmpty() || (e.getModuleCode() != null && e.getModuleCode().equalsIgnoreCase(module)))
+                .filter(e -> framework == null || framework.trim().isEmpty() || (e.getFramework() != null && e.getFramework().equalsIgnoreCase(framework)))
                 .filter(e -> search == null || search.trim().isEmpty() || e.getExecutionCode().toLowerCase().contains(search.toLowerCase()))
                 .filter(e -> fromInstant == null || (e.getCreatedAt() != null && e.getCreatedAt().isAfter(fromInstant)))
                 .filter(e -> toInstant == null || (e.getCreatedAt() != null && e.getCreatedAt().isBefore(toInstant)))

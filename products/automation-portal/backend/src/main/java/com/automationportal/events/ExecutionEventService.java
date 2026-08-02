@@ -30,6 +30,7 @@ public class ExecutionEventService {
     private final ExecutionLogRepository logRepository;
     private final LiveBroadcastService broadcastService;
     private final ExecutionWorker executionWorker;
+    private final com.automationportal.executions.TestStepRepository testStepRepository;
     private final HttpClient httpClient;
 
     @Value("${portal.execution-manager.url:http://localhost:8090}")
@@ -40,13 +41,15 @@ public class ExecutionEventService {
             ExecutionArtifactRepository artifactRepository,
             ExecutionLogRepository logRepository,
             LiveBroadcastService broadcastService,
-            @org.springframework.context.annotation.Lazy ExecutionWorker executionWorker) {
+            @org.springframework.context.annotation.Lazy ExecutionWorker executionWorker,
+            com.automationportal.executions.TestStepRepository testStepRepository) {
         this.executionRepository = executionRepository;
         this.testCaseRepository = testCaseRepository;
         this.artifactRepository = artifactRepository;
         this.logRepository = logRepository;
         this.broadcastService = broadcastService;
         this.executionWorker = executionWorker;
+        this.testStepRepository = testStepRepository;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(3))
                 .build();
@@ -213,6 +216,21 @@ public class ExecutionEventService {
                 }
                 break;
 
+            case VIDEO_CAPTURED:
+                if (data != null) {
+                    String filePath = (String) data.get("filePath");
+
+                    ExecutionArtifact artifact = new ExecutionArtifact();
+                    artifact.setExecutionId(execution.getId());
+                    artifact.setArtifactType("VIDEO");
+                    artifact.setFileName(filePath != null ? new File(filePath).getName() : "video.webm");
+                    artifact.setFilePath(filePath != null ? filePath.replace("\\", "/") : "");
+                    artifact.setMimeType("video/webm");
+                    artifact.setSizeBytes(0L);
+                    artifactRepository.save(artifact);
+                }
+                break;
+
             case LOG_ENTRY:
                 if (data != null) {
                     String levelStr = (String) data.getOrDefault("level", "INFO");
@@ -279,9 +297,51 @@ public class ExecutionEventService {
             }
         }
 
-        testCaseRepository.save(tc);
+        tc = testCaseRepository.save(tc);
+        saveStepsIfPresent(tc.getId(), data);
         logToDb(executionId, "FAIL".equals(status) ? "ERROR" : "INFO",
                 "Test Case " + status + ": " + testName + " in class " + className, "SYSTEM");
+    }
+
+    /**
+     * Playwright's counterpart to TestNGXmlParser's reporter-output step extraction: the
+     * live TEST_PASSED/TEST_FAILED/TEST_SKIPPED event optionally carries a "steps" array
+     * (testrix-reporter.ts's onStepBegin/onStepEnd bookkeeping of each test.step() call), so
+     * a Playwright test case gets the same per-step breakdown in the Test Steps panel that
+     * Maven/TestNG test cases already get from testng-results.xml - without which a
+     * Playwright module always looks like exactly one flat test case no matter how many
+     * logical steps (register, login, fill form, submit, ...) it actually walked through.
+     * Guarded the same way the XML-merge path is: skip if this test case already has steps
+     * (e.g. a duplicate/retry event for the same test), never duplicate rows.
+     */
+    @SuppressWarnings("unchecked")
+    private void saveStepsIfPresent(Long testCaseId, Map<String, Object> data) {
+        Object rawSteps = data.get("steps");
+        if (!(rawSteps instanceof List<?> stepsList) || stepsList.isEmpty()) {
+            return;
+        }
+        if (!testStepRepository.findByTestCaseIdOrderByStepOrder(testCaseId).isEmpty()) {
+            return;
+        }
+        int order = 0;
+        for (Object rawStep : stepsList) {
+            if (!(rawStep instanceof Map)) {
+                continue;
+            }
+            Map<String, Object> stepData = (Map<String, Object>) rawStep;
+            com.automationportal.executions.TestStep step = new com.automationportal.executions.TestStep();
+            step.setTestCaseId(testCaseId);
+            step.setStepOrder(order++);
+            step.setStepName((String) stepData.getOrDefault("name", "Step " + step.getStepOrder()));
+            step.setStatus((String) stepData.getOrDefault("status", "PASS"));
+            if (stepData.get("durationMs") != null) {
+                step.setDurationMs(Long.valueOf(stepData.get("durationMs").toString()));
+            }
+            if (stepData.get("errorMessage") != null) {
+                step.setErrorMessage((String) stepData.get("errorMessage"));
+            }
+            testStepRepository.save(step);
+        }
     }
 
     private void finalizeExecution(Execution execution, Map<String, Object> data) {
@@ -291,11 +351,14 @@ public class ExecutionEventService {
         recomputeExecutionTotals(execution, data);
         logToDb(execution.getId(), "INFO", "Suite execution completed. Status: " + execution.getStatus(), "SYSTEM");
 
-        // Copy artifacts and re-parse testng-results.xml, which can correct test cases
-        // the live
-        // stream left in a stale state (e.g. a SKIPPED test whose terminal event never
-        // arrived).
-        executionWorker.copyExecutionArtifacts(execution);
+        // Copy artifacts — Maven/TestNG's copy also re-parses testng-results.xml, correcting
+        // test cases the live stream left in a stale state (e.g. a SKIPPED test whose terminal
+        // event never arrived); Playwright has no equivalent XML to re-parse, just files to copy.
+        if ("PLAYWRIGHT".equalsIgnoreCase(execution.getFramework())) {
+            executionWorker.copyPlaywrightArtifacts(execution);
+        } else {
+            executionWorker.copyExecutionArtifacts(execution);
+        }
 
         // Second pass: recompute from the now-corrected test case rows so the
         // execution-level

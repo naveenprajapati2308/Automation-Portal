@@ -219,11 +219,15 @@ export const api = {
   createEnvironment: (payload) => request('/api/environments', { method: 'POST', body: JSON.stringify(payload) }),
   updateEnvironment: (id, payload) => request(`/api/environments/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteEnvironment: (id) => request(`/api/environments/${id}`, { method: 'DELETE' }),
+  environmentModules: (id, framework) => request(`/api/environments/${id}/modules${framework ? `?framework=${framework}` : ''}`),
 
   configurations: () => request('/api/configurations'),
   updateConfiguration: (key, payload) => request(`/api/configurations/${key}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  
-  modules: () => request('/api/modules'),
+
+  modules: (framework) => request(`/api/modules${framework ? `?framework=${framework}` : ''}`),
+  moduleEnvironments: (moduleId) => request(`/api/modules/${moduleId}/environments`),
+  moduleEnvironmentOptions: (moduleId, environmentId) => request(`/api/modules/${moduleId}/environments/${environmentId}/options`),
+  moduleTags: (moduleId) => request(`/api/modules/${moduleId}/tags`),
 
   // ── Admin: Module Management (SUPER_ADMIN only) ───────────────────────────
   adminListModules: () => request('/api/admin/modules'),
@@ -231,6 +235,12 @@ export const api = {
   adminUpdateModule: (id, payload) => request(`/api/admin/modules/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   adminDeleteModule: (id) => request(`/api/admin/modules/${id}`, { method: 'DELETE' }),
   adminToggleModule: (id) => request(`/api/admin/modules/${id}/toggle`, { method: 'PATCH' }),
+
+  // ── Admin: Module <-> Environment mapping (overrides + enable/disable) ────
+  adminListModuleEnvironments: (moduleId) => request(`/api/admin/module-environments${moduleId ? `?moduleId=${moduleId}` : ''}`),
+  adminCreateModuleEnvironment: (payload) => request('/api/admin/module-environments', { method: 'POST', body: JSON.stringify(payload) }),
+  adminUpdateModuleEnvironment: (id, payload) => request(`/api/admin/module-environments/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  adminDeleteModuleEnvironment: (id) => request(`/api/admin/module-environments/${id}`, { method: 'DELETE' }),
   executions: (params = {}) => {
     const qs = new URLSearchParams(params).toString();
     return request('/api/executions' + (qs ? '?' + qs : ''));
@@ -245,7 +255,8 @@ export const api = {
   cancelExecution: (id) => request(`/api/executions/${id}/cancel`, { method: 'POST' }),
   rerunExecution: (id) => request(`/api/executions/${id}/rerun`, { method: 'POST' }),
   rerunFailedExecution: (id) => request(`/api/executions/${id}/rerun-failed`, { method: 'POST' }),
-  runnerSuites: () => request('/api/executions/runner/suites'),
+  runnerSuites: (framework = 'MAVEN_TESTNG') => request(`/api/executions/runner/suites?framework=${framework}`),
+  frameworks: () => request('/api/frameworks'),
 
   reportsList: (params = {}) => {
     const qs = new URLSearchParams(params).toString();

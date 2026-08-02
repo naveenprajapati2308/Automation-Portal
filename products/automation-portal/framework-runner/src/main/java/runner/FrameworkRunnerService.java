@@ -32,6 +32,7 @@ public class FrameworkRunnerService {
     private static volatile String currentJobId = "";
     private static volatile Process currentProcess = null;
     private static String frameworkPath = "/app/framework";
+    private static String playwrightFrameworkPath = "D:\\playwright-js";
     private static String executionManagerUrl = "http://localhost:8090";
     private static final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -74,7 +75,25 @@ public class FrameworkRunnerService {
             }
         }
 
+        // Allow the Playwright framework's checkout path to be overridden the same way
+        // frameworkPath is above — so relocating that project only ever means changing
+        // this one env var, never a code change.
+        String pwEnvPath = System.getenv("PLAYWRIGHT_FRAMEWORK_PATH");
+        if (pwEnvPath != null && !pwEnvPath.isEmpty()) {
+            playwrightFrameworkPath = pwEnvPath;
+        } else {
+            String pwSysPath = System.getProperty("playwright.framework.path");
+            if (pwSysPath != null && !pwSysPath.isEmpty()) {
+                playwrightFrameworkPath = pwSysPath;
+            }
+        }
+        if (!Files.exists(Paths.get(playwrightFrameworkPath))) {
+            System.out.println("Playwright framework path not found at " + playwrightFrameworkPath
+                    + " — Playwright runs will fail until PLAYWRIGHT_FRAMEWORK_PATH is set correctly.");
+        }
+
         System.out.println("Starting Framework Runner Service using path: " + frameworkPath);
+        System.out.println("Playwright framework path: " + playwrightFrameworkPath);
 
         HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
 
@@ -83,6 +102,7 @@ public class FrameworkRunnerService {
         server.createContext("/runner/run", FrameworkRunnerService::handleRun);
         server.createContext("/runner/cancel", FrameworkRunnerService::handleCancel);
         server.createContext("/runner/suites", FrameworkRunnerService::handleSuites);
+        server.createContext("/runner/tags", FrameworkRunnerService::handleTags);
 
         server.setExecutor(Executors.newCachedThreadPool());
         server.start();
@@ -123,6 +143,12 @@ public class FrameworkRunnerService {
         String suiteXml = getJsonVal(body, "suiteXml");
         String portalUrl = getJsonVal(body, "portalUrl");
         String apiKey = getJsonVal(body, "apiKey");
+        String framework = getJsonVal(body, "framework");
+        if (framework == null || framework.isEmpty()) {
+            framework = "MAVEN_TESTNG";
+        }
+        String browser = getJsonVal(body, "browser");
+        String tagFilter = getJsonVal(body, "tagFilter");
         Map<String, String> envConfig = parseFlatJsonObject(getJsonObjectVal(body, "envConfig"));
 
         if (executionId.isEmpty() || suiteXml.isEmpty()) {
@@ -133,8 +159,14 @@ public class FrameworkRunnerService {
         running = true;
         currentJobId = executionId;
 
-        // Run Maven in a separate thread
-        new Thread(() -> runMaven(executionId, suiteXml, portalUrl, apiKey, envConfig), "framework-maven-executor").start();
+        // Dispatch to the right engine's strategy. Adding a future framework means adding
+        // one more branch here (plus its own runXyz method) — nothing else in the pipeline
+        // (QueueProcessor, RunnerClient, the DB threading) needs to change.
+        if ("PLAYWRIGHT".equalsIgnoreCase(framework)) {
+            new Thread(() -> runPlaywright(executionId, suiteXml, portalUrl, apiKey, envConfig, browser, tagFilter), "framework-playwright-executor").start();
+        } else {
+            new Thread(() -> runMaven(executionId, suiteXml, portalUrl, apiKey, envConfig), "framework-maven-executor").start();
+        }
 
         send(exchange, 202, "{\"status\":\"STARTING\",\"executionId\":\"" + executionId + "\"}", "application/json");
     }
@@ -237,6 +269,94 @@ public class FrameworkRunnerService {
         }
     }
 
+    private static void runPlaywright(String executionId, String suiteTarget, String portalUrl, String apiKey, Map<String, String> envConfig, String browser, String tagFilter) {
+        try {
+            String resolvedBrowser = (browser != null && !browser.isBlank()) ? browser : "chrome";
+            System.out.println("Starting Playwright run for job " + executionId + ", target: " + suiteTarget + ", browser: " + resolvedBrowser
+                    + (tagFilter != null && !tagFilter.isBlank() ? ", tagFilter: " + tagFilter : ""));
+
+            deleteStalePlaywrightTestResults();
+
+            List<String> command = new ArrayList<>();
+            String os = System.getProperty("os.name").toLowerCase();
+
+            String npxCmd = System.getenv("NPX_CMD");
+            if (npxCmd == null || npxCmd.isEmpty()) {
+                npxCmd = os.contains("win") ? "npx.cmd" : "npx";
+            }
+
+            command.add(npxCmd);
+            command.add("playwright");
+            command.add("test");
+            boolean targetIsRawTag = suiteTarget != null && suiteTarget.startsWith("@");
+            if (suiteTarget != null && !suiteTarget.isEmpty() && !targetIsRawTag) {
+                command.add(suiteTarget);
+            }
+            // Run-scope filter: either a raw tag passed directly as the suite target (Advanced
+            // mode), or a separate tagFilter alongside a module folder — never both at once.
+            if (targetIsRawTag) {
+                command.add("--grep");
+                command.add(suiteTarget);
+            } else if (tagFilter != null && !tagFilter.isBlank()) {
+                command.add("--grep");
+                command.add(tagFilter);
+            }
+            command.add("--project=" + resolvedBrowser);
+
+            System.out.println("Command: " + String.join(" ", command));
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.directory(new File(playwrightFrameworkPath));
+            pb.redirectErrorStream(true);
+
+            // Playwright reads process.env (see tests/utils/config.ts's dotenv usage), not
+            // -D system properties, so both the portal-callback identity and the selected
+            // environment's config land here as env vars instead. PORTAL_URL/EXECUTION_ID/
+            // PORTAL_API_KEY are exactly what tests/reporter/testrix-reporter.ts already
+            // expects, so its live event stream reaches the portal with no further wiring.
+            Map<String, String> env = pb.environment();
+            env.put("PORTAL_URL", portalUrl != null ? portalUrl : "");
+            env.put("EXECUTION_ID", executionId);
+            env.put("PORTAL_API_KEY", apiKey != null ? apiKey : "");
+            // testrix-reporter.ts can't reliably introspect which --project actually ran (Playwright's
+            // FullConfig always lists every configured project, not just the invoked one) — so tell it
+            // directly rather than have it guess from config.projects[0].
+            env.put("PORTAL_REQUESTED_BROWSER", resolvedBrowser);
+            for (Map.Entry<String, String> entry : envConfig.entrySet()) {
+                String key = entry.getKey().toLowerCase();
+                if (RESERVED_PROPERTY_KEYS.contains(key)) {
+                    System.out.println("Skipping env config key '" + entry.getKey() + "' — reserved for the runner's own parameters.");
+                    continue;
+                }
+                env.put(entry.getKey().toUpperCase().replace('.', '_'), entry.getValue());
+            }
+
+            currentProcess = pb.start();
+
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(currentProcess.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    System.out.println("[PLAYWRIGHT] " + line);
+                }
+            }
+
+            int exitCode = currentProcess.waitFor();
+            System.out.println("Playwright process completed with exit code: " + exitCode);
+
+            notifyExecutionManagerCompleted(executionId);
+
+        } catch (Exception e) {
+            System.err.println("Exception running Playwright process");
+            e.printStackTrace();
+            notifyExecutionManagerCompleted(executionId);
+        } finally {
+            running = false;
+            currentJobId = "";
+            currentProcess = null;
+        }
+    }
+
     private static void deleteStaleTestOutput() {
         Path testOutput = Paths.get(frameworkPath, "test-output");
         if (!Files.exists(testOutput))
@@ -250,6 +370,25 @@ public class FrameworkRunnerService {
             });
         } catch (IOException e) {
             System.err.println("Failed to clear stale test-output directory: " + e.getMessage());
+        }
+    }
+
+    // Playwright doesn't clear its own outputDir (test-results/) between runs by default, same
+    // risk deleteStaleTestOutput() exists to prevent for Maven — a previous run's screenshots/
+    // videos could otherwise get copied into a totally different execution's artifact folder.
+    private static void deleteStalePlaywrightTestResults() {
+        Path testResults = Paths.get(playwrightFrameworkPath, "test-results");
+        if (!Files.exists(testResults))
+            return;
+        try (Stream<Path> walk = Files.walk(testResults)) {
+            walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (IOException ignored) {
+                }
+            });
+        } catch (IOException e) {
+            System.err.println("Failed to clear stale Playwright test-results directory: " + e.getMessage());
         }
     }
 
@@ -294,6 +433,11 @@ public class FrameworkRunnerService {
     }
 
     private static void handleSuites(HttpExchange exchange) throws IOException {
+        String framework = getQueryParam(exchange, "framework");
+        if (framework != null && "PLAYWRIGHT".equalsIgnoreCase(framework)) {
+            handlePlaywrightSuites(exchange);
+            return;
+        }
         try {
             List<String> files = new ArrayList<>();
             try (Stream<Path> stream = Files.list(Paths.get(frameworkPath))) {
@@ -322,6 +466,117 @@ public class FrameworkRunnerService {
         } catch (Exception e) {
             send(exchange, 500, "{\"error\":\"" + e.getMessage() + "\"}", "application/json");
         }
+    }
+
+    // Lists Playwright spec files under <playwrightFrameworkPath>/tests/specs in the same
+    // {key,name,xml} shape the Maven/XML suite list uses above — the "xml" field holds the
+    // spec's path relative to playwrightFrameworkPath (directly usable as the CLI arg
+    // runPlaywright() passes to `npx playwright test <target>`), so the frontend/JSON
+    // contract needs no per-framework change.
+    private static void handlePlaywrightSuites(HttpExchange exchange) throws IOException {
+        try {
+            Path baseDir = Paths.get(playwrightFrameworkPath);
+            Path specsRoot = baseDir.resolve("tests").resolve("specs");
+            List<String> specs = new ArrayList<>();
+            if (Files.exists(specsRoot)) {
+                try (Stream<Path> walk = Files.walk(specsRoot)) {
+                    specs = walk.filter(p -> p.toString().endsWith(".spec.ts"))
+                            .map(p -> baseDir.relativize(p).toString().replace("\\", "/"))
+                            .sorted()
+                            .collect(Collectors.toList());
+                }
+            }
+
+            StringBuilder json = new StringBuilder("[");
+            for (int i = 0; i < specs.size(); i++) {
+                String relPath = specs.get(i);
+                String baseName = relPath.substring(relPath.lastIndexOf('/') + 1).replace(".spec.ts", "");
+                String key = relPath.replace(".spec.ts", "").replace("/", "-").toLowerCase();
+
+                json.append(String.format(
+                        "{\"key\":\"%s\",\"name\":\"%s\",\"xml\":\"%s\"}",
+                        key, baseName, relPath));
+                if (i < specs.size() - 1) {
+                    json.append(",");
+                }
+            }
+            json.append("]");
+
+            send(exchange, 200, json.toString(), "application/json");
+        } catch (Exception e) {
+            send(exchange, 500, "{\"error\":\"" + e.getMessage() + "\"}", "application/json");
+        }
+    }
+
+    // Matches a test/describe title string literal so tag tokens can be pulled from just the
+    // title text — scanning the whole file for "@word" would also match unrelated "@" usages
+    // (e.g. email addresses in test data) as false-positive tags.
+    private static final Pattern TEST_TITLE_PATTERN = Pattern.compile("test(?:\\.describe)?\\s*\\(\\s*[`'\"]([^`'\"]*)[`'\"]");
+    private static final Pattern TAG_TOKEN_PATTERN = Pattern.compile("@[A-Za-z0-9_]+");
+
+    // Discovers run-scope tags (e.g. "@smoke", "@regression") already present in a Playwright
+    // module's test/describe titles under the given folder — nothing is manually registered
+    // anywhere; an empty result just means no tags exist yet, which the caller treats as "no
+    // filter available", never an error.
+    private static void handleTags(HttpExchange exchange) throws IOException {
+        try {
+            String relFolder = getQueryParam(exchange, "path");
+            if (relFolder == null || relFolder.isBlank()) {
+                send(exchange, 200, "[]", "application/json");
+                return;
+            }
+            Path baseDir = Paths.get(playwrightFrameworkPath);
+            Path folder = baseDir.resolve(relFolder).normalize();
+            if (!folder.startsWith(baseDir) || !Files.exists(folder)) {
+                send(exchange, 200, "[]", "application/json");
+                return;
+            }
+
+            java.util.Set<String> tags = new java.util.TreeSet<>();
+            try (Stream<Path> walk = Files.walk(folder)) {
+                List<Path> tsFiles = walk.filter(p -> p.toString().endsWith(".ts")).collect(Collectors.toList());
+                for (Path p : tsFiles) {
+                    String content = Files.readString(p, StandardCharsets.UTF_8);
+                    Matcher titleMatcher = TEST_TITLE_PATTERN.matcher(content);
+                    while (titleMatcher.find()) {
+                        Matcher tagMatcher = TAG_TOKEN_PATTERN.matcher(titleMatcher.group(1));
+                        while (tagMatcher.find()) {
+                            tags.add(tagMatcher.group());
+                        }
+                    }
+                }
+            }
+
+            StringBuilder json = new StringBuilder("[");
+            int i = 0;
+            for (String tag : tags) {
+                if (i++ > 0) json.append(",");
+                json.append("\"").append(tag).append("\"");
+            }
+            json.append("]");
+            send(exchange, 200, json.toString(), "application/json");
+        } catch (Exception e) {
+            send(exchange, 500, "{\"error\":\"" + e.getMessage() + "\"}", "application/json");
+        }
+    }
+
+    // Reads a single query-string parameter from the request URI (com.sun.net.httpserver has
+    // no built-in @RequestParam-style binding).
+    private static String getQueryParam(HttpExchange exchange, String name) {
+        String query = exchange.getRequestURI().getQuery();
+        if (query == null || query.isEmpty()) return null;
+        for (String pair : query.split("&")) {
+            int idx = pair.indexOf('=');
+            String key = idx == -1 ? pair : pair.substring(0, idx);
+            if (!key.equals(name)) continue;
+            if (idx == -1) return "";
+            try {
+                return java.net.URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                return pair.substring(idx + 1);
+            }
+        }
+        return null;
     }
 
     // Masks the value of any -D<key>=<value> command argument whose key looks secret-ish

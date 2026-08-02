@@ -24,9 +24,18 @@ export function ReportsCenter({ onSelectExecution }) {
   // Filters state
   const [status, setStatus] = useState('');
   const [module, setModule] = useState('');
+  const [framework, setFramework] = useState('');
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+
+  // Real modules/frameworks for the filter dropdowns — never hardcoded.
+  const [modules, setModules] = useState([]);
+  const [frameworks, setFrameworks] = useState([]);
+  useEffect(() => {
+    api.modules().then(setModules).catch(() => { });
+    api.frameworks().then(list => setFrameworks(Array.isArray(list) ? list : [])).catch(() => { });
+  }, []);
 
   // Comparison state
   const [baseId, setBaseId] = useState('');
@@ -58,6 +67,7 @@ export function ReportsCenter({ onSelectExecution }) {
       const params = {};
       if (status) params.status = status;
       if (module) params.module = module;
+      if (framework) params.framework = framework;
       if (search) params.search = search;
 
       if (fromDate) {
@@ -78,7 +88,7 @@ export function ReportsCenter({ onSelectExecution }) {
 
   useEffect(() => {
     fetchReports();
-  }, [status, module, fromDate, toDate]);
+  }, [status, module, framework, fromDate, toDate]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -135,6 +145,11 @@ export function ReportsCenter({ onSelectExecution }) {
       render: (val) => <span className="status">{val}</span>
     },
     {
+      key: 'framework',
+      label: 'Framework',
+      render: (val) => <span style={{ fontSize: '12px' }}>{frameworks.find(fw => fw.code === val)?.displayName || val}</span>
+    },
+    {
       key: 'status',
       label: 'Status',
       render: (val) => <span className={`status ${val?.toLowerCase()}`}>{val}</span>
@@ -151,11 +166,13 @@ export function ReportsCenter({ onSelectExecution }) {
     {
       key: 'passRate',
       label: 'Pass %',
+      defaultVisible: false,
       render: (val) => <span style={{ fontWeight: 700 }}>{val}%</span>
     },
     {
       key: 'durationSeconds',
       label: 'Duration',
+      defaultVisible: false,
       render: (val) => formatDuration(val)
     },
     {
@@ -166,6 +183,7 @@ export function ReportsCenter({ onSelectExecution }) {
     {
       key: 'actions',
       label: 'Actions',
+      sticky: 'right',
       render: (_, report) => (
         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
           {report.finalReportPath && (
@@ -188,13 +206,15 @@ export function ReportsCenter({ onSelectExecution }) {
               </a>
             </>
           )}
-          <a
-            href={`/api/reports/${report.id}/testng-results`}
-            className="rc-act-btn"
-            title="Download TestNG XML"
-          >
-            <FileText size={14} />
-          </a>
+          {report.framework === 'MAVEN_TESTNG' && (
+            <a
+              href={`/api/reports/${report.id}/testng-results`}
+              className="rc-act-btn"
+              title="Download TestNG XML"
+            >
+              <FileText size={14} />
+            </a>
+          )}
           <button
             onClick={() => onSelectExecution(report.id)}
             className="rc-act-btn"
@@ -212,7 +232,7 @@ export function ReportsCenter({ onSelectExecution }) {
         </div>
       )
     }
-  ], [onSelectExecution]);
+  ], [onSelectExecution, frameworks]);
 
   return (
     <section className="rc-page">
@@ -240,10 +260,21 @@ export function ReportsCenter({ onSelectExecution }) {
             <label className="rc-label">Module</label>
             <select className="rc-select rc-accent" value={module} onChange={(e) => setModule(e.target.value)}>
               <option value="">All Modules</option>
-              <option value="LAND">Land Management</option>
-              <option value="ARCHITECT">Architect Empanelment</option>
-              <option value="SURVEY">Survey</option>
-              <option value="GIS">GIS</option>
+              {/* A module code can exist once per framework (e.g. "LAND" under both Selenium
+                  and Playwright) — this filter matches moduleCode alone, so dedupe by code. */}
+              {[...new Map(modules.map(m => [m.code, m])).values()].map(m => (
+                <option key={m.code} value={m.code}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="rc-label">Framework</label>
+            <select className="rc-select rc-accent" value={framework} onChange={(e) => setFramework(e.target.value)}>
+              <option value="">All Frameworks</option>
+              {frameworks.map(fw => (
+                <option key={fw.code} value={fw.code}>{fw.displayName}</option>
+              ))}
             </select>
           </div>
 
@@ -404,7 +435,7 @@ export function ReportsCenter({ onSelectExecution }) {
             <p className="rc-confirm-text">
               Are you sure you want to delete this execution?<br />
               <code>{confirmDelete.executionCode}</code> — {confirmDelete.moduleCode} ({confirmDelete.status})<br />
-              This permanently removes its test cases, logs, screenshots, reports and all artifact files. This cannot be undone.
+              This permanently removes its test cases, logs, screenshots, reports and all related files. This cannot be undone.
             </p>
             <div className="rc-confirm-actions">
               <button className="rc-btn-cancel" onClick={() => setConfirmDelete(null)} disabled={deleting}>

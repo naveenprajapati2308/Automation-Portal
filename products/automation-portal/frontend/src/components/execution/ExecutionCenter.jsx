@@ -26,31 +26,115 @@ export function ExecutionCenter({
   modules,
   selectedEnv,
   selectedModule,
+  selectedFramework,
+  selectedBrowser,
+  selectedTagFilter,
   setSelectedEnv,
   setSelectedModule,
+  setSelectedFramework,
+  setSelectedBrowser,
+  setSelectedTagFilter,
   run,
   executions,
   onSelectExecution,
   onRefresh
 }) {
-  // Active modules, narrowed to the selected environment (empty envCodes = all envs)
-  const selectedEnvCode = (environments || []).find(e => String(e.id) === String(selectedEnv))?.code;
+  // Active modules, narrowed to the selected framework. A module's code is only unique per
+  // framework (e.g. "LAND" exists once under MAVEN_TESTNG and once under PLAYWRIGHT), so the
+  // framework filter isn't optional here. Environment support is no longer a client-side CSV
+  // check — it's loaded per-module from the backend below (Framework -> Module -> Environment).
   const activeModules = (modules || []).filter(m => m.active !== false)
-    .filter(m => !m.envCodes || !selectedEnvCode ||
-      m.envCodes.split(',').map(c => c.trim()).includes(selectedEnvCode));
+    .filter(m => m.runnerType === selectedFramework);
 
-  // If the environment switch made the current module unavailable, fall back
-  // to the first module that is available there.
+  // If the framework switch made the current module unavailable, fall back to the first
+  // module that is available there.
   useEffect(() => {
     if (selectedModule && !activeModules.some(m => m.code === selectedModule)) {
       setSelectedModule(activeModules[0]?.code || '');
     }
-  }, [selectedEnv, modules]);
+  }, [selectedFramework, modules]);
 
   const [runnerSuites, setRunnerSuites] = useState([]);
   const [selectedSuite, setSelectedSuite] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeExec, setActiveExec] = useState(null);
+
+  // "Load Supported Environments" step: only environments explicitly enabled for the selected
+  // module ever appear here — unsupported environments must never be selectable. In Advanced
+  // mode there's no module in play, so the full environment list is shown instead.
+  const [supportedEnvironments, setSupportedEnvironments] = useState([]);
+  useEffect(() => {
+    if (showAdvanced || !selectedModule) {
+      setSupportedEnvironments(environments || []);
+      return;
+    }
+    const mod = activeModules.find(m => m.code === selectedModule);
+    if (!mod) {
+      setSupportedEnvironments([]);
+      return;
+    }
+    let cancelled = false;
+    api.moduleEnvironments(mod.id)
+      .then(list => { if (!cancelled) setSupportedEnvironments(Array.isArray(list) ? list : []); })
+      .catch(e => { console.error('Failed to load supported environments', e); if (!cancelled) setSupportedEnvironments([]); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModule, showAdvanced, modules]);
+
+  // Keep the environment selection valid as the supported list changes.
+  useEffect(() => {
+    if (supportedEnvironments.length > 0 && !supportedEnvironments.some(e => String(e.id) === String(selectedEnv))) {
+      setSelectedEnv(supportedEnvironments[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supportedEnvironments]);
+
+  // "Load Configuration" / "Load Browser Options" steps: resolved, non-secret run options for
+  // the current module+environment combination — base URL (for operator confidence) and the
+  // allowed browsers, which may be a module/environment-specific override of the framework's
+  // full list.
+  const [moduleEnvOptions, setModuleEnvOptions] = useState(null);
+  useEffect(() => {
+    const mod = activeModules.find(m => m.code === selectedModule);
+    if (showAdvanced || !mod || !selectedEnv) {
+      setModuleEnvOptions(null);
+      return;
+    }
+    let cancelled = false;
+    api.moduleEnvironmentOptions(mod.id, selectedEnv)
+      .then(opts => { if (!cancelled) setModuleEnvOptions(opts); })
+      .catch(e => { console.error('Failed to load module/environment options', e); if (!cancelled) setModuleEnvOptions(null); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModule, selectedEnv, showAdvanced]);
+
+  // Run-scope tags (e.g. "@smoke", "@regression") discovered live from the selected Playwright
+  // module's own test titles — purely additive: an empty result just hides the dropdown below,
+  // it never blocks launching a run. Only Playwright modules can have any (Selenium has no
+  // grep-style filter here), and Advanced mode has no module in play.
+  const [moduleTags, setModuleTags] = useState([]);
+  useEffect(() => {
+    const mod = activeModules.find(m => m.code === selectedModule);
+    if (showAdvanced || !mod || selectedFramework !== 'PLAYWRIGHT') {
+      setModuleTags([]);
+      return;
+    }
+    let cancelled = false;
+    api.moduleTags(mod.id)
+      .then(list => { if (!cancelled) setModuleTags(Array.isArray(list) ? list : []); })
+      .catch(e => { console.error('Failed to load run-scope tags', e); if (!cancelled) setModuleTags([]); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModule, selectedFramework, showAdvanced]);
+
+  // Keep the tag selection valid as the module/framework changes — clearing it (back to "All
+  // tests", i.e. no filter) is always safe and never blocks a run.
+  useEffect(() => {
+    if (selectedTagFilter && !moduleTags.includes(selectedTagFilter)) {
+      setSelectedTagFilter('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moduleTags]);
 
   // Real-time streams
   const [liveLogs, setLiveLogs] = useState([]);
@@ -97,23 +181,57 @@ export function ExecutionCenter({
   // regardless of the viewer's actual screen size, while still never growing the page.
   const logPanelHeight = Math.max(320, windowHeight - 20);
 
-  // Fetch dynamic runner suites on mount
+  // The registry of frameworks the portal can dispatch to — drives the Framework dropdown,
+  // and (later) which capabilities/browsers apply. Fetched once; adding a framework later
+  // means the backend registers a new descriptor, never a frontend code change.
+  const [frameworks, setFrameworks] = useState([]);
+  useEffect(() => {
+    api.frameworks()
+      .then(list => setFrameworks(Array.isArray(list) ? list : []))
+      .catch(e => console.error("Failed to load frameworks", e));
+  }, []);
+
+  // Browsers available for the current selection — resolved per module+environment
+  // (moduleEnvOptions.browsers, which may be a narrower override) in the normal flow, or the
+  // framework's full list in Advanced mode where there's no module in play. Empty means the
+  // framework's browser is baked into its own test code, not a portal-selectable parameter, so
+  // the Browser step is skipped entirely (never a framework-name check).
+  const frameworkBrowsers = frameworks.find(fw => fw.code === selectedFramework)?.browsers || [];
+  const availableBrowsers = showAdvanced ? frameworkBrowsers : (moduleEnvOptions?.browsers || []);
+
+  // Keep selectedBrowser valid as the available list changes: default to the first available
+  // option, or clear it when there are none.
+  useEffect(() => {
+    if (availableBrowsers.length === 0) {
+      if (selectedBrowser) setSelectedBrowser('');
+    } else if (!availableBrowsers.includes(selectedBrowser)) {
+      setSelectedBrowser(availableBrowsers[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFramework, frameworks, moduleEnvOptions, showAdvanced]);
+
+  // Fetch dynamic runner suites for the currently chosen framework — Selenium suites are
+  // TestNG XML files, Playwright's are .spec.ts targets, but both come back in the same
+  // {key, name, xml} shape so this needs no framework-specific handling itself.
   const fetchSuites = async () => {
     try {
-      const suites = await api.runnerSuites();
+      const suites = await api.runnerSuites(selectedFramework);
       const list = Array.isArray(suites) ? suites : [];
       setRunnerSuites(list);
-      if (list.length > 0) {
-        setSelectedSuite(list[0].xml);
-      }
+      setSelectedSuite(list.length > 0 ? list[0].xml : '');
     } catch (e) {
       console.error("Failed to load runner suites", e);
     }
   };
 
+  // Re-fetch whenever the framework changes — Playwright now has real DB-registered modules
+  // (see ModuleSyncService/DataSeeder) just like Selenium, so both the Module dropdown and
+  // the Advanced/raw-suite picker work for either framework; only the suite list's contents
+  // (XML files vs. .spec.ts targets) differ per framework.
   useEffect(() => {
     fetchSuites();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFramework]);
 
   // Prefer an actually-RUNNING execution over a QUEUED one — the backend only ever runs one at
   // a time, but the list can contain both (a newly queued run sorts before an older
@@ -390,6 +508,11 @@ export function ExecutionCenter({
     },
     { key: 'suiteName', label: 'Suite Name' },
     {
+      key: 'framework',
+      label: 'Framework',
+      render: (val) => <span style={{ fontSize: '12px' }}>{frameworks.find(fw => fw.code === val)?.displayName || val}</span>
+    },
+    {
       key: 'status',
       label: 'Status',
       render: (val) => (
@@ -454,8 +577,30 @@ export function ExecutionCenter({
 
           <h3 className="xc-card-title"><Rocket size={17} /> Execution Controls</h3>
 
+          {/* Framework selector — chooses which engine actually runs the suite. Options come
+              from the backend's FrameworkRegistry, never hardcoded here: adding a framework
+              later means the backend registers a descriptor, not a frontend code change.
+              Everything below (Module list, suite list, browser step) reloads for whichever
+              framework is selected. */}
+          <label className="xc-label">Framework</label>
+          <select
+            className="xc-select xc-select-primary"
+            value={selectedFramework}
+            onChange={(e) => setSelectedFramework(e.target.value)}
+            disabled={activeExec && activeExec.status === 'RUNNING'}
+            title={activeExec && activeExec.status === 'RUNNING' ? 'Locked while a run is in progress — this only applies to the next run' : undefined}
+          >
+            {frameworks.length === 0 ? (
+              <option value={selectedFramework}>Loading frameworks…</option>
+            ) : (
+              frameworks.map(fw => (
+                <option key={fw.code} value={fw.code}>{fw.displayName}</option>
+              ))
+            )}
+          </select>
+
           {/* Module dropdown selector (admin-registered modules) */}
-          <label className="xc-label">What do you want to run?</label>
+          <label className="xc-label" style={{ marginTop: 16 }}>What do you want to run?</label>
           <select
             className="xc-select xc-select-primary"
             value={selectedModule}
@@ -471,10 +616,12 @@ export function ExecutionCenter({
             )}
           </select>
 
-          {/* Advanced: raw XML suite picker, for dev/debug */}
+          {/* Advanced: pick a raw suite/spec directly instead of a registered module — useful
+              for a one-off XML suite (Selenium) or a single .spec.ts (Playwright) rather than
+              the module's whole folder. */}
           <button type="button" className="xc-advanced-toggle" onClick={() => setShowAdvanced(v => !v)}>
             <ChevronDown size={13} style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
-            Advanced: run a raw XML suite instead
+            {selectedFramework === 'PLAYWRIGHT' ? 'Advanced: run a single spec file instead' : 'Advanced: run a raw XML suite instead'}
           </button>
 
           {showAdvanced && (
@@ -486,7 +633,7 @@ export function ExecutionCenter({
                 onChange={(e) => setSelectedSuite(e.target.value)}
               >
                 {runnerSuites.length === 0 ? (
-                  <option value="">No suites discovered</option>
+                  <option value="">{selectedFramework === 'PLAYWRIGHT' ? 'No Playwright specs discovered' : 'No suites discovered'}</option>
                 ) : (
                   runnerSuites.map(suite => (
                     <option key={suite.xml} value={suite.xml}>{suite.name} ({suite.xml})</option>
@@ -500,9 +647,11 @@ export function ExecutionCenter({
             </div>
           )}
 
-          {/* Environment selector — locked while a run is active: the environment is resolved
-              once when a run is queued and baked into that run's process, so changing this
-              selector mid-run would only affect the *next* launch, never the live one. */}
+          {/* Environment selector — narrowed to only the environments explicitly enabled for
+              the selected module ("Load Supported Environments"); locked while a run is
+              active, since the environment is resolved once at queue time and baked into that
+              run's process, so changing this selector mid-run would only affect the *next*
+              launch, never the live one. */}
           <label className="xc-label" style={{ marginTop: 16 }}>Execution Environment</label>
           <select
             className="xc-select"
@@ -511,10 +660,64 @@ export function ExecutionCenter({
             disabled={activeExec && activeExec.status === 'RUNNING'}
             title={activeExec && activeExec.status === 'RUNNING' ? 'Locked while a run is in progress — this only applies to the next run' : undefined}
           >
-            {environments.map(env => (
-              <option key={env.id} value={env.id}>{env.name} ({env.url})</option>
-            ))}
+            {supportedEnvironments.length === 0 ? (
+              <option value="">Not supported for this module — ask an admin to enable one</option>
+            ) : (
+              supportedEnvironments.map(env => (
+                <option key={env.id} value={env.id}>{env.name} ({env.baseUrl})</option>
+              ))
+            )}
           </select>
+
+          {/* "Load Configuration" step surfaced: the resolved (non-secret) target URL for this
+              exact module+environment combination, which may be a module-specific override of
+              the environment's own default. */}
+          {moduleEnvOptions?.baseUrl && (
+            <div className="xc-target-chip" style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
+              Target: {moduleEnvOptions.baseUrl}
+            </div>
+          )}
+
+          {/* Browser selector — only rendered when there are resolved browsers to choose from
+              (a module/environment override, or the framework's full list in Advanced mode); a
+              pure data check, never a framework-name comparison. Selenium's browser is baked
+              into its own suite code today, so this step is skipped for it. */}
+          {availableBrowsers.length > 0 && (
+            <>
+              <label className="xc-label" style={{ marginTop: 16 }}>Browser</label>
+              <select
+                className="xc-select"
+                value={selectedBrowser}
+                onChange={(e) => setSelectedBrowser(e.target.value)}
+                disabled={activeExec && activeExec.status === 'RUNNING'}
+              >
+                {availableBrowsers.map(b => (
+                  <option key={b} value={b}>{b.charAt(0).toUpperCase() + b.slice(1)}</option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {/* Run Scope selector — optional, additive tag filter (e.g. "@smoke") discovered
+              live from the module's own test titles. Only appears once tags actually exist
+              somewhere in the module; an untagged module just never shows this step, and
+              "All Tests" (no filter) is always the default — this can never block a run. */}
+          {moduleTags.length > 0 && (
+            <>
+              <label className="xc-label" style={{ marginTop: 16 }}>Run Scope</label>
+              <select
+                className="xc-select"
+                value={selectedTagFilter}
+                onChange={(e) => setSelectedTagFilter(e.target.value)}
+                disabled={activeExec && activeExec.status === 'RUNNING'}
+              >
+                <option value="">All Tests</option>
+                {moduleTags.map(tag => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))}
+              </select>
+            </>
+          )}
 
           {/* Run Button */}
           <button

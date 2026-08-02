@@ -15,7 +15,7 @@ import { Breadcrumb } from '../layout/index.jsx';
 import { AdminDashboardOverview } from './AdminDashboardOverview.jsx';
 import { UserManagement } from './UserManagement.jsx';
 import { RoleManagement } from './RoleManagement.jsx';
-import { EnvironmentsConfig } from './EnvironmentsConfig.jsx';
+import { AdminEnvironmentsEmbed } from './AdminEnvironmentsEmbed.jsx';
 import { ModuleManagement } from './ModuleManagement.jsx';
 import { PortalConfig } from './PortalConfig.jsx';
 import { InternalDocs } from './InternalDocs.jsx';
@@ -142,7 +142,7 @@ export function AdminContent({ activePage, setActivePage, setNotice }) {
     <>
       {activePage === 'admin-dashboard' && <AdminDashboardOverview setNotice={setNotice} setActive={setActivePage} />}
       {activePage === 'user-management' && <UserManagement setNotice={setNotice} />}
-      {activePage === 'environments-config' && <EnvironmentsConfig setNotice={setNotice} />}
+      {activePage === 'environments-config' && <AdminEnvironmentsEmbed />}
       {activePage === 'module-management' && <ModuleManagement setNotice={setNotice} />}
       {activePage === 'portal-config' && <PortalConfig setNotice={setNotice} />}
       {activePage === 'role-management' && <RoleManagement setNotice={setNotice} />}

@@ -34,6 +34,17 @@ public class Execution {
     @Column(name = "suite_xml_path")
     private String suiteXmlPath;
 
+    @Column(name = "framework", nullable = false, length = 50)
+    private String framework = "MAVEN_TESTNG";
+
+    /** Pre-execution user choice (e.g. "chrome"); distinct from browserName/browserVersion below, which are only ever observed after the fact from a live SUITE_STARTED event. */
+    @Column(name = "requested_browser", length = 50)
+    private String requestedBrowser;
+
+    /** Optional Playwright --grep pattern (e.g. "@smoke"); null/blank means run the module's full folder unfiltered. */
+    @Column(name = "tag_filter", length = 255)
+    private String tagFilter;
+
     @Column(name = "total_tests")
     private int totalTests;
 
@@ -113,6 +124,13 @@ public class Execution {
     public void setModuleCode(String moduleCode) { this.moduleCode = moduleCode; }
     public String getSuiteXmlPath() { return suiteXmlPath; }
     public void setSuiteXmlPath(String suiteXmlPath) { this.suiteXmlPath = suiteXmlPath; }
+    public String getFramework() { return framework; }
+    public void setFramework(String framework) { this.framework = framework; }
+    public String getRequestedBrowser() { return requestedBrowser; }
+    public void setRequestedBrowser(String requestedBrowser) { this.requestedBrowser = requestedBrowser; }
+
+    public String getTagFilter() { return tagFilter; }
+    public void setTagFilter(String tagFilter) { this.tagFilter = tagFilter; }
 
     public int getTotalTests() { return totalTests; }
     public void setTotalTests(int totalTests) { this.totalTests = totalTests; }

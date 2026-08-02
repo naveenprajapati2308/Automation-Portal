@@ -7,6 +7,12 @@
 }
 
 .rc-card {
+  /* .rc-page is a CSS grid; grid items default to min-width: auto, meaning they refuse
+     to shrink below their content's intrinsic (max-content) width. A wide table inside
+     would then push this card past the grid track's own width instead of triggering
+     DataTable's internal overflow-x: auto — the card bulges out of the page instead of
+     the table scrolling internally. min-width: 0 lets the grid track win. */
+  min-width: 0;
   background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: 14px;

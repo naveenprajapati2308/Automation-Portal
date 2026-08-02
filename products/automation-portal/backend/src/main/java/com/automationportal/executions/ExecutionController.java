@@ -45,16 +45,17 @@ public class ExecutionController {
     public ApiResponse<List<Execution>> recent(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String module,
+            @RequestParam(required = false) String framework,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to) {
-        
+
         Instant fromInstant = (from != null && !from.trim().isEmpty()) ? Instant.parse(from) : null;
         Instant toInstant = (to != null && !to.trim().isEmpty()) ? Instant.parse(to) : null;
-        
-        if (status == null && module == null && fromInstant == null && toInstant == null) {
+
+        if (status == null && module == null && framework == null && fromInstant == null && toInstant == null) {
             return ApiResponse.ok(service.recent());
         }
-        return ApiResponse.ok(service.filter(status, module, fromInstant, toInstant));
+        return ApiResponse.ok(service.filter(status, module, framework, fromInstant, toInstant));
     }
 
     @GetMapping("/{id}")
@@ -129,9 +130,10 @@ public class ExecutionController {
     }
 
     @GetMapping("/runner/suites")
-    public ApiResponse<Object> getRunnerSuites() {
+    public ApiResponse<Object> getRunnerSuites(
+            @RequestParam(defaultValue = "MAVEN_TESTNG") String framework) {
         try {
-            String url = executionManagerUrl + "/em/suites";
+            String url = executionManagerUrl + "/em/suites?framework=" + framework;
             java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
                     .uri(java.net.URI.create(url))
                     .GET()

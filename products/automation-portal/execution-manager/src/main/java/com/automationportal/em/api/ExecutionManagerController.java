@@ -44,7 +44,7 @@ public class ExecutionManagerController {
     }
 
     @GetMapping("/suites")
-    public ResponseEntity<?> getSuites() {
+    public ResponseEntity<?> getSuites(@RequestParam(defaultValue = "MAVEN_TESTNG") String framework) {
         try {
             String runnerUrl = defaultRunnerUrl;
             List<RunnerRegistry> runners = runnerRepository.findAll();
@@ -52,7 +52,7 @@ public class ExecutionManagerController {
                 runnerUrl = runners.get(0).getRunnerUrl();
             }
 
-            String url = runnerUrl + "/runner/suites";
+            String url = runnerUrl + "/runner/suites?framework=" + framework;
             java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
                     .uri(java.net.URI.create(url))
                     .GET()
@@ -64,6 +64,31 @@ public class ExecutionManagerController {
                     .body(response.body());
         } catch (Exception e) {
             log.error("Failed to proxy suites from runner", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("{\"error\":\"" + e.getMessage() + "\"}");
+        }
+    }
+
+    @GetMapping("/tags")
+    public ResponseEntity<?> getTags(@RequestParam String path) {
+        try {
+            String runnerUrl = defaultRunnerUrl;
+            List<RunnerRegistry> runners = runnerRepository.findAll();
+            if (!runners.isEmpty()) {
+                runnerUrl = runners.get(0).getRunnerUrl();
+            }
+
+            String url = runnerUrl + "/runner/tags?path=" + java.net.URLEncoder.encode(path, java.nio.charset.StandardCharsets.UTF_8);
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(url))
+                    .GET()
+                    .timeout(java.time.Duration.ofSeconds(5))
+                    .build();
+            java.net.http.HttpResponse<String> response = httpClient.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            return ResponseEntity.status(response.statusCode())
+                    .header("Content-Type", "application/json")
+                    .body(response.body());
+        } catch (Exception e) {
+            log.error("Failed to proxy tags from runner", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("{\"error\":\"" + e.getMessage() + "\"}");
         }
     }

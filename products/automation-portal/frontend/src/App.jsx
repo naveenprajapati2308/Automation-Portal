@@ -167,6 +167,9 @@ export function App() {
   const [selectedEnv, setSelectedEnv] = useState(1);
   const [selectedModule, setSelectedModule] = useState('LAND');
   const [suiteXmlPath, setSuiteXmlPath] = useState('');
+  const [selectedFramework, setSelectedFramework] = useState('MAVEN_TESTNG');
+  const [selectedBrowser, setSelectedBrowser] = useState('');
+  const [selectedTagFilter, setSelectedTagFilter] = useState('');
   // Toast: { text, tone } — tone is 'success' | 'warning' | 'error'
   const [notice, setNotice] = useState(null);
   const notify = (text, tone = 'success') => setNotice(text ? { text, tone } : null);
@@ -182,10 +185,7 @@ export function App() {
   };
 
   // Apply the saved theme (shared across the whole platform — see
-  // shared/ui/theme-sync.js) and keep it live-synced if the shell's own
-  // toggle is used while this app is open in its sidebar iframe.
-  // data-bs-theme is Bootstrap-specific, so it's kept local to this app
-  // rather than folded into the shared helper.
+
   useEffect(() => {
     initThemeSync();
     const applyBsTheme = (pref) => document.documentElement.setAttribute('data-bs-theme', resolveEffectiveTheme(pref));
@@ -248,7 +248,7 @@ export function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const refresh = async () => {
+  const refresh = async (isInitialLoad = false) => {
     try {
       const [summaryData, envData, moduleData, executionData] = await Promise.all([
         api.dashboardSummary(),
@@ -260,25 +260,25 @@ export function App() {
       setEnvironments(envData);
       setModules(moduleData);
       setExecutions(executionData);
-      if (envData[0]) setSelectedEnv(envData[0].id);
-      if (moduleData[0]) setSelectedModule(moduleData[0].code);
+
+      if (isInitialLoad) {
+        if (envData[0]) setSelectedEnv(envData[0].id);
+        if (moduleData[0]) setSelectedModule(moduleData[0].code);
+      }
     } catch (error) {
-      // Don't nuke the session on a transient load failure — if the session is
-      // genuinely expired, the api layer's 401 popup → logout already handles it.
+
       notify(error.message, 'error');
     }
   };
 
-  // Full-screen boot loader: shown while the initial portal data loads after
-  // sign-in. Held for at least 1s so it reads as a deliberate branded moment,
-  // then fades out ('show' → 'exit' → unmounted).
+
   const [bootLoader, setBootLoader] = useState(null);
 
   useEffect(() => {
     if (!session?.accessToken) return;
     setBootLoader('show');
     const startedAt = Date.now();
-    refresh().finally(() => {
+    refresh(true).finally(() => {
       const holdFor = Math.max(0, 1500 - (Date.now() - startedAt));
       setTimeout(() => {
         setBootLoader('exit');
@@ -287,14 +287,7 @@ export function App() {
     });
   }, [session?.accessToken]);
 
-  // `refresh()` was otherwise only ever called once on mount (plus a few explicit spots after
-  // actions like triggering a run) — nothing kept the executions list/dashboard summary live
-  // after that. A queued/running execution's status in tables like the Execution Center's
-  // "Recent Executions Queue" would just sit frozen indefinitely (looked exactly like a stuck
-  // queue, even though the backend was progressing fine) until something else happened to
-  // trigger a refresh. Polls while the tab is visible, and refreshes immediately the moment the
-  // tab regains focus (backgrounded tabs commonly throttle timers/drop long-lived connections,
-  // so coming back is exactly when stale data is most likely and most noticeable).
+
   useEffect(() => {
     if (!session?.accessToken) return;
     const interval = setInterval(() => {
@@ -310,12 +303,7 @@ export function App() {
     };
   }, [session?.accessToken]);
 
-  // Embedded inside the Testrix shell's "Automation" sidebar sub-menu (an
-  // iframe on /automation/, same origin — see platform/shell's
-  // AutomationWorkspace.jsx). Reports this document's content height to the
-  // shell (shared/ui/iframe-resize.js) so the iframe can match it exactly —
-  // otherwise a fixed-height iframe scrolls internally, a second scrollbar
-  // stacked on the shell page's own.
+
   const isEmbedded = window.self !== window.top;
 
   useEffect(() => {
@@ -332,10 +320,7 @@ export function App() {
   const onAuthenticated = (nextSession) => {
     auth.set(nextSession);
     setSession(nextSession);
-    // A "Session Expired" popup raised while the previous session was dying can
-    // survive in state across the login screen (the popup JSX isn't rendered
-    // there) and would instantly reappear over the brand-new session — and its
-    // close handler would then log that new session out. Reset it on sign-in.
+
     setGlobalError(null);
     notify('Signed in successfully.');
   };
@@ -357,7 +342,10 @@ export function App() {
         executionType,
         environmentId: selectedEnv,
         moduleCode: executionType === 'MODULE' ? (overrideModuleCode || selectedModule) : undefined,
-        suiteXmlPath: overrideXml || (executionType === 'XML_SUITE' ? suiteXmlPath : undefined)
+        suiteXmlPath: overrideXml || (executionType === 'XML_SUITE' ? suiteXmlPath : undefined),
+        framework: selectedFramework,
+        requestedBrowser: selectedBrowser || undefined,
+        tagFilter: selectedTagFilter || undefined
       };
       const execution = await api.runExecution(payload);
       notify(`${execution.executionCode} queued successfully.`);
@@ -370,19 +358,12 @@ export function App() {
   };
 
   if (!session?.accessToken) {
-    // Single sign-on: the Testrix shell at "/" is the platform's one and only
-    // login screen now — this product no longer has its own. Navigate the
-    // TOP window, not this one: when embedded in the shell's iframe (see
-    // AutomationWorkspace.jsx), `window.location.href` would load the whole
-    // shell a second time *inside* the iframe ("app inside an app").
-    // window.top === window when not framed, so this is safe standalone too.
+
     window.top.location.href = '/';
     return null;
   }
 
-  // The shell already provides sidebar/topbar chrome, so skip rendering our
-  // own here to avoid double chrome; the shell drives which page is active
-  // by setting this window's hash directly.
+
 
   const pages = (
     <>
@@ -395,9 +376,15 @@ export function App() {
           selectedEnv={selectedEnv}
           selectedModule={selectedModule}
           suiteXmlPath={suiteXmlPath}
+          selectedFramework={selectedFramework}
+          selectedBrowser={selectedBrowser}
+          selectedTagFilter={selectedTagFilter}
           setSelectedEnv={setSelectedEnv}
           setSelectedModule={setSelectedModule}
           setSuiteXmlPath={setSuiteXmlPath}
+          setSelectedFramework={setSelectedFramework}
+          setSelectedBrowser={setSelectedBrowser}
+          setSelectedTagFilter={setSelectedTagFilter}
           run={run}
           executions={executions}
           onSelectExecution={setSelectedExecutionId}
@@ -450,10 +437,7 @@ export function App() {
     <>
       {content}
 
-      {/* When embedded, the shell shows its own full-screen loader over the
-          iframe until it's ready — showing this one too would just be a
-          second loader stacked underneath it. Standalone access still needs
-          its own. */}
+
       {!isEmbedded && bootLoader && <FullScreenLoader exiting={bootLoader === 'exit'} logoSrc={appLogo} />}
 
       {notice && (() => {

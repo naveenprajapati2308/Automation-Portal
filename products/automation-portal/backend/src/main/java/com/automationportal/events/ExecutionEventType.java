@@ -8,6 +8,7 @@ public enum ExecutionEventType {
     TEST_FAILED,
     TEST_SKIPPED,
     SCREENSHOT_CAPTURED,
+    VIDEO_CAPTURED,
     LOG_ENTRY,
     MODULE_COMPLETED,
     SUITE_COMPLETED,

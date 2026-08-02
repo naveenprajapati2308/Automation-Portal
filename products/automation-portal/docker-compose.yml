@@ -20,6 +20,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: root
       PORTAL_AUTOMATION_ARTIFACTS_ROOT: /app/artifacts
       PORTAL_AUTOMATION_REPOSITORY_PATH: /app/framework
+      PORTAL_AUTOMATION_PLAYWRIGHT_PATH: /app/playwright-framework
       PORTAL_EXECUTION_MANAGER_URL: http://automation-execution-manager:8090
       PORTAL_ARTIFACT_SERVICE_URL: http://automation-report-artifacts:9091
       LOGGING_FILE_NAME: /app/logs/automation-portal.log
@@ -33,6 +34,10 @@ services:
       - automation_portal_backend_logs:/app/logs
       - automation_portal_artifacts:/app/artifacts
       - "D:/New folder/MPHIDB:/app/framework"
+      # Read-only: the backend only needs to copy Playwright's screenshots/videos/traces out
+      # of test-results/ once a run completes (see ExecutionWorker.copyPlaywrightArtifacts) —
+      # same container path as automation-framework-runner so paths need no translation.
+      - "D:/playwright-js:/app/playwright-framework:ro"
     networks:
       - testrix
 
@@ -62,6 +67,11 @@ services:
       dockerfile: Dockerfile
     container_name: automation-framework-runner
     restart: unless-stopped
+    # Playwright launches real Chrome as a child of the java process, which runs as PID 1
+    # (no init system otherwise). Orphaned grandchildren (chrome_crashpad, node helpers) never
+    # get reaped and pile up as zombies for the container's whole lifetime — init: true gives
+    # PID 1 Docker's built-in tini so those get reaped immediately.
+    init: true
     depends_on:
       - automation-portal-backend
     # MPHIDB's test code launches real (non-headless, non-sandboxed-off) Chrome by design, so
@@ -81,8 +91,14 @@ services:
       MAVEN_CMD: mvn
       RUNNER_PORT: 9090
       EXECUTION_MANAGER_URL: http://automation-execution-manager:8090
+      PLAYWRIGHT_FRAMEWORK_PATH: /app/playwright-framework
     volumes:
       - "D:/New folder/MPHIDB:/app/framework"
+      - "D:/playwright-js:/app/playwright-framework"
+      # Shadows the bind mount above at this one sub-path with its own volume, so the
+      # container gets a Linux-native node_modules instead of the Windows host's (see
+      # entrypoint.sh's `npm ci` step, and the Dockerfile note on why it's pre-chowned).
+      - playwright_node_modules:/app/playwright-framework/node_modules
     networks:
       - testrix
 
@@ -111,3 +127,5 @@ volumes:
     name: automation_portal_backend_logs
   automation_portal_artifacts:
     name: automation_portal_artifacts
+  playwright_node_modules:
+    name: playwright_node_modules

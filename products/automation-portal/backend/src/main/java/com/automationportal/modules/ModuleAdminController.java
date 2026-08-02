@@ -23,17 +23,19 @@ public class ModuleAdminController {
 
     @PostMapping
     public ApiResponse<ModuleEntity> create(@RequestBody ModuleEntity body) {
-        if (repository.findByCode(body.getCode()).isPresent()) {
-            throw new IllegalArgumentException("Module with code '" + body.getCode() + "' already exists.");
+        String runnerType = body.getRunnerType() != null && !body.getRunnerType().isBlank()
+                ? body.getRunnerType() : "MAVEN_TESTNG";
+        if (repository.findByCodeAndRunnerType(body.getCode(), runnerType).isPresent()) {
+            throw new IllegalArgumentException(
+                    "A " + runnerType + " module with code '" + body.getCode() + "' already exists.");
         }
         ModuleEntity m = new ModuleEntity(body.getCode(), body.getName());
         m.setDescription(body.getDescription());
         m.setXmlFile(body.getXmlFile());
         m.setReportPath(body.getReportPath());
-        m.setEnvCodes(body.getEnvCodes());
-        if (body.getRunnerType() != null && !body.getRunnerType().isBlank()) {
-            m.setRunnerType(body.getRunnerType());
-        }
+        m.setVisible(body.isVisible());
+        m.setAllowedRoles(body.getAllowedRoles());
+        m.setRunnerType(runnerType);
         return ApiResponse.ok(repository.save(m));
     }
 
@@ -44,7 +46,8 @@ public class ModuleAdminController {
         m.setDescription(body.getDescription());
         m.setXmlFile(body.getXmlFile());
         m.setReportPath(body.getReportPath());
-        m.setEnvCodes(body.getEnvCodes());
+        m.setVisible(body.isVisible());
+        m.setAllowedRoles(body.getAllowedRoles());
         m.setActive(body.isActive());
         if (body.getRunnerType() != null && !body.getRunnerType().isBlank()) {
             m.setRunnerType(body.getRunnerType());
