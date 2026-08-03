@@ -7,16 +7,7 @@ import './module-analytics-table.css';
 
 const accuracyColor = (pct) => (pct >= 80 ? 'var(--success-text)' : pct >= 50 ? 'var(--warning-text)' : 'var(--danger-text)');
 
-/**
- * Standard Module Analytics table: Parent -> Child module hierarchy, Framework/Environment
- * filters, and Run/Run All controls that queue real executions through the same pipeline as
- * the Execution Center. Presentational + self-contained UI state (expand/collapse, the
- * "select an Environment first" guard) — data fetching and the actual run/queue call are left
- * to the host page via props, so the same component can be dropped onto any Testrix dashboard.
- *
- * `modules` — flat list: { id, code, name, runnerType, parentModuleId, active }
- * `healthByKey` — Map keyed `${code}::${runnerType}` -> { total, passed, failed, skipped, accuracy }
- */
+
 export function ModuleAnalyticsTable({
   modules = [],
   healthByKey = new Map(),
@@ -144,6 +135,8 @@ export function ModuleAnalyticsTable({
               <th>Passed</th>
               <th>Failed</th>
               <th>Skipped</th>
+              <th>Executed</th>
+              <th>Not Executed</th>
               <th>Accuracy</th>
               <th className="tx-align-right">Run</th>
             </tr>
@@ -155,6 +148,8 @@ export function ModuleAnalyticsTable({
               const passed = health.passed ?? 0;
               const failed = health.failed ?? 0;
               const skipped = health.skipped ?? 0;
+              const executed = health.executed ?? (passed + failed + skipped);
+              const notExecuted = health.notExecuted ?? Math.max(total - executed, 0);
               const accuracy = health.accuracy ?? health.passRate ?? 0;
               const isQueuing = queuingKeys.has(row.__hasChildren ? `${row.code}::ALL` : row.code);
 
@@ -183,6 +178,8 @@ export function ModuleAnalyticsTable({
                   <td style={{ color: 'var(--success-text)', fontWeight: 600 }}>{passed}</td>
                   <td style={{ color: 'var(--danger-text)', fontWeight: 600 }}>{failed}</td>
                   <td style={{ color: 'var(--warning-text)', fontWeight: 600 }}>{skipped}</td>
+                  <td>{executed}</td>
+                  <td style={{ color: 'var(--text-muted)' }}>{notExecuted}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontWeight: 800, color: accuracyColor(accuracy), minWidth: 40 }}>{accuracy}%</span>
@@ -209,7 +206,7 @@ export function ModuleAnalyticsTable({
             })}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan="7">
+                <td colSpan="9">
                   <EmptyState message="No modules match the current filters." />
                 </td>
               </tr>

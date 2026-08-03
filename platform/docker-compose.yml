@@ -4,15 +4,13 @@ services:
     container_name: testrix-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
       MYSQL_ROOT_HOST: "%"
-    ports:
-      - "3306:3306"
     volumes:
       - testrix_mysql_data:/var/lib/mysql
       - ./mysql-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -proot"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$$MYSQL_ROOT_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 10

@@ -4,6 +4,7 @@ import com.automationportal.environments.EnvironmentEntity;
 import com.automationportal.environments.EnvironmentRepository;
 import com.automationportal.modules.ModuleSyncService;
 import com.automationportal.users.*;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -14,13 +15,16 @@ public class DataSeeder implements CommandLineRunner {
     private final ModuleSyncService moduleSyncService;
     private final EnvironmentRepository environmentRepository;
     private final PasswordEncoder passwordEncoder;
+    private final String superAdminSeedPassword;
 
     public DataSeeder(UserRepository userRepository, ModuleSyncService moduleSyncService,
-                      EnvironmentRepository environmentRepository, PasswordEncoder passwordEncoder) {
+                      EnvironmentRepository environmentRepository, PasswordEncoder passwordEncoder,
+                      @Value("${portal.superadmin.seed-password:password}") String superAdminSeedPassword) {
         this.userRepository = userRepository;
         this.moduleSyncService = moduleSyncService;
         this.environmentRepository = environmentRepository;
         this.passwordEncoder = passwordEncoder;
+        this.superAdminSeedPassword = superAdminSeedPassword;
     }
 
     @Override
@@ -34,7 +38,9 @@ public class DataSeeder implements CommandLineRunner {
             superAdmin.setStatus(UserStatus.ACTIVE);
             superAdmin.setEmailVerified(true);
             superAdmin.setAuthProvider("LOCAL");
-            superAdmin.setPasswordHash(passwordEncoder.encode("password"));
+            // Only applied on first-ever creation — an existing account's password is never
+            // touched by this seeder, so this doesn't reset anything on restart.
+            superAdmin.setPasswordHash(passwordEncoder.encode(superAdminSeedPassword));
             userRepository.save(superAdmin);
         } else {
             userRepository.findByUsernameOrEmail("superadmin@gmail.com", "superadmin@gmail.com").ifPresent(superAdmin -> {

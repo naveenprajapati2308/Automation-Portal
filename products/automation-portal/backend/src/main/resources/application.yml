@@ -10,8 +10,8 @@ spring:
       max-request-size: 12MB
   datasource:
     url: jdbc:mysql://localhost:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-    username: root
-    password: root
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -38,18 +38,21 @@ spring:
       static-locations: "classpath:/static/,file:artifacts/"
 portal:
   events:
-    api-key: ${PORTAL_EVENTS_API_KEY:shared-secret}
+    # No insecure fallback on purpose — the webhook signature check is worthless if every
+    # deployment silently accepts the same well-known default. Startup fails if unset.
+    api-key: ${PORTAL_EVENTS_API_KEY}
   execution-manager:
     url: ${PORTAL_EXECUTION_MANAGER_URL:http://localhost:8090}
   artifact-service:
     url: ${PORTAL_ARTIFACT_SERVICE_URL:http://localhost:9091}
   jwt:
-    secret: ${PORTAL_JWT_SECRET:change-this-secret-to-a-long-production-grade-value-of-at-least-256-bits}
+    # No insecure fallback on purpose — see events.api-key above. Startup fails if unset.
+    secret: ${PORTAL_JWT_SECRET}
     expiration-minutes: ${PORTAL_JWT_EXPIRATION_MINUTES:30}
     refresh-expiration-days: ${PORTAL_JWT_REFRESH_EXPIRATION_DAYS:14}
   automation:
-    repository-path: "D:/New folder/MPHIDB"
-    playwright-path: "D:/playwright-js"
+    repository-path: ${PORTAL_AUTOMATION_REPOSITORY_PATH:D:/New folder/MPHIDB}
+    playwright-path: ${PORTAL_AUTOMATION_PLAYWRIGHT_PATH:D:/playwright-js}
     maven-command: "mvn test -DsuiteXmlFile={suiteXml} -DopenReport=false"
     artifacts-root: "artifacts"
     suites:
@@ -85,6 +88,11 @@ portal:
     console-only: ${PORTAL_MAIL_CONSOLE_ONLY:true}
   uploads:
     profiles-dir: ${PORTAL_PROFILES_DIR:${PORTAL_AUTOMATION_ARTIFACTS_ROOT:artifacts}/profiles}
+  superadmin:
+    # Only applied the first time superadmin@gmail.com is created — an existing account's
+    # password is never touched on restart, so changing this has no effect on an already-seeded
+    # database. Defaults to the legacy dev value so nothing changes unless this is set.
+    seed-password: ${PORTAL_SUPERADMIN_SEED_PASSWORD:password}
 
 management:
   endpoints:

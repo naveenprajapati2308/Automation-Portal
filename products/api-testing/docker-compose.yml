@@ -33,10 +33,12 @@ services:
       TZ: ${SCHEDULER_TZ:-Asia/Kolkata}
       DB_URL: jdbc:mysql://testrix-mysql:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       DB_USERNAME: root
-      DB_PASSWORD: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
       REDIS_HOST: api-testing-redis
       FRONTEND_URL: http://localhost:15000
       HISTORY_BODY_STORE_DIR: /app/history-bodies
+      APITESTING_ENCRYPTION_KEY: ${APITESTING_ENCRYPTION_KEY:?APITESTING_ENCRYPTION_KEY must be set in .env}
+      PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:?PORTAL_JWT_SECRET must be set in .env}
     ports:
       - "8081:8080"
     volumes:

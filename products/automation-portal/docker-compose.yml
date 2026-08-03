@@ -17,7 +17,7 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://testrix-mysql:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
       PORTAL_AUTOMATION_ARTIFACTS_ROOT: /app/artifacts
       PORTAL_AUTOMATION_REPOSITORY_PATH: /app/framework
       PORTAL_AUTOMATION_PLAYWRIGHT_PATH: /app/playwright-framework
@@ -26,18 +26,21 @@ services:
       LOGGING_FILE_NAME: /app/logs/automation-portal.log
       PORTAL_FRONTEND_URL: http://localhost:15000/automation
       PORTAL_MAIL_CONSOLE_ONLY: "true"
+      PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:?PORTAL_JWT_SECRET must be set in .env}
       PORTAL_JWT_EXPIRATION_MINUTES: 30
       PORTAL_JWT_REFRESH_EXPIRATION_DAYS: 14
+      PORTAL_SUPERADMIN_SEED_PASSWORD: ${PORTAL_SUPERADMIN_SEED_PASSWORD:?PORTAL_SUPERADMIN_SEED_PASSWORD must be set in .env}
+      PORTAL_EVENTS_API_KEY: ${PORTAL_EVENTS_API_KEY:?PORTAL_EVENTS_API_KEY must be set in .env}
     ports:
       - "18080:8080"
     volumes:
       - automation_portal_backend_logs:/app/logs
       - automation_portal_artifacts:/app/artifacts
-      - "D:/New folder/MPHIDB:/app/framework"
+      - "${AUTOMATION_FRAMEWORK_REPO_PATH:-D:/New folder/MPHIDB}:/app/framework"
       # Read-only: the backend only needs to copy Playwright's screenshots/videos/traces out
       # of test-results/ once a run completes (see ExecutionWorker.copyPlaywrightArtifacts) —
       # same container path as automation-framework-runner so paths need no translation.
-      - "D:/playwright-js:/app/playwright-framework:ro"
+      - "${AUTOMATION_PLAYWRIGHT_PATH:-D:/playwright-js}:/app/playwright-framework:ro"
     networks:
       - testrix
 
@@ -53,9 +56,10 @@ services:
     environment:
       EM_DB_URL: jdbc:mysql://testrix-mysql:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       EM_DB_USER: root
-      EM_DB_PASS: root
+      EM_DB_PASS: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
       EM_RUNNER_URL: http://automation-framework-runner:9090
       EM_PORTAL_BACKEND_URL: http://automation-portal-backend:8080
+      EM_PORTAL_API_KEY: ${PORTAL_EVENTS_API_KEY:?PORTAL_EVENTS_API_KEY must be set in .env}
       EM_MAX_CONCURRENT: 1
       EM_TIMEOUT_MINUTES: 120
     networks:
@@ -93,8 +97,8 @@ services:
       EXECUTION_MANAGER_URL: http://automation-execution-manager:8090
       PLAYWRIGHT_FRAMEWORK_PATH: /app/playwright-framework
     volumes:
-      - "D:/New folder/MPHIDB:/app/framework"
-      - "D:/playwright-js:/app/playwright-framework"
+      - "${AUTOMATION_FRAMEWORK_REPO_PATH:-D:/New folder/MPHIDB}:/app/framework"
+      - "${AUTOMATION_PLAYWRIGHT_PATH:-D:/playwright-js}:/app/playwright-framework"
       # Shadows the bind mount above at this one sub-path with its own volume, so the
       # container gets a Linux-native node_modules instead of the Windows host's (see
       # entrypoint.sh's `npm ci` step, and the Dockerfile note on why it's pre-chowned).

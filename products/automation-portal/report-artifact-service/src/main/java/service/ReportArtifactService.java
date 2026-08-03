@@ -99,7 +99,14 @@ public class ReportArtifactService {
         String executionCode = parts[2];
         String type = parts[3];
 
-        Path executionDir = Paths.get(artifactsRoot, "executions", executionCode);
+        Path executionsRoot = Paths.get(artifactsRoot, "executions");
+        Path executionDir;
+        try {
+            executionDir = resolveSafe(executionsRoot, executionCode);
+        } catch (IllegalArgumentException e) {
+            send(exchange, 400, "Invalid execution code", "text/plain");
+            return;
+        }
         if (!Files.exists(executionDir)) {
             send(exchange, 404, "Execution artifacts not found for: " + executionCode, "text/plain");
             return;
@@ -124,7 +131,13 @@ public class ReportArtifactService {
                 // Serve specific screenshot file (handle nested directories if screenshots are in module subfolders)
                 // Reconstruct full file path under screenshots/
                 String subPath = path.substring(path.indexOf("/screenshots/") + 13);
-                Path file = screenshotsDir.resolve(subPath);
+                Path file;
+                try {
+                    file = resolveSafe(screenshotsDir, subPath);
+                } catch (IllegalArgumentException e) {
+                    send(exchange, 400, "Invalid screenshot path", "text/plain");
+                    return;
+                }
                 serveFile(exchange, file, "image/png");
             } else {
                 // List all screenshots as JSON
@@ -133,6 +146,18 @@ public class ReportArtifactService {
         } else {
             send(exchange, 404, "Resource not found", "text/plain");
         }
+    }
+
+    // Mirrors api-testing's LocalGzipBodyStore.resolve(): normalize then verify the resolved
+    // path never escapes its intended parent, so a "../../" segment (or Windows "..\\..\\")
+    // can never read files outside the artifacts tree.
+    private static Path resolveSafe(Path parent, String childSegment) {
+        Path normalizedParent = parent.normalize();
+        Path resolved = normalizedParent.resolve(childSegment).normalize();
+        if (!resolved.startsWith(normalizedParent)) {
+            throw new IllegalArgumentException("Path escapes parent: " + childSegment);
+        }
+        return resolved;
     }
 
     private static void serveFirstHtmlFile(HttpExchange exchange, Path dir) throws IOException {

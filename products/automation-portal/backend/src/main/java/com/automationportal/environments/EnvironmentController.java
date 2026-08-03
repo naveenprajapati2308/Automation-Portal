@@ -29,8 +29,8 @@ public class EnvironmentController {
     }
 
     @GetMapping
-    public ApiResponse<List<EnvironmentEntity>> list() {
-        return ApiResponse.ok(repository.findAll());
+    public ApiResponse<List<EnvironmentSummaryDto>> list() {
+        return ApiResponse.ok(repository.findAll().stream().map(EnvironmentSummaryDto::from).toList());
     }
 
     // Reverse lookup used by Dashboard's "Run Now" quick-launch and the admin cross-link

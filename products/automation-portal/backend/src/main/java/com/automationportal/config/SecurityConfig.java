@@ -5,6 +5,7 @@ import com.automationportal.auth.JwtAuthenticationFilter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -69,6 +70,14 @@ public class SecurityConfig {
                     "/error"
                 ).permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
+                // /api/environments (GET, plain list) stays open to any authenticated user —
+                // it's a configJson-stripped DTO now (EnvironmentSummaryDto), used broadly for
+                // dropdown/selector data. Everything else here reads or writes raw configJson
+                // (credentials, captcha keys), so it's admin-only.
+                .requestMatchers(HttpMethod.GET, "/api/environments/health").hasRole("SUPER_ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/environments").hasRole("SUPER_ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/environments/*").hasRole("SUPER_ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/environments/*").hasRole("SUPER_ADMIN")
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

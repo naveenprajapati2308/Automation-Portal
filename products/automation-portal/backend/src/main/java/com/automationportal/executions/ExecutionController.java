@@ -20,7 +20,7 @@ public class ExecutionController {
     @org.springframework.beans.factory.annotation.Value("${portal.execution-manager.url:http://localhost:8090}")
     private String executionManagerUrl;
 
-    @org.springframework.beans.factory.annotation.Value("${portal.events.api-key:shared-secret}")
+    @org.springframework.beans.factory.annotation.Value("${portal.events.api-key}")
     private String expectedApiKey;
 
     private boolean isValidApiKey(String apiKey) {

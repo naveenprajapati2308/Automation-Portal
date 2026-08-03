@@ -48,7 +48,7 @@ public class LiveBroadcastService {
         // 30 minutes timeout for the stream
         SseEmitter emitter = new SseEmitter(1800000L);
 
-        emittersMap.computeIfAbsent(executionCode, k -> new ArrayList<>()).add(emitter);
+        emittersMap.computeIfAbsent(executionCode, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
         emitter.onCompletion(() -> removeEmitter(executionCode, emitter));
         emitter.onTimeout(() -> removeEmitter(executionCode, emitter));

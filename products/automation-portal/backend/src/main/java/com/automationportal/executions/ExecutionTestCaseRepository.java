@@ -48,4 +48,21 @@ public interface ExecutionTestCaseRepository extends JpaRepository<ExecutionTest
            "WHERE tc.createdAt >= :since AND tc.isConfigMethod = false " +
            "GROUP BY tc.className, tc.methodName, tc.moduleCode")
     List<Object[]> findFlakyTestsRaw(@Param("since") Instant since);
+
+    // Feeds DashboardService.getModuleHealth()'s PASSED/FAILED/SKIPPED tally: joined through the
+    // permanent test_case_catalog identity (tc.testCaseCatalogId) rather than re-deriving identity
+    // by a class/method/test string match, so TOTAL (catalog COUNT) and this tally can never drift
+    // apart - both are scoped through the exact same catalog rows. Ordered ascending by execution
+    // createdAt so the caller can reduce to "latest status per catalog id" with a plain map.put
+    // loop (last write wins).
+    @Query("SELECT c.id, c.moduleCode, c.framework, tc.status, e.createdAt " +
+           "FROM ExecutionTestCase tc " +
+           "JOIN Execution e ON tc.executionId = e.id " +
+           "JOIN com.automationportal.testcasecatalog.TestCaseCatalogEntity c ON tc.testCaseCatalogId = c.id " +
+           "WHERE c.active = true AND e.createdAt >= :since " +
+           "AND e.status <> com.automationportal.executions.ExecutionStatus.QUEUED " +
+           "AND e.status <> com.automationportal.executions.ExecutionStatus.RUNNING " +
+           "AND (:environmentId IS NULL OR e.environmentId = :environmentId) " +
+           "ORDER BY e.createdAt ASC")
+    List<Object[]> findModuleHealthResultsRaw(@Param("since") Instant since, @Param("environmentId") Long environmentId);
 }

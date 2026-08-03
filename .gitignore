@@ -31,3 +31,6 @@ loveable.ai/
 
 # Local DB dumps (contain user data)
 .backups/
+
+#restrict documnets to upload in git 
+.docs/

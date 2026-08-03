@@ -59,7 +59,7 @@ function timeAgo(raw) {
 }
 
 // ── Profile Page ───────────────────────────────────────────────────────────────
-export function Profile({ setNotice }) {
+export function Profile({ setNotice, onProfileSaved }) {
   const [profile, setProfile] = useState(null);
   const [logs, setLogs] = useState([]);
   const [form, setForm] = useState({});
@@ -119,6 +119,10 @@ export function Profile({ setNotice }) {
       setProfile(updated);
       setNotice('Profile updated.');
       setEditing(false);
+      onProfileSaved?.({
+        displayName: updated.displayName,
+        profileImagePath: updated.profileImagePath
+      });
       await load();
     } catch (error) {
       setNotice(error.message);
@@ -133,6 +137,7 @@ export function Profile({ setNotice }) {
     try {
       const data = await api.uploadProfileImage(file);
       setForm((f) => ({ ...f, profileImagePath: data.profileImagePath }));
+      onProfileSaved?.({ profileImagePath: data.profileImagePath });
       setNotice('Profile image uploaded.');
     } catch (err) {
       setNotice(err.message);

@@ -1,6 +1,9 @@
 package com.automationportal.dashboard;
 
 import com.automationportal.executions.*;
+import com.automationportal.modules.ModuleEntity;
+import com.automationportal.modules.ModuleRepository;
+import com.automationportal.testcasecatalog.TestCaseCatalogService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -19,11 +22,17 @@ public class DashboardService {
 
     private final ExecutionRepository executionRepository;
     private final ExecutionTestCaseRepository testCaseRepository;
+    private final TestCaseCatalogService testCaseCatalogService;
+    private final ModuleRepository moduleRepository;
 
     public DashboardService(ExecutionRepository executionRepository,
-            ExecutionTestCaseRepository testCaseRepository) {
+            ExecutionTestCaseRepository testCaseRepository,
+            TestCaseCatalogService testCaseCatalogService,
+            ModuleRepository moduleRepository) {
         this.executionRepository = executionRepository;
         this.testCaseRepository = testCaseRepository;
+        this.testCaseCatalogService = testCaseCatalogService;
+        this.moduleRepository = moduleRepository;
     }
 
     public Map<String, Object> getSummary(String range) {
@@ -157,66 +166,167 @@ public class DashboardService {
         return trends;
     }
 
-    // Grouped by (moduleCode, framework) rather than moduleCode alone — the same module code can
-    // exist once per framework (e.g. LAND under both Selenium and Playwright), and mixing their
-    // executions together silently blended unrelated stats under one row. environmentId is
-    // optional: when supplied, only executions run against that environment count, so the
-    // Module Analytics table's Environment filter actually changes the numbers shown instead of
-    // only changing which rows are visible.
+    // TOTAL comes from the permanent test_case_catalog inventory (range/environment independent —
+    // running a module again never changes how many test cases it has). PASSED/FAILED/SKIPPED come
+    // from each catalog test case's latest qualifying result within the selected range/environment,
+    // so re-execution moves those counts around without ever inflating TOTAL. Grouped by
+    // (moduleCode, framework) rather than moduleCode alone — the same module code can exist once
+    // per framework (e.g. LAND under both Selenium and Playwright). Parent workflow modules (e.g.
+    // "Architect Empanelment") are synthesized by summing their children's rows below, since a
+    // parent is never itself executed and so never has its own catalog/execution rows.
     public List<Map<String, Object>> getModuleHealth(String range, Long environmentId) {
         Instant since = getSinceInstant(range);
+
+        // lastExecutionStatus keeps its original algorithm/semantics untouched — it's not part of
+        // the TOTAL-inflation bug this method is otherwise being rewritten to fix.
         List<Execution> executions = executionRepository.findAll().stream()
                 .filter(e -> e.getCreatedAt() != null && e.getCreatedAt().isAfter(since))
                 .filter(e -> environmentId == null || environmentId.equals(e.getEnvironmentId()))
                 .collect(Collectors.toList());
 
-        Map<String, List<Execution>> grouped = executions.stream()
+        Map<String, List<Execution>> groupedExecs = executions.stream()
                 .filter(e -> e.getModuleCode() != null)
                 .collect(Collectors.groupingBy(e -> e.getModuleCode() + "::" + e.getFramework()));
 
-        List<Map<String, Object>> healthList = new ArrayList<>();
-
-        for (Map.Entry<String, List<Execution>> entry : grouped.entrySet()) {
-            List<Execution> moduleExecs = entry.getValue();
-            String moduleCode = moduleExecs.get(0).getModuleCode();
-            String framework = moduleExecs.get(0).getFramework();
-
-            long totalTests = 0;
-            long passed = 0;
-            long failed = 0;
-            long skipped = 0;
+        Map<String, String> lastStatusByKey = new HashMap<>();
+        for (Map.Entry<String, List<Execution>> entry : groupedExecs.entrySet()) {
             String lastStatus = "UNKNOWN";
             Instant latestTime = null;
-
-            for (Execution e : moduleExecs) {
-                if (e.getStatus() != ExecutionStatus.QUEUED && e.getStatus() != ExecutionStatus.RUNNING) {
-                    totalTests += e.getTotalTests();
-                    passed += e.getPassedTests();
-                    failed += e.getFailedTests();
-                    skipped += e.getSkippedTests();
-                }
+            for (Execution e : entry.getValue()) {
                 if (e.getCreatedAt() != null && (latestTime == null || e.getCreatedAt().isAfter(latestTime))) {
                     latestTime = e.getCreatedAt();
                     lastStatus = e.getStatus().toString();
                 }
             }
+            lastStatusByKey.put(entry.getKey(), lastStatus);
+        }
 
-            double passRate = totalTests > 0 ? (passed * 100.0) / totalTests : 0.0;
+        // TOTAL: fixed catalog inventory, independent of range/environment.
+        Map<String, Long> totalByKey = testCaseCatalogService.countActiveByModuleAndFramework();
+
+        // PASSED/FAILED/SKIPPED: reduce the FK-joined raw rows (ordered ASC by execution time) to
+        // the latest status per catalog test case, then tally per moduleCode::framework.
+        List<Object[]> raw = testCaseRepository.findModuleHealthResultsRaw(since, environmentId);
+        Map<Long, String> latestStatusByCatalogId = new LinkedHashMap<>();
+        Map<Long, String> keyByCatalogId = new HashMap<>();
+        for (Object[] row : raw) {
+            Long catalogId = ((Number) row[0]).longValue();
+            String moduleCode = (String) row[1];
+            String framework = (String) row[2];
+            String status = (String) row[3];
+            latestStatusByCatalogId.put(catalogId, status);
+            keyByCatalogId.put(catalogId, moduleCode + "::" + framework);
+        }
+
+        Map<String, long[]> tallyByKey = new HashMap<>(); // [passed, failed, skipped]
+        for (Map.Entry<Long, String> entry : latestStatusByCatalogId.entrySet()) {
+            String key = keyByCatalogId.get(entry.getKey());
+            long[] tally = tallyByKey.computeIfAbsent(key, k -> new long[3]);
+            String status = entry.getValue();
+            if ("PASS".equalsIgnoreCase(status)) tally[0]++;
+            else if ("FAIL".equalsIgnoreCase(status)) tally[1]++;
+            else if ("SKIP".equalsIgnoreCase(status)) tally[2]++;
+        }
+
+        Set<String> allKeys = new HashSet<>();
+        allKeys.addAll(totalByKey.keySet());
+        allKeys.addAll(tallyByKey.keySet());
+        allKeys.addAll(lastStatusByKey.keySet());
+
+        Map<String, Map<String, Object>> rowsByKey = new HashMap<>();
+        for (String key : allKeys) {
+            int sep = key.indexOf("::");
+            String moduleCode = sep >= 0 ? key.substring(0, sep) : key;
+            String framework = sep >= 0 ? key.substring(sep + 2) : "";
+
+            long total = totalByKey.getOrDefault(key, 0L);
+            long[] tally = tallyByKey.getOrDefault(key, new long[3]);
+            long passed = tally[0], failed = tally[1], skipped = tally[2];
+            long executedCount = passed + failed + skipped;
+            long notExecuted = total - executedCount;
+            double passRate = executedCount > 0 ? (passed * 100.0) / executedCount : 0.0;
 
             Map<String, Object> moduleMap = new HashMap<>();
             moduleMap.put("moduleCode", moduleCode);
             moduleMap.put("framework", framework);
             moduleMap.put("moduleName", getModuleName(moduleCode));
-            moduleMap.put("totalTests", totalTests);
+            moduleMap.put("totalTests", total);
             moduleMap.put("passed", passed);
             moduleMap.put("failed", failed);
             moduleMap.put("skipped", skipped);
+            moduleMap.put("executed", executedCount);
+            moduleMap.put("notExecuted", notExecuted);
             moduleMap.put("passRate", BigDecimal.valueOf(passRate).setScale(1, RoundingMode.HALF_UP));
-            moduleMap.put("lastExecutionStatus", lastStatus);
-            healthList.add(moduleMap);
+            moduleMap.put("lastExecutionStatus", lastStatusByKey.getOrDefault(key, "UNKNOWN"));
+            rowsByKey.put(key, moduleMap);
         }
 
-        return healthList;
+        addParentAggregateRows(rowsByKey);
+
+        return new ArrayList<>(rowsByKey.values());
+    }
+
+    // Parent workflow modules (parent_module_id IS NULL, with children pointing at them) never
+    // have their own execution/catalog rows — only their children are ever run — so their totals
+    // are synthesized by summing every child's already-computed row above. Deliberately sums ALL
+    // children under a given parent id rather than filtering by "child framework == parent
+    // framework": each parent row already scopes to one framework by construction (e.g. "Architect
+    // Empanelment" has two separate parent ModuleEntity rows, one MAVEN_TESTNG one PLAYWRIGHT, each
+    // with its own child set via parent_module_id — verified against real data), so an extra
+    // equality filter here could only ever silently under-count if a child were ever mis-linked,
+    // which is worse than the alternative of over-counting under a wrong parent (visible/obvious)
+    // instead of quietly missing tests (invisible). Two-level only, matching buildHierarchyRows.js
+    // (shared/ui/hierarchyRows.js), which never renders a grandchild either.
+    private void addParentAggregateRows(Map<String, Map<String, Object>> rowsByKey) {
+        List<ModuleEntity> modules = moduleRepository.findAll();
+        Map<Long, List<ModuleEntity>> childrenByParentId = modules.stream()
+                .filter(m -> m.getParentModuleId() != null)
+                .collect(Collectors.groupingBy(ModuleEntity::getParentModuleId));
+
+        for (ModuleEntity parent : modules) {
+            if (parent.getParentModuleId() != null) continue;
+            List<ModuleEntity> children = childrenByParentId.get(parent.getId());
+            if (children == null || children.isEmpty()) continue;
+
+            long pTotal = 0, pPassed = 0, pFailed = 0, pSkipped = 0, pExecuted = 0, pNotExecuted = 0;
+            for (ModuleEntity child : children) {
+                if (!child.isActive() || !child.isVisible()) continue;
+                Map<String, Object> childRow = rowsByKey.get(child.getCode() + "::" + child.getRunnerType());
+                if (childRow == null) continue;
+                pTotal += ((Number) childRow.get("totalTests")).longValue();
+                pPassed += ((Number) childRow.get("passed")).longValue();
+                pFailed += ((Number) childRow.get("failed")).longValue();
+                pSkipped += ((Number) childRow.get("skipped")).longValue();
+                pExecuted += ((Number) childRow.get("executed")).longValue();
+                pNotExecuted += ((Number) childRow.get("notExecuted")).longValue();
+            }
+
+            double pPassRate = pExecuted > 0 ? (pPassed * 100.0) / pExecuted : 0.0;
+            String pLastStatus;
+            if (pExecuted == 0) {
+                pLastStatus = "UNKNOWN";
+            } else if (pFailed == 0 && pSkipped == 0) {
+                pLastStatus = "PASSED";
+            } else if (pFailed > 0 && pPassed == 0) {
+                pLastStatus = "FAILED";
+            } else {
+                pLastStatus = "PARTIAL";
+            }
+
+            Map<String, Object> parentMap = new HashMap<>();
+            parentMap.put("moduleCode", parent.getCode());
+            parentMap.put("framework", parent.getRunnerType());
+            parentMap.put("moduleName", parent.getName() != null ? parent.getName() : getModuleName(parent.getCode()));
+            parentMap.put("totalTests", pTotal);
+            parentMap.put("passed", pPassed);
+            parentMap.put("failed", pFailed);
+            parentMap.put("skipped", pSkipped);
+            parentMap.put("executed", pExecuted);
+            parentMap.put("notExecuted", pNotExecuted);
+            parentMap.put("passRate", BigDecimal.valueOf(pPassRate).setScale(1, RoundingMode.HALF_UP));
+            parentMap.put("lastExecutionStatus", pLastStatus);
+            rowsByKey.put(parent.getCode() + "::" + parent.getRunnerType(), parentMap);
+        }
     }
 
     public List<Execution> getRecentActivity() {

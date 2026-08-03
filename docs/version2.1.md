@@ -1,155 +1,832 @@
-# Version 2.1 (Proposed) — Multi-Framework, Multi-Project Execution Architecture
+# Testrix Multi-Workspace Architecture (Phase 2) – Project-Based Workspace & Role Management
 
-> Status: **Not scheduled yet.** Saved here as a reference design for later — current priority
-> stays on the single-project, single-framework (TestNG/MPHIDB) work. Revisit and add more
-> suggestions here before actually building any of this.
+## Objective
 
-## Context
+Now that the core platform is approaching a stable state, I want to start planning the next major architectural milestone before deployment.
 
-The v1.4 integration work (Execution Center wired to admin-registered Modules, live event
-pipeline, TestNG XML gap-fill parsing, etc.) proved the pipeline works end-to-end, but it also
-exposed exactly how much of it is hardcoded to "one project, one framework (Maven+TestNG), one
-runner instance":
+This is **not an implementation request yet**.
 
-- `FrameworkRunnerService.runMaven()` hardcodes the `mvn clean test -DsuiteXmlFile=...
-  -Dusedefaultlisteners=true` command — there's no notion of "a different kind of runner."
-- `ModuleEntity` has a `runnerType` column (added in v1.4), but nothing reads it yet — it's a
-  seam, not a working switch.
-- Execution Manager already has a `runner_registry` table + `RunnerRegistry`/`RunnerClient`/
-  `QueueProcessor` — real multi-runner *infrastructure* exists — but `QueueProcessor.selectRunner()`
-  just returns "the first IDLE runner, or the single default" (`execution-manager/.../QueueProcessor.java`).
-  There's no concept of "which runner can handle this job's project/framework."
-- `ExecutionJob` and `RunnerRegistry` have no `projectId`/`runnerType` columns to route on.
-- `ModuleEntity`, `Execution`, `environments` all implicitly belong to "the one project" — there's
-  no `Project` entity at all yet.
-- The event contract (`POST /api/events/execution` with SUITE_STARTED/TEST_STARTED/.../
-  SUITE_COMPLETED, consumed by `ExecutionEventService`) is already framework-agnostic — MPHIDB's
-  `PortalApiClient.java` is just one implementation of it for Java/TestNG. This is the reusable
-  part.
+The goal is to design a complete **Multi-Workspace Architecture** that allows multiple projects, multiple organizations, multiple users, and multiple roles to work independently inside the same Testrix instance.
 
-So the three future scenarios map to three different amounts of new work:
+The implementation should follow an enterprise SaaS-style architecture while keeping the current system scalable and maintainable.
 
-## Scenario 1 — More TestNG modules in MPHIDB (already solved, no new work)
+Please analyze this proposal, identify architectural gaps, suggest improvements, and produce a complete implementation plan before any coding begins.
 
-Admin opens Module Management → Add Module → fills Name/Code/Suite XML/Report Path/Runner Type
-(defaults to `MAVEN_TESTNG`) → it appears in Execution Center immediately. Nothing to build.
+---
 
-## Scenario 2 — A different framework (Playwright/Python/.NET), same project
+# Current Situation
 
-Needs two things, both scoped and moderate:
+Currently, Testrix behaves like a single global application.
 
-### 2a. A written "Framework Integration Contract" (documentation, not code)
-Formalize what `PortalApiClient.java` does today into a language-agnostic spec:
-`POST {portalUrl}/api/events/execution` with header `X-API-Key`, JSON body
-`{executionId, eventType, timestamp, data}`, event types SUITE_STARTED → TEST_STARTED →
-TEST_PASSED/FAILED/SKIPPED → SCREENSHOT_CAPTURED/LOG_ENTRY → SUITE_COMPLETED, with the exact field
-names `ExecutionEventService.processEvent()` reads for each type. Any new framework needs a thin
-adapter that speaks this contract — a Playwright custom `Reporter`, a pytest `conftest.py` plugin
-using `pytest_runtest_logreport`, or a .NET test listener. This is a one-time write-up
-(`docs/framework-integration-contract.md`) that makes onboarding a new framework a documentation
-exercise, not a Portal code change, for the *live event* half of the pipeline.
+There is only one shared dashboard.
 
-### 2b. Generalize the Framework Runner's command execution
-Replace the hardcoded Maven command in `FrameworkRunnerService.runMaven()` with a
-**runnerType → command template** lookup:
-- `MAVEN_TESTNG`: `mvn clean test -DsuiteXmlFile={suite} -DexecutionId={executionId} -DportalUrl={portalUrl} -DportalApiKey={apiKey} -Dusedefaultlisteners=true`
-- `PLAYWRIGHT_JS`: `npx playwright test {suite} --reporter=list` (+ env vars for executionId/portalUrl/apiKey)
-- `PYTHON_PYTEST`: `pytest {suite} --portal-url={portalUrl} --portal-api-key={apiKey} --execution-id={executionId}`
-- `DOTNET_NUNIT`: `dotnet test {suite} ...`
+All modules are available globally.
 
-Concretely: `/runner/run`'s request body gains a `runnerType` field (`ExecutionManagerController`
-→ `RunnerClient.triggerRun()` → passes it through); `FrameworkRunnerService` keeps a small
-`Map<String, String>` of command templates (env-var configurable, so new types can be added
-without a rebuild) and does placeholder substitution instead of the current fixed `command.add(...)`
-sequence. The result-file "gap-fill" parser (`TestNGXmlParser`) stays TestNG-only for now — a new
-parser (e.g. `PlaywrightJsonParser`) implementing the same `List<ExecutionTestCase> parse(...)`
-shape gets added only when/if a second framework is actually onboarded; the live-event path
-already carries the primary data, so a missing native parser is "less enrichment," not "broken."
+The current Workspace concept exists, but it is owned by the Super Admin and is not yet project-centric.
 
-**This is enough for one project that mixes frameworks on one host** (e.g. MPHIDB stays
-Maven+TestNG, a new internal tool gets a Playwright suite, same machine/Runner has both Maven and
-Node available). It is not yet true multi-project isolation — see Scenario 3.
+This architecture is no longer sufficient.
 
-## Scenario 3 — Multiple projects, each with its own framework (the real future-scope item)
+We now need to convert Testrix into a **Project-Oriented Multi-Workspace Platform**.
 
-This is what `docs/version1.4.md` already calls out as future scope, and it's the natural next
-foundation once there's actually a second project to onboard. Needs:
+---
 
-### New `Project` entity
-`projects` table: `id, code, name, description, active`. New Flyway migration, new
-`ProjectEntity`/`ProjectRepository`/`ProjectController` + `ProjectAdminController`, mirroring the
-existing `modules` package structure exactly.
+# High-Level Architecture
 
-### Thread `project_id` through the entities that are currently implicitly single-project
-- `modules.project_id` FK — every module belongs to one project.
-- `environments.project_id` FK — Project A's "QA" and Project B's "QA" are different base URLs.
-- `executions.project_id` (denormalized, for fast filtering) or derive via module → project.
-- `execution_manager`'s `execution_jobs.project_id` + `runner_registry.project_id` (or a
-  `supported_project_codes` list, since one Runner instance could in principle serve more than one
-  project if they share a toolchain) — this is what lets `QueueProcessor.selectRunner()` actually
-  filter ("give me an IDLE runner that serves project X and runnerType Y") instead of blindly
-  grabbing the first IDLE one or a single hardcoded default.
+The platform should consist of three logical layers:
 
-### One Framework Runner deployment per project (operationally)
-Because `FrameworkRunnerService.frameworkPath` is a single static working directory per runner
-process, you can't safely have one Runner juggle two unrelated checked-out repos (path collisions,
-conflicting toolchains, concurrent Maven+npm in the same directory). The right model: **each
-project gets its own Framework Runner instance/container**, pointed at that project's checkout via
-its own `FRAMEWORK_PATH`/`runnerType` env vars, and it registers itself into the already-existing
-`runner_registry` table (extended with `project_id`/`runner_type` columns) — either by a manual
-admin action or via a heartbeat/self-registration call to `POST /em/runners/register` (endpoint
-already exists, just needs the new fields). The Execution Manager then dispatches each job to a
-runner that actually matches its project, instead of every job racing for "the one runner."
+## 1. Super Admin
 
-### Per-project concurrency
-Today `EM_MAX_CONCURRENT` is one global counter. A long Selenium run on Project A shouldn't starve
-Project B's short Playwright smoke run. `QueueProcessor` should track running-job counts per
-project (or per runner) rather than one global number.
+This is the highest authority in Testrix.
 
-### Super Admin's new/extended screens
-This directly answers "what does the admin configure/see for a new project+framework":
+The Super Admin manages the platform itself.
 
-1. **Projects** (new admin page) — list/add/edit/deactivate. Fields: Code, Name, Description,
-   Active. This becomes the top-level thing everything else hangs off.
-2. **Runners** (new admin page, surfaces the already-existing `runner_registry` table) — list of
-   registered Framework Runner instances: name, URL, status (IDLE/BUSY/OFFLINE), last heartbeat,
-   which Project + Runner Type it serves. Super Admin registers a new Runner here after ops stands
-   up the container (or it self-registers and just needs to be *assigned* a project here).
-3. **Environments** (existing page, extend) — add a Project selector; environments become scoped
-   per project instead of global.
-4. **Modules** (existing page, extend) — add a required Project selector at the top of the form; the
-   Runner Type dropdown (already added in v1.4) now actually matters since it picks the command
-   template. Suite/report path fields stay as-is (their meaning — "what to hand the runner" —
-   already generalizes fine across frameworks).
-5. **Execution Center** (user-facing, extend) — a Project selector at the top, above the existing
-   Module dropdown; selecting a project filters the module list to that project's modules only.
-   For a single-project deployment (today's state) this selector can default to the one project
-   and stay hidden/collapsed, so nothing changes visually until a second project actually exists.
+The Super Admin should **never work inside a project**.
 
-### RBAC seam (not building now, just noting the shape)
-`docs/version1.4.md` already lists "project-wise access, role-based access control" as future
-scope. Once `Project` exists as a first-class entity, that future work becomes a straightforward
-`user_project_roles(user_id, project_id, role)` join table — Scenario 3 is the prerequisite
-foundation for that, not a detour from it.
+Instead, the Super Admin manages projects, workspaces, organizations, users, and roles.
 
-## Suggested sequencing (when this is actually picked up)
+The Super Admin should not directly execute automation, API tests, or performance tests inside a project.
 
-1. Write `docs/framework-integration-contract.md` (Scenario 2a) — cheap, unblocks anyone building
-   a new framework adapter immediately, no Portal code change.
-2. Generalize `FrameworkRunnerService` to runnerType→command-template dispatch (Scenario 2b) —
-   moderate, makes "a second framework on the same project" real.
-3. Only when a second *project* actually needs onboarding: build the `Project` entity + thread
-   `project_id` through modules/environments/jobs/runners + the two new admin screens + Execution
-   Center's project selector (Scenario 3). Doing this before there's a real second project to
-   validate against risks guessing wrong about what fields/filters are actually needed.
+Instead, the Super Admin controls the platform.
 
-## Open items to add more suggestions to before building
+---
 
-- [ ] Should `ModuleEntity.xmlFile` be renamed to something framework-neutral (e.g.
-      `suite_reference`) once a second runner type is real, or is reusing the existing column fine?
-- [ ] Should per-project concurrency limits be admin-configurable per project, or a single new
-      global default that applies per-project?
-- [ ] Does a Runner instance ever need to serve more than one project (shared toolchain), or is
-      "one Runner = one project" a safe simplifying assumption to start with?
-- [ ] Where does the Playwright/pytest/.NET adapter code itself live — a template repo the Portal
-      team publishes, or written fresh per project?
+## 2. Project Workspace
+
+Every project should have its own isolated Workspace.
+
+Each Workspace represents one software project.
+
+Examples:
+
+```text
+MP Housing Board ERP
+
+Revenue ERP
+
+Citizen Portal
+
+Police ERP
+
+Health Management System
+```
+
+Each Workspace should be completely independent.
+
+Everything inside one Workspace must remain isolated from every other Workspace.
+
+---
+
+## 3. Project Users
+
+Every Workspace has its own users.
+
+Examples:
+
+* Project Admin
+* QA Lead
+* Automation Engineer
+* Manual Tester
+* API Tester
+* Performance Engineer
+* Viewer
+
+These users should only access the Workspace they belong to.
+
+---
+
+# New Login Flow
+
+The current login page should be enhanced.
+
+Along with Login, add a new option:
+
+> **Request Workspace**
+
+This allows a new project team to request access to Testrix.
+
+---
+
+# Workspace Request Flow
+
+When someone clicks **Request Workspace**, they should complete a registration form.
+
+Example information:
+
+## Project Information
+
+* Project Name
+* Organization Name
+* Project Description
+* Technology Stack
+* Backend Technology
+* Frontend Technology
+* Database
+* CI/CD Tool (Optional)
+
+---
+
+## Required Testing Modules
+
+Allow the requester to choose which Testrix products they require.
+
+Examples:
+
+Automation Testing
+
+* Selenium
+* Playwright
+
+API Testing
+
+Performance Testing
+
+Future Modules
+
+The selected modules determine what will be enabled inside the Workspace.
+
+---
+
+## Workspace Information
+
+Workspace Name
+
+Preferred Workspace Code
+
+Project Manager Name
+
+Email
+
+Phone
+
+Expected Team Size
+
+Additional Notes
+
+---
+
+# Approval Workflow
+
+Submitting a request should not immediately create a Workspace.
+
+Instead:
+
+Request
+
+↓
+
+Super Admin Review
+
+↓
+
+Approve / Reject
+
+If approved:
+
+* Workspace created
+* Project created
+* Project Admin account created
+* Default project roles assigned
+* Selected testing modules enabled
+
+If rejected:
+
+Store rejection reason.
+
+Allow resubmission later.
+
+---
+
+# Super Admin Responsibilities
+
+After this architecture is implemented, the Super Admin becomes a true platform administrator.
+
+Responsibilities include:
+
+* Workspace Approval
+* Workspace Management
+* Project Management
+* User Management
+* Global Role Management
+* Module Licensing
+* Platform Configuration
+* Platform Health
+* Audit Logs
+* Subscription Management (Future)
+* Global Analytics
+
+The Super Admin should not manage project-level testing activities.
+
+---
+
+# Project Admin Responsibilities
+
+Every approved Workspace should have one Project Admin.
+
+The Project Admin becomes the owner of that Workspace.
+
+Responsibilities include:
+
+* Manage project users
+* Invite users
+* Remove users
+* Assign roles
+* Manage project settings
+* Enable/Disable purchased testing modules
+* Configure environments
+* Configure integrations
+* Manage project execution
+
+The current Workspace functionality should move under the Project Admin.
+
+---
+
+# Role Management
+
+Roles should exist at two different levels.
+
+## Platform Roles
+
+Created only by Super Admin.
+
+Examples:
+
+Project Admin
+
+QA Lead
+
+Automation Engineer
+
+Manual Tester
+
+API Tester
+
+Performance Engineer
+
+Viewer
+
+Future Roles
+
+The Super Admin decides:
+
+* Role Name
+* Permissions
+* Module Access
+
+---
+
+## Project User Assignment
+
+Project Admin cannot create new platform roles.
+
+Instead,
+
+they simply assign existing roles to project users.
+
+One user may have multiple roles.
+
+Example:
+
+```text
+John
+
+QA Lead
+
+Automation Engineer
+
+API Tester
+```
+
+This many-to-many role mapping should replace the current dummy implementation.
+
+---
+
+# User Experience
+
+After login,
+
+every user enters their assigned Workspace.
+
+All users should continue to see the standard Testrix Dashboard.
+
+However,
+
+features should appear based on permissions.
+
+For example:
+
+Automation Engineer
+
+* Dashboard
+* Automation
+* Reports
+
+QA Lead
+
+* Dashboard
+* Analytics
+* Execution Center
+* Reports
+
+Project Admin
+
+* Everything inside that Workspace
+* Project Administration
+* User Management
+* Environment Management
+* Workspace Settings
+
+Super Admin
+
+* Platform Dashboard
+* Workspace Requests
+* Project Management
+* Global Users
+* Global Roles
+* Platform Administration
+
+The UI should be permission-driven rather than having separate dashboards for every role.
+
+---
+
+# Workspace Settings
+
+Each Workspace should contain a Settings section.
+
+From here the Project Admin can:
+
+* Enable/Disable licensed modules
+* Configure environments
+* Manage integrations
+* Configure notifications
+* Manage execution settings
+* Configure project-specific preferences
+
+Without affecting any other Workspace.
+
+---
+
+# Security & Isolation
+
+Workspace isolation is mandatory.
+
+Users must never access another project's:
+
+* Executions
+* Reports
+* Test Suites
+* Analytics
+* Users
+* Roles
+* Settings
+* Environments
+
+Every query, API, and dashboard should respect Workspace boundaries.
+
+---
+
+# Future Enhancements
+
+Design the architecture with future features in mind:
+
+* Organization-level workspaces
+* Multiple Project Admins
+* Workspace Templates
+* Billing & Subscription
+* Marketplace
+* AI Workspace Assistant
+* Shared Libraries
+* Cross-Workspace Reporting (Super Admin only)
+* SSO (Azure AD, Google, Okta)
+* LDAP
+* Audit Logs
+* Backup & Restore
+* Workspace Import/Export
+
+The architecture should support these features without major redesign.
+
+# Tenant & Project Isolation (Core Platform Architecture)
+
+This is a mandatory architectural requirement and must become the foundation of the entire Testrix platform.
+
+Testrix is being designed as a true multi-workspace, multi-project platform. Therefore, every resource in the system must be logically isolated using both **Tenant ID** and **Project ID**.
+
+This architecture is required to prevent cross-project data access, ensure security, and support future scalability.
+
+## Tenant ID
+
+A Tenant represents an organization or customer using Testrix.
+
+Each Tenant will have a unique identifier.
+
+Example:
+
+TEN-000001
+TEN-000002
+
+A Tenant may own one or more Projects in the future.
+
+## Project ID
+
+Every Workspace (Project) must have its own unique Project ID.
+
+Examples:
+
+PRJ-000001
+PRJ-000002
+PRJ-000003
+
+Each Project always belongs to a single Tenant.
+
+The combination of **Tenant ID + Project ID** becomes the primary context for all business operations inside Testrix.
+
+## Data Isolation Rules
+
+Every major entity in the platform must be associated with the appropriate Tenant ID and Project ID wherever applicable.
+
+This includes, but is not limited to:
+
+* Users
+* User Role Mapping
+* Workspaces
+* Framework Configurations
+* Modules
+* Test Suites
+* Test Cases
+* Executions
+* Reports
+* Environments
+* Schedulers
+* Notifications
+* Integrations
+* AI Context
+* Dashboard Analytics
+* Historical Compare
+* Future Modules
+
+No data should ever exist without being associated with its corresponding Tenant and Project context.
+
+## API Architecture
+
+All backend APIs must be designed around the Tenant and Project context.
+
+The backend should never return global data by default.
+
+Every request must first resolve:
+
+Tenant ID
+
+↓
+
+Project ID
+
+↓
+
+User
+
+↓
+
+Assigned Roles
+
+↓
+
+Accessible Modules
+
+↓
+
+Requested Data
+
+Examples:
+
+* Fetch all Projects for a Tenant.
+* Fetch all Users belonging to a Project.
+* Fetch all Frameworks enabled for a Project.
+* Fetch Executions for a specific Project.
+* Fetch Reports only for the current Project.
+* Fetch Dashboard Analytics scoped to the current Project.
+
+The API layer should automatically enforce Tenant and Project isolation rather than relying only on frontend filtering.
+
+## Authentication & Authorization
+
+After login, the authenticated user should automatically receive:
+
+* Tenant ID
+* Project ID
+* User ID
+* Assigned Roles
+* Enabled Modules
+* Workspace Context
+
+This context should remain available throughout the user's session and should be used by every API request and authorization check.
+
+Role-based permissions should always be evaluated within the current Tenant and Project.
+
+## Security Requirements
+
+A user must never be able to:
+
+* Access another Tenant's data.
+* Access another Project's data.
+* Execute another Project's Framework.
+* View another Project's Reports.
+* Access another Project's Test Suites.
+* Modify another Project's Settings.
+* Read another Project's Analytics.
+
+Every backend service must validate the Tenant ID and Project ID before performing any database operation.
+
+Frontend restrictions alone must never be considered sufficient for security.
+
+## Future Scalability
+
+This Tenant + Project architecture must become the foundation for all current and future modules, including:
+
+* Automation Testing
+* API Testing
+* Performance Testing
+* AI Services
+* Workspace Management
+* Reporting
+* Analytics
+* Scheduler
+* Notifications
+* Future Enterprise Features
+
+The entire database design, API architecture, authentication, authorization, and service layer should be built around this model from the beginning to avoid future architectural redesign.
+
+---
+
+# Deliverables
+
+Before writing any code:
+
+1. Review this architecture.
+2. Identify missing requirements.
+3. Suggest enterprise-grade improvements.
+4. Point out scalability concerns.
+5. Identify security considerations.
+6. Recommend the database design.
+7. Recommend the API design.
+8. Recommend the permission model.
+9. Recommend the Workspace isolation strategy.
+10. Produce a phased implementation roadmap.
+
+Do **not** start implementation yet.
+
+This Workspace architecture will become the foundation of Testrix, so the design should be finalized before development begins.
+
+
+# Additional Core Architecture Requirements
+
+The following architectural rules must also be considered before implementation begins.
+
+## Unique Identifier Policy
+
+Every major business entity in Testrix must have its own permanent unique identifier.
+
+Examples:
+
+TEN-000001   → Tenant
+PRJ-000001   → Project
+WS-000001    → Workspace
+USR-000001   → User
+ROL-000001   → Role
+ENV-000001   → Environment
+
+These identifiers should remain immutable after creation and become the primary business identifiers throughout the platform.
+
+Workspace Name, Workspace Code, Tenant Code, and Project Code must all be validated for uniqueness according to the business rules defined for the platform.
+
+This prevents duplicate identities and ensures reliable routing, API lookups, reporting, integrations, and future scalability.
+
+---
+
+## Project Administration Protection
+
+Every Workspace must always have at least one active Project Admin.
+
+The system must prevent:
+
+- Removing the last active Project Admin.
+- Disabling the last active Project Admin.
+- Deleting the last active Project Admin.
+- Transferring ownership without assigning another Project Admin first.
+
+This guarantees that every Workspace always has an administrator capable of managing users, permissions, environments, and project configuration.
+
+---
+
+## Authorization Flow
+
+Authentication and authorization should always follow this sequence:
+
+Authenticated User
+
+↓
+
+Tenant
+
+↓
+
+Project
+
+↓
+
+Assigned Roles
+
+↓
+
+Permissions
+
+↓
+
+Enabled Modules
+
+↓
+
+Requested Resource
+
+Every API request must be validated using this complete authorization chain before any business logic or database operation is performed.
+
+The frontend should never be considered the source of authorization.
+
+# Future Scope
+
+The following features are intentionally outside the scope of the current implementation but should be considered during architecture design to avoid future redesign.
+
+## Workspace Enhancements
+
+- Multiple Project Admins per Workspace.
+- Workspace ownership transfer.
+- Workspace archive and restore.
+- Workspace cloning.
+- Workspace templates.
+- Workspace import and export.
+
+---
+
+## Organization Management
+
+- Multiple Organizations (Tenants).
+- Organization administrators.
+- Multiple Projects under one Organization.
+- Organization-level analytics.
+- Organization-wide reporting.
+
+---
+
+## User & Identity
+
+- User invitation by email.
+- Self-registration through invitation links.
+- Multi-factor authentication (MFA).
+- Single Sign-On (Azure AD, Google, Okta).
+- LDAP / Active Directory integration.
+- Password policy management.
+
+---
+
+## Platform Administration
+
+- Billing & Subscription Management.
+- License Management.
+- Usage Analytics.
+- Audit Logs.
+- Platform Monitoring.
+- Feature Flags.
+- Maintenance Mode.
+
+---
+
+## Testing Platform Enhancements
+
+- Mobile Automation.
+- Desktop Automation.
+- Security Testing.
+- Accessibility Testing.
+- Visual Testing.
+- AI-assisted Test Generation.
+- AI-assisted Failure Analysis.
+- Shared Test Libraries.
+- Cross-Framework Analytics.
+
+---
+
+## Collaboration
+
+- Project Notifications.
+- Team Activity Feed.
+- Comments on Executions and Reports.
+- Mentions and Assignments.
+- Approval Workflows.
+
+---
+
+## Enterprise Integrations
+
+- Jira
+- Azure DevOps
+- GitHub
+- GitLab
+- Bitbucket
+- Slack
+- Microsoft Teams
+- Email Notifications
+- Webhooks
+
+---
+
+## Reporting & Analytics
+
+- Organization-wide dashboards.
+- Cross-project analytics (Super Admin only).
+- Executive dashboards.
+- Custom report builder.
+- Scheduled reports.
+- Historical trends.
+- Predictive analytics.
+
+---
+
+## AI Features
+
+- AI Workspace Assistant.
+- AI Test Recommendations.
+- AI Failure Classification.
+- AI Report Summaries.
+- AI Root Cause Analysis.
+- AI Execution Insights.
+
+---
+
+## Long-Term Vision
+
+The architecture should be designed today so that all future capabilities can be added without requiring fundamental changes to the database design, authentication model, authorization model, workspace isolation, tenant isolation, or API architecture.
+
+The current implementation should establish a scalable foundation that supports the long-term evolution of Testrix into a complete enterprise testing platform.
+
+
+kuch important thing 
+## User & Role Assignment Model
+
+Users are managed at the Project level, while Roles are managed at the Platform level.
+
+### Platform Roles
+
+Role definitions are global across the entire Testrix platform.
+
+Only the Super Admin can create, modify, or remove platform roles.
+
+These roles are shared across all Projects.
+
+Default platform roles include:
+
+- Project Admin
+- QA Lead
+- Automation Engineer
+- Viewer
+
+Additional roles may be created by the Super Admin as business requirements evolve.
+
+### Project-Based User Assignment
+
+Users belong to one or more Projects.
+
+A user can be assigned different roles in different Projects.
+
+Role assignments are always maintained at the Project level and are never shared automatically between Projects.
+
+Example:
+
+User: Naveen
+
+Project: MP Housing Board ERP
+Role: Project Admin
+
+Project: Revenue ERP
+Role: Viewer
+
+Project: Citizen Portal
+Role: QA Lead
+
+This allows the same user to have different responsibilities across multiple Projects while maintaining complete project isolation.
+
+### Authorization Rule
+
+Every authorization decision must be resolved using the following context:
+
+Authenticated User
+        ↓
+Tenant
+        ↓
+Project
+        ↓
+Assigned Role(s)
+        ↓
+Permissions
+        ↓
+Accessible Modules
+        ↓
+Requested Resource
+
+The same user may receive different permissions depending on the currently selected Project, even though the platform roles themselves remain common across all Projects.

@@ -76,9 +76,9 @@ public class AuthController {
     @PostMapping("/forgot-password")
     public ApiResponse<Map<String, String>> forgotPassword(@Valid @RequestBody AuthDtos.ForgotPasswordRequest request, HttpServletRequest servletRequest) {
         User user = userRepository.findByEmail(request.email()).orElseThrow(() -> new IllegalArgumentException("Email not found"));
-        String otp = otpService.send(user.getUsername(), user.getEmail(), OtpPurpose.FORGOT_PASSWORD);
+        otpService.send(user.getUsername(), user.getEmail(), OtpPurpose.FORGOT_PASSWORD);
         auditService.record(user, AuditAction.OTP_SENT, "Forgot password OTP sent", servletRequest);
-        return ApiResponse.ok(Map.of("status", "otp_sent", "otp", otp));
+        return ApiResponse.ok(Map.of("status", "otp_sent"));
     }
 
     @PostMapping("/reset-password")

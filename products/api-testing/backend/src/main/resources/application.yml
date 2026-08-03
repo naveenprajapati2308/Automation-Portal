@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: api-testing-platform-backend
+  autoconfigure:
+    # Auth here is entirely JWT-based (JwtValidationFilter) — no HTTP Basic is registered,
+    # so Spring Boot's auto-created in-memory user is unreachable dead weight. Excluding it
+    # only silences the "Using generated security password" boot-log noise.
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3307/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${DB_USERNAME:root}
@@ -41,8 +46,10 @@ apitesting:
   app:
     frontend-url: ${FRONTEND_URL:http://localhost:15174}
   encryption:
-    # AES-256-GCM key (base64, 32 bytes). Override in every real deployment.
-    key: ${APITESTING_ENCRYPTION_KEY:ZGV2LW9ubHkta2V5LWNoYW5nZS1pbi1wcm9kLTAwMDE=}
+    # AES-256-GCM key (base64, 32 bytes). No insecure fallback on purpose — startup fails if
+    # unset. Never rotate this casually: changing it makes every already-encrypted collection
+    # credential permanently undecryptable without a dedicated re-encryption migration.
+    key: ${APITESTING_ENCRYPTION_KEY}
   scheduler:
     poll-interval-ms: ${SCHEDULER_POLL_INTERVAL_MS:15000}
     claim-batch-size: ${SCHEDULER_CLAIM_BATCH_SIZE:200}
@@ -56,6 +63,13 @@ apitesting:
     # Local gzip store for oversized bodies (MinIO-shaped interface; swap the
     # BodyStore impl when/if MinIO is introduced).
     body-store-dir: ${HISTORY_BODY_STORE_DIR:history-bodies}
+
+security:
+  jwt:
+    # Same signing secret automation-portal issues login tokens with — this service only
+    # validates signature + expiry, it never issues its own tokens. No insecure fallback;
+    # startup fails if unset.
+    secret: ${PORTAL_JWT_SECRET}
 
 management:
   endpoints:

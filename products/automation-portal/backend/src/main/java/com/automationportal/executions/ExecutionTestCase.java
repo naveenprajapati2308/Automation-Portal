@@ -67,6 +67,12 @@ public class ExecutionTestCase {
     @Column(name = "retries", nullable = false)
     private int retries = 0;
 
+    // Permanent link to this test case's catalog identity (see testcasecatalog package). Written
+    // by TestCaseCatalogService after sync, not by the live event pipeline — nullable until the
+    // first catalog sync runs for this row.
+    @Column(name = "test_case_catalog_id")
+    private Long testCaseCatalogId;
+
     @Transient
     private java.util.List<TestStep> transientSteps = new java.util.ArrayList<>();
 
@@ -146,6 +152,9 @@ public class ExecutionTestCase {
 
     public int getRetries() { return retries; }
     public void setRetries(int retries) { this.retries = retries; }
+
+    public Long getTestCaseCatalogId() { return testCaseCatalogId; }
+    public void setTestCaseCatalogId(Long testCaseCatalogId) { this.testCaseCatalogId = testCaseCatalogId; }
 
     public Instant getCreatedAt() { return createdAt; }
 }

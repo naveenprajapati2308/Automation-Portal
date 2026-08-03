@@ -18,7 +18,7 @@ services:
     environment:
       DB_URL: jdbc:mysql://api-testing-mysql:3306/api_testing_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       DB_USERNAME: root
-      DB_PASSWORD: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
       REDIS_HOST: api-testing-redis
       HISTORY_BODY_STORE_DIR: /app/history-bodies
     networks:

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import appLogo from '../../assets/testrix_logo.png';
 import { USER_NAV } from '../../constants.js';
+import { auth } from '../../api.js';
 
 // ── Layout: Sidebar ───────────────────────────────────────────────────────────
 export function Sidebar({
@@ -47,7 +48,10 @@ export function Sidebar({
         >
           {isCollapsed ? 'NAV' : 'Navigation'}
         </div>
-        {USER_NAV.map((item) => {
+        {/* Environments holds every environment's raw credentials (baseUrl config,
+            captcha keys) — the backend now enforces SUPER_ADMIN there too, this just
+            keeps a non-admin from landing on a tab that will only 403 on them. */}
+        {USER_NAV.filter((item) => item.key !== 'environments' || auth.get()?.user?.role === 'SUPER_ADMIN').map((item) => {
           const Icon = item._icon;
           return (
             <button

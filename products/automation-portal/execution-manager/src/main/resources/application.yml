@@ -22,4 +22,6 @@ em:
   heartbeat-seconds: ${EM_HEARTBEAT_SECONDS:30}
   runner-url: ${EM_RUNNER_URL:http://localhost:9090}
   portal-backend-url: ${EM_PORTAL_BACKEND_URL:http://localhost:8080}
-  portal-api-key: ${EM_PORTAL_API_KEY:shared-secret}
+  # Must match portal.events.api-key on the backend side — no insecure fallback on purpose,
+  # startup fails if unset.
+  portal-api-key: ${EM_PORTAL_API_KEY}

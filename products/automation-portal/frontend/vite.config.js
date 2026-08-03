@@ -22,10 +22,10 @@ export default defineConfig({
     port: 5173,
     fs: { allow: ['..', '../../../../shared'] },
     proxy: {
-      '/api':         'http://127.0.0.1:8080',
-      '/uploads':     'http://127.0.0.1:8080',
-      '/swagger-ui':  'http://127.0.0.1:8080',
-      '/v3/api-docs': 'http://127.0.0.1:8080',
+      '/api':         'http://127.0.0.1:18080',
+      '/uploads':     'http://127.0.0.1:18080',
+      '/swagger-ui':  'http://127.0.0.1:18080',
+      '/v3/api-docs': 'http://127.0.0.1:18080',
     }
   }
 });

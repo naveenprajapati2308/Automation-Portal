@@ -34,7 +34,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = null;
         if (header != null && header.startsWith("Bearer ")) {
             token = header.substring(7);
-        } else {
+        } else if (request.getRequestURI().startsWith(request.getContextPath() + "/api/events/execution/")) {
+            // The one legitimate use: EventSource (SSE) can't set request headers, so the
+            // live execution log stream passes its token as ?token=... instead. Every other
+            // endpoint requires the Authorization header — a query-param token elsewhere would
+            // otherwise leak into browser history, proxy logs, and access logs on every request.
             token = request.getParameter("token");
         }
         if (token != null) {

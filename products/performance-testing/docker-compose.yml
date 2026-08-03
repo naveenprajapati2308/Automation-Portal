@@ -18,10 +18,11 @@ services:
       TZ: ${SCHEDULER_TZ:-Asia/Kolkata}
       DB_URL: jdbc:mysql://testrix-mysql:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       DB_USERNAME: root
-      DB_PASSWORD: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
       K6_OUTPUT_DIR: /app/k6-runs
       PERF_QUEUE_MAX_CONCURRENT: ${PERF_MAX_CONCURRENT:-3}
       PERF_QUEUE_JOB_TIMEOUT: ${PERF_JOB_TIMEOUT_MINUTES:-60}
+      PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:?PORTAL_JWT_SECRET must be set in .env}
     volumes:
       - performance_testing_k6_runs:/app/k6-runs
     ports:

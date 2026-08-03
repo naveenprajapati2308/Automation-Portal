@@ -1,6 +1,7 @@
 package com.automationportal.events;
 
 import com.automationportal.executions.*;
+import com.automationportal.testcasecatalog.TestCaseCatalogService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +32,7 @@ public class ExecutionEventService {
     private final LiveBroadcastService broadcastService;
     private final ExecutionWorker executionWorker;
     private final com.automationportal.executions.TestStepRepository testStepRepository;
+    private final TestCaseCatalogService testCaseCatalogService;
     private final HttpClient httpClient;
 
     @Value("${portal.execution-manager.url:http://localhost:8090}")
@@ -42,7 +44,8 @@ public class ExecutionEventService {
             ExecutionLogRepository logRepository,
             LiveBroadcastService broadcastService,
             @org.springframework.context.annotation.Lazy ExecutionWorker executionWorker,
-            com.automationportal.executions.TestStepRepository testStepRepository) {
+            com.automationportal.executions.TestStepRepository testStepRepository,
+            TestCaseCatalogService testCaseCatalogService) {
         this.executionRepository = executionRepository;
         this.testCaseRepository = testCaseRepository;
         this.artifactRepository = artifactRepository;
@@ -50,6 +53,7 @@ public class ExecutionEventService {
         this.broadcastService = broadcastService;
         this.executionWorker = executionWorker;
         this.testStepRepository = testStepRepository;
+        this.testCaseCatalogService = testCaseCatalogService;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(3))
                 .build();
@@ -379,6 +383,16 @@ public class ExecutionEventService {
         // execution-level
         // summary (dashboard, reports) matches what's actually in execution_test_cases.
         recomputeExecutionTotals(execution, data);
+
+        // Sync the permanent test case catalog from this execution's now-final results. Wrapped
+        // so a catalog-sync failure can never block completion/concurrency-release below - the
+        // catalog is a read-model derived from execution history, not part of the execution
+        // pipeline itself.
+        try {
+            testCaseCatalogService.syncTestCasesForExecution(execution);
+        } catch (Exception e) {
+            log.error("Failed to sync test case catalog for execution {}", execution.getExecutionCode(), e);
+        }
 
         // Notify Execution Manager of completion to release concurrency slot
         notifyExecutionManagerCompleted(execution.getExecutionCode());

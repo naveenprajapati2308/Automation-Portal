@@ -356,7 +356,6 @@ export function ExecutionCenter({
     // Subscribe to SSE endpoint
     const token = auth.get()?.accessToken;
     const url = `${API_BASE}/api/events/execution/${execution.executionCode}/stream${token ? `?token=${encodeURIComponent(token)}` : ''}`;
-    console.log("Connecting to SSE stream:", url);
 
     const sse = new EventSource(url);
     sseRef.current = sse;

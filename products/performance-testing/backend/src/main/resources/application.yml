@@ -2,6 +2,12 @@ spring:
   application:
     name: performance-testing-backend
 
+  autoconfigure:
+    # Auth here is entirely JWT-based (JwtValidationFilter) — no HTTP Basic is registered,
+    # so Spring Boot's auto-created in-memory user is unreachable dead weight. Excluding it
+    # only silences the "Using generated security password" boot-log noise.
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${DB_USERNAME:root}
@@ -57,6 +63,13 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+security:
+  jwt:
+    # Same signing secret automation-portal issues login tokens with — this service only
+    # validates signature + expiry, it never issues its own tokens. No insecure fallback;
+    # startup fails if unset.
+    secret: ${PORTAL_JWT_SECRET}
 
 management:
   endpoints:

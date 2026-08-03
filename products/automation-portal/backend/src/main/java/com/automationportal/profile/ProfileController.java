@@ -60,14 +60,14 @@ public class ProfileController {
     @PostMapping("/image")
     public ApiResponse<Map<String, String>> uploadProfileImage(@RequestParam("file") MultipartFile file,
                                                                HttpServletRequest servletRequest) throws IOException {
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Only image files are allowed");
+        // Never trust the client-supplied Content-Type or filename extension — both are
+        // attacker-controlled (a spoofed "image/png" header on an .html/.svg payload is a
+        // stored-XSS path once served back from /uploads/profiles/). Sniff the real magic
+        // bytes and derive a fixed, safe extension from what the file actually is.
+        String extension = sniffImageExtension(file);
+        if (extension == null) {
+            throw new IllegalArgumentException("Only PNG, JPEG, GIF, or WEBP image files are allowed");
         }
-        String originalFilename = file.getOriginalFilename();
-        String extension = (originalFilename != null && originalFilename.contains("."))
-            ? originalFilename.substring(originalFilename.lastIndexOf('.'))
-            : ".jpg";
         String filename = UUID.randomUUID() + extension;
 
         // Resolve to an absolute path: MultipartFile.transferTo() resolves relative paths
@@ -86,6 +86,31 @@ public class ProfileController {
         return ApiResponse.ok(Map.of("profileImagePath", urlPath));
     }
 
+    /** Returns the file extension for a real PNG/JPEG/GIF/WEBP based on magic bytes, or null. */
+    private String sniffImageExtension(MultipartFile file) throws IOException {
+        byte[] header = new byte[12];
+        int read;
+        try (var in = file.getInputStream()) {
+            read = in.readNBytes(header, 0, header.length);
+        }
+        if (read >= 8 && (header[0] & 0xFF) == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G'
+                && header[4] == 0x0D && header[5] == 0x0A && header[6] == 0x1A && header[7] == 0x0A) {
+            return ".png";
+        }
+        if (read >= 3 && (header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8 && (header[2] & 0xFF) == 0xFF) {
+            return ".jpg";
+        }
+        if (read >= 6 && header[0] == 'G' && header[1] == 'I' && header[2] == 'F' && header[3] == '8'
+                && (header[4] == '7' || header[4] == '9') && header[5] == 'a') {
+            return ".gif";
+        }
+        if (read >= 12 && header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
+                && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P') {
+            return ".webp";
+        }
+        return null;
+    }
+
     @PostMapping("/email-change/request")
     public ApiResponse<Map<String, String>> requestEmailChange(@Valid @RequestBody AuthDtos.EmailChangeRequest request, HttpServletRequest servletRequest) {
         if (userRepository.existsByEmail(request.newEmail())) {
@@ -97,9 +122,11 @@ public class ProfileController {
         }
         user.setPendingEmail(request.newEmail());
         userRepository.save(user);
-        String otp = otpService.send(user.getUsername(), request.newEmail(), OtpPurpose.EMAIL_CHANGE);
+        // Not returned in the response: the whole point of this OTP is proving the user
+        // actually controls the new address, which an API-response shortcut would defeat.
+        otpService.send(user.getUsername(), request.newEmail(), OtpPurpose.EMAIL_CHANGE);
         auditService.record(user, AuditAction.OTP_SENT, "Email change OTP sent", servletRequest);
-        return ApiResponse.ok(Map.of("status", "otp_sent", "otp", otp));
+        return ApiResponse.ok(Map.of("status", "otp_sent"));
     }
 
     @PostMapping("/email-change/verify")

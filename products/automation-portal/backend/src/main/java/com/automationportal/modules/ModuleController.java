@@ -3,6 +3,7 @@ package com.automationportal.modules;
 import com.automationportal.common.ApiResponse;
 import com.automationportal.environments.EnvironmentEntity;
 import com.automationportal.environments.EnvironmentRepository;
+import com.automationportal.environments.EnvironmentSummaryDto;
 import com.automationportal.frameworks.FrameworkRegistry;
 import com.automationportal.moduleenvironments.ModuleEnvironmentEntity;
 import com.automationportal.moduleenvironments.ModuleEnvironmentRepository;
@@ -53,13 +54,14 @@ public class ModuleController {
 
     // "Load Supported Environments" step: only environments explicitly enabled for this module.
     @GetMapping("/{id}/environments")
-    public ApiResponse<List<EnvironmentEntity>> supportedEnvironments(@PathVariable Long id) {
+    public ApiResponse<List<EnvironmentSummaryDto>> supportedEnvironments(@PathVariable Long id) {
         List<Long> environmentIds = moduleEnvironmentRepository.findByModuleId(id).stream()
                 .filter(ModuleEnvironmentEntity::isEnabled)
                 .map(ModuleEnvironmentEntity::getEnvironmentId)
                 .toList();
-        List<EnvironmentEntity> environments = environmentRepository.findAllById(environmentIds).stream()
+        List<EnvironmentSummaryDto> environments = environmentRepository.findAllById(environmentIds).stream()
                 .filter(EnvironmentEntity::isActive)
+                .map(EnvironmentSummaryDto::from)
                 .toList();
         return ApiResponse.ok(environments);
     }

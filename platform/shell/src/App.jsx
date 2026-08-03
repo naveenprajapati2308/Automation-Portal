@@ -206,6 +206,17 @@ function toTrendChartData(points) {
 
 export default function App() {
   const [authed, setAuthed] = useState(null);
+  // Bumped whenever the profile page patches the cached session's `user` object (name,
+  // profile image, etc.) — `session`/`user` below are recomputed from auth.get() on every
+  // render, but React only re-renders this component when its own state changes, so
+  // something has to change here too or the topbar keeps showing the stale cached user.
+  const [sessionTick, setSessionTick] = useState(0);
+  const updateSessionUser = (patch) => {
+    const current = auth.get();
+    if (!current) return;
+    auth.set({ ...current, user: { ...current.user, ...patch } });
+    setSessionTick((t) => t + 1);
+  };
   const [health, setHealth] = useState({});
   const [autoSummary, setAutoSummary] = useState(null);
   const [autoTrends, setAutoTrends] = useState(null);
@@ -1012,7 +1023,7 @@ export default function App() {
         ) : page === 'modules-environments' && superAdmin ? (
           <ModuleManagement setNotice={notify} />
         ) : page === 'profile' ? (
-          <Profile setNotice={notify} />
+          <Profile setNotice={notify} onProfileSaved={updateSessionUser} />
         ) : dashboardLoading ? (
           <FullScreenLoader logoSrc={appLogo} subtitle="Loading Dashboard" />
         ) : dashboardContent}

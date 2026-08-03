@@ -17,7 +17,7 @@ public class ExecutionEventController {
     private final ExecutionEventService eventService;
     private final LiveBroadcastService broadcastService;
 
-    @Value("${portal.events.api-key:shared-secret}")
+    @Value("${portal.events.api-key}")
     private String expectedApiKey;
 
     // MPHIDB's PortalApiClient pushes events fire-and-forget, so a TEST_STARTED and its matching
