@@ -1,6 +1,7 @@
 import { ArrowDownRight, ArrowUpRight, BarChart3, Minus } from 'lucide-react';
 export { Panel } from './Panel.jsx';
 export { DataTable } from './DataTable.jsx';
+export { buildHierarchyRows } from './hierarchyRows.js';
 
 // ── Shared: Metric ─────────────────────────────────────────────────────────────
 export function Metric({ label, value, hint, trend, icon: Icon, tone = 'default', className = '' }) {

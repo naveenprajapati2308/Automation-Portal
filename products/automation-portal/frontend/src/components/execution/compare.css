@@ -194,6 +194,184 @@
   border-color: #22d3ee;
 }
 
+/* ── Hierarchical execution picker (Parent module -> Child module -> Execution) ───────────── */
+.cp-tree-select {
+  position: relative;
+}
+
+.cp-tree-trigger {
+  width: 100%;
+  height: 54px;
+  border-radius: 11px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 0 14px;
+  font-size: 13.5px;
+  outline: none;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cp-tree-trigger-violet {
+  border-color: rgba(139, 92, 246, 0.55);
+  color: var(--accent-text);
+}
+
+.cp-tree-trigger-cyan {
+  border-color: rgba(34, 211, 238, 0.45);
+  color: var(--cyan-text);
+}
+
+.cp-tree-trigger-text {
+  flex: 1;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cp-tree-chev {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+  color: var(--text-muted);
+}
+
+.cp-tree-chev.open {
+  transform: rotate(180deg);
+}
+
+.cp-tree-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+  padding: 8px;
+}
+
+.cp-tree-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.cp-tree-node {
+  display: flex;
+  flex-direction: column;
+}
+
+.cp-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+}
+
+.cp-tree-row:hover {
+  background: var(--bg-hover);
+}
+
+.cp-tree-row-static {
+  cursor: default;
+}
+
+.cp-tree-row-static:hover {
+  background: transparent;
+}
+
+.cp-tree-row em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cp-tree-row-child {
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.cp-tree-children {
+  display: flex;
+  flex-direction: column;
+  padding-left: 20px;
+  border-left: 1px dashed var(--border);
+  margin: 2px 0 4px 14px;
+}
+
+.cp-tree-group-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 8px 0;
+}
+
+.cp-tree-execs {
+  display: flex;
+  flex-direction: column;
+  padding-left: 20px;
+}
+
+.cp-tree-exec {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cp-tree-exec:hover {
+  background: var(--bg-hover);
+}
+
+.cp-tree-exec.selected {
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.cp-tree-exec-code {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.cp-tree-exec-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /* Circular arrow between the two pickers */
 .cp-arrow {
   align-self: center;

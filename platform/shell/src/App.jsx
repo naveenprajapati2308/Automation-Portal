@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowUpRight, CalendarCheck, CalendarClock, CheckCircle2, Clock,
   Layers, ListTodo, Loader2, Play, Sparkles, Timer, TimerReset, TrendingUp, XCircle, Zap
@@ -15,6 +15,7 @@ import { Profile } from './components/profile/Profile.jsx';
 import { AuthPage } from './components/auth/AuthPage.jsx';
 import { ExecutionTrendChart } from '../../../shared/ui/dashboard/ExecutionTrendChart.jsx';
 import { StatusMixDonut } from '../../../shared/ui/dashboard/StatusMixDonut.jsx';
+import { ModuleAnalyticsTable } from '../../../shared/ui/dashboard/ModuleAnalyticsTable.jsx';
 import { FullScreenLoader } from '../../../shared/ui/Loader.jsx';
 import { useDateRange } from '../../../shared/ui/useDateRange.js';
 import { DateRangeFilter } from '../../../shared/ui/DateRangeFilter.jsx';
@@ -135,46 +136,6 @@ function AccuracyCell({ rate }) {
   );
 }
 
-// ── Dashboard: per-module health (Automation) — same table system ExecutionTable
-// already uses, not a bespoke widget, matching the "Module Analytics" pattern the
-// Automation product's own dashboard already has.
-function ModuleHealthTable({ modules }) {
-  const top = [...modules]
-    .sort((a, b) => (b.totalTests ?? 0) - (a.totalTests ?? 0))
-    .slice(0, 5);
-  if (!top.length) return <p className="panel-empty">No module activity yet.</p>;
-  return (
-    <table>
-      <thead>
-        <tr>
-          <th>Module</th>
-          <th>Total</th>
-          <th>Passed</th>
-          <th>Failed</th>
-          <th>Accuracy</th>
-          <th>Last Run</th>
-        </tr>
-      </thead>
-      <tbody>
-        {top.map((m) => (
-          <tr key={m.moduleCode}>
-            <td>{m.moduleName ?? m.moduleCode}</td>
-            <td>{m.totalTests ?? 0}</td>
-            <td style={{ color: 'var(--success-text)', fontWeight: 700 }}>{m.passed ?? 0}</td>
-            <td style={{ color: 'var(--danger-text)', fontWeight: 700 }}>{m.failed ?? 0}</td>
-            <td><AccuracyCell rate={m.passRate} /></td>
-            <td>
-              <span className={`status ${(m.lastExecutionStatus || '').toLowerCase()}`}>
-                {m.lastExecutionStatus ?? '—'}
-              </span>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
 // ── Dashboard: per-module execution counts (API Testing) — same table system ──
 function ApiModuleStatsTable({ modules }) {
   const top = modules.slice(0, 5);
@@ -249,6 +210,12 @@ export default function App() {
   const [autoSummary, setAutoSummary] = useState(null);
   const [autoTrends, setAutoTrends] = useState(null);
   const [autoModuleHealth, setAutoModuleHealth] = useState(null);
+  const [autoModules, setAutoModules] = useState([]);
+  const [autoFrameworks, setAutoFrameworks] = useState([]);
+  const [autoEnvironments, setAutoEnvironments] = useState([]);
+  const [autoSelectedFramework, setAutoSelectedFramework] = useState('');
+  const [autoSelectedEnvId, setAutoSelectedEnvId] = useState('');
+  const [autoEnvSupportedModules, setAutoEnvSupportedModules] = useState(null);
   const [apiSummary, setApiSummary] = useState(null);
   const [apiTrend, setApiTrend] = useState(null);
   const [perfSummary, setPerfSummary] = useState(null);
@@ -353,7 +320,6 @@ export default function App() {
         await Promise.allSettled([
           loadSummary(`/automation/api/dashboard/summary?range=${range}`, setAutoSummary),
           loadSummary(`/automation/api/dashboard/trends?range=${range}`, setAutoTrends),
-          loadSummary(`/automation/api/dashboard/module-health?range=${range}`, setAutoModuleHealth),
           loadSummary(`/apitest/api/v1/dashboard/summary?days=${days}`, setApiSummary),
           loadSummary(`/apitest/api/v1/dashboard/trend?days=${days}`, setApiTrend),
           loadSummary(`/perf/api/v1/dashboard/stats?range=${range}`, setPerfSummary),
@@ -366,6 +332,82 @@ export default function App() {
     })();
     return () => { cancelled = true; };
   }, [authed, range]);
+
+  // Automation Module Analytics: modules/frameworks/environments feed the reusable
+  // ModuleAnalyticsTable (same component the Automation product's own Overview page uses) —
+  // fetched once on login rather than every range change, since they rarely change.
+  useEffect(() => {
+    if (!authed) return;
+    api.modules().then((list) => setAutoModules(Array.isArray(list) ? list : [])).catch(() => setAutoModules([]));
+    api.frameworks().then((list) => setAutoFrameworks(Array.isArray(list) ? list : [])).catch(() => setAutoFrameworks([]));
+    api.environments().then((list) => setAutoEnvironments(Array.isArray(list) ? list : [])).catch(() => setAutoEnvironments([]));
+  }, [authed]);
+
+  // Module health is scoped to the selected environment (backend groups by moduleCode +
+  // framework + environmentId), so it's refetched on its own whenever the range or the table's
+  // own Environment filter changes, without re-firing every other dashboard widget's fetch.
+  const refreshAutoModuleHealth = () => {
+    if (!authed) return;
+    api.dashboardModuleHealth(range, autoSelectedEnvId || undefined)
+      .then((data) => setAutoModuleHealth(Array.isArray(data) ? data : []))
+      .catch(() => setAutoModuleHealth(null));
+  };
+  useEffect(() => {
+    refreshAutoModuleHealth();
+  }, [authed, range, autoSelectedEnvId]);
+
+  // Which modules are enabled for the selected environment (single source of truth via the
+  // Module<->Environment mapping) — mirrors the Automation product's own Overview page.
+  useEffect(() => {
+    if (!autoSelectedEnvId) { setAutoEnvSupportedModules(null); return; }
+    let cancelled = false;
+    api.environmentModules(autoSelectedEnvId)
+      .then((list) => { if (!cancelled) setAutoEnvSupportedModules(Array.isArray(list) ? list : []); })
+      .catch(() => { if (!cancelled) setAutoEnvSupportedModules([]); });
+    return () => { cancelled = true; };
+  }, [autoSelectedEnvId]);
+
+  const autoAvailableInEnv = (m) => {
+    if (!autoSelectedEnvId) return true;
+    if (autoEnvSupportedModules === null) return false;
+    return autoEnvSupportedModules.some((sm) => sm.code === m.code && sm.runnerType === m.runnerType);
+  };
+
+  const autoHealthByKey = useMemo(() => {
+    const map = new Map();
+    for (const h of autoModuleHealth || []) {
+      map.set(`${h.moduleCode}::${h.framework}`, {
+        total: h.totalTests ?? h.total ?? 0,
+        passed: h.passed ?? 0,
+        failed: h.failed ?? 0,
+        skipped: h.skipped ?? 0,
+        accuracy: h.passRate ?? 0
+      });
+    }
+    return map;
+  }, [autoModuleHealth]);
+
+  const runAutoModule = async (mod) => {
+    await api.runExecution({
+      executionType: 'MODULE',
+      environmentId: Number(autoSelectedEnvId),
+      moduleCode: mod.code,
+      framework: mod.runnerType
+    });
+    refreshAutoModuleHealth();
+  };
+
+  const runAllAutoForParent = async (parent, children) => {
+    for (const child of children) {
+      await api.runExecution({
+        executionType: 'MODULE',
+        environmentId: Number(autoSelectedEnvId),
+        moduleCode: child.code,
+        framework: child.runnerType
+      });
+    }
+    refreshAutoModuleHealth();
+  };
 
   // api.js's request() clears localStorage on a real 401 but has no way to force
   // this component's `authed` state back to the login screen on its own — wire it
@@ -727,10 +769,21 @@ export default function App() {
             )}
 
             <div className="mini-block">
-              <div className="mini-block-title">Module Health ({rangeLabel(range)})</div>
-              {autoModuleHealth && autoModuleHealth.length > 0
-                ? <ModuleHealthTable modules={autoModuleHealth} />
-                : <p className="panel-empty">No module activity yet.</p>}
+              <ModuleAnalyticsTable
+                title="Module Analytics"
+                icon={Layers}
+                modules={autoModules}
+                healthByKey={autoHealthByKey}
+                frameworks={autoFrameworks}
+                environments={autoEnvironments}
+                selectedFramework={autoSelectedFramework}
+                onFrameworkChange={setAutoSelectedFramework}
+                selectedEnvironmentId={autoSelectedEnvId}
+                onEnvironmentChange={setAutoSelectedEnvId}
+                isModuleAvailable={autoAvailableInEnv}
+                onRunModule={runAutoModule}
+                onRunAllForParent={runAllAutoForParent}
+              />
             </div>
           </>
         ) : <p className="panel-empty">Automation stats unavailable.</p>}

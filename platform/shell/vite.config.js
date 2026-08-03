@@ -12,6 +12,7 @@ export default defineConfig({
     alias: {
       'chart.js': fileURLToPath(new URL('./node_modules/chart.js', import.meta.url)),
       'react-chartjs-2': fileURLToPath(new URL('./node_modules/react-chartjs-2', import.meta.url)),
+      'lucide-react': fileURLToPath(new URL('./node_modules/lucide-react', import.meta.url)),
     },
   },
   server: {

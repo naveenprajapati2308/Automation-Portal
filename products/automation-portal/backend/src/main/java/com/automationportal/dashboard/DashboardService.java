@@ -157,21 +157,29 @@ public class DashboardService {
         return trends;
     }
 
-    public List<Map<String, Object>> getModuleHealth(String range) {
+    // Grouped by (moduleCode, framework) rather than moduleCode alone — the same module code can
+    // exist once per framework (e.g. LAND under both Selenium and Playwright), and mixing their
+    // executions together silently blended unrelated stats under one row. environmentId is
+    // optional: when supplied, only executions run against that environment count, so the
+    // Module Analytics table's Environment filter actually changes the numbers shown instead of
+    // only changing which rows are visible.
+    public List<Map<String, Object>> getModuleHealth(String range, Long environmentId) {
         Instant since = getSinceInstant(range);
         List<Execution> executions = executionRepository.findAll().stream()
                 .filter(e -> e.getCreatedAt() != null && e.getCreatedAt().isAfter(since))
+                .filter(e -> environmentId == null || environmentId.equals(e.getEnvironmentId()))
                 .collect(Collectors.toList());
 
         Map<String, List<Execution>> grouped = executions.stream()
                 .filter(e -> e.getModuleCode() != null)
-                .collect(Collectors.groupingBy(Execution::getModuleCode));
+                .collect(Collectors.groupingBy(e -> e.getModuleCode() + "::" + e.getFramework()));
 
         List<Map<String, Object>> healthList = new ArrayList<>();
 
         for (Map.Entry<String, List<Execution>> entry : grouped.entrySet()) {
-            String moduleCode = entry.getKey();
             List<Execution> moduleExecs = entry.getValue();
+            String moduleCode = moduleExecs.get(0).getModuleCode();
+            String framework = moduleExecs.get(0).getFramework();
 
             long totalTests = 0;
             long passed = 0;
@@ -197,6 +205,7 @@ public class DashboardService {
 
             Map<String, Object> moduleMap = new HashMap<>();
             moduleMap.put("moduleCode", moduleCode);
+            moduleMap.put("framework", framework);
             moduleMap.put("moduleName", getModuleName(moduleCode));
             moduleMap.put("totalTests", totalTests);
             moduleMap.put("passed", passed);

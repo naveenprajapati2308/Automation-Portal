@@ -29,6 +29,10 @@ public class ModuleEntity {
     @Column(name = "allowed_roles")
     private String allowedRoles;
 
+    /** Null for a top-level workflow module; set for a sub-type variant (e.g. one org type of Architect Empanelment). */
+    @Column(name = "parent_module_id")
+    private Long parentModuleId;
+
     protected ModuleEntity() {
     }
 
@@ -56,4 +60,6 @@ public class ModuleEntity {
     public void setVisible(boolean visible) { this.visible = visible; }
     public String getAllowedRoles() { return allowedRoles; }
     public void setAllowedRoles(String allowedRoles) { this.allowedRoles = allowedRoles; }
+    public Long getParentModuleId() { return parentModuleId; }
+    public void setParentModuleId(Long parentModuleId) { this.parentModuleId = parentModuleId; }
 }

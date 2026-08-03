@@ -8,13 +8,16 @@ import java.util.Set;
  * set (not fixed booleans) so a future capability (e.g. HAR capture, performance metrics) is
  * additive, not a shape change. `browsers` reflects only what's actually installed/wired in the
  * framework-runner today — an empty list means the framework's browser is baked into its own
- * test code and isn't a portal-selectable parameter.
+ * test code and isn't a portal-selectable parameter. `shortCode` is the 2-letter token used in
+ * generated execution IDs (AUTO-&lt;shortCode&gt;-yyyyMMdd-seq, e.g. AUTO-SL-20260802-0001) — see
+ * ExecutionIdGeneratorService.
  */
 public record FrameworkDescriptor(
         String code,
         String displayName,
         Set<String> capabilities,
-        List<String> browsers
+        List<String> browsers,
+        String shortCode
 ) {
     public static final String CAP_SCREENSHOTS = "SCREENSHOTS";
     public static final String CAP_VIDEO = "VIDEO";

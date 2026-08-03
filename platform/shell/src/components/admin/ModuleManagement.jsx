@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api.js';
-import { Panel, DataTable, Modal, ConfirmDialog } from '../shared/index.jsx';
-import { Package, Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Globe2 } from 'lucide-react';
+import { Panel, DataTable, Modal, ConfirmDialog, buildHierarchyRows } from '../shared/index.jsx';
+import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Globe2, ChevronRight, ChevronDown } from 'lucide-react';
 import { Field } from '../shared/Field.jsx';
 import { ModuleEnvironmentMappingPanel } from './ModuleEnvironmentMappingPanel.jsx';
 
@@ -14,6 +14,17 @@ export function ModuleManagement({ setNotice }) {
   const [editModule, setEditModule] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [envTarget, setEnvTarget] = useState(null);
+  const [expandedIds, setExpandedIds] = useState(new Set());
+
+  // Frameworks — drives the Framework select in the form and the friendly label shown in the
+  // table below. Fetched once here (from the backend's FrameworkRegistry, never hardcoded) and
+  // shared with ModuleForm, so a newly registered framework (beyond Selenium/Playwright) shows
+  // up in both places automatically.
+  const [frameworks, setFrameworks] = useState([]);
+  useEffect(() => {
+    api.frameworks().then((list) => setFrameworks(list || [])).catch(() => setFrameworks([]));
+  }, []);
+  const frameworkLabel = (code) => frameworks.find((fw) => fw.code === code)?.displayName || code || 'Unknown';
 
   const fetchModules = async () => {
     setLoading(true);
@@ -28,6 +39,14 @@ export function ModuleManagement({ setNotice }) {
   };
 
   useEffect(() => { fetchModules(); }, []);
+
+  const toggleExpand = (id) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const handleToggle = async (mod) => {
     try {
@@ -56,7 +75,30 @@ export function ModuleManagement({ setNotice }) {
     {
       key: 'name',
       label: 'Name',
-      render: (val) => <strong>{val}</strong>
+      render: (val, row) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingLeft: row.__isChild ? 26 : 0 }}>
+          {row.__hasChildren ? (
+            <button
+              onClick={() => toggleExpand(row.id)}
+              title={expandedIds.has(row.id) ? 'Collapse' : 'Expand'}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 22, height: 22, borderRadius: '6px', flexShrink: 0, cursor: 'pointer',
+                border: `1px solid ${expandedIds.has(row.id) ? '#176b87' : 'var(--border)'}`,
+                background: expandedIds.has(row.id) ? '#176b87' : 'transparent',
+                color: expandedIds.has(row.id) ? '#fff' : 'var(--text-secondary)'
+              }}
+            >
+              {expandedIds.has(row.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          ) : row.__isChild ? (
+            <span style={{ width: 22, flexShrink: 0, color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>↳</span>
+          ) : (
+            <span style={{ width: 22, flexShrink: 0 }} />
+          )}
+          <strong>{val}</strong>
+        </div>
+      )
     },
     {
       key: 'code',
@@ -65,18 +107,20 @@ export function ModuleManagement({ setNotice }) {
     },
     {
       key: 'xmlFile',
-      label: 'Suite XML',
-      render: (val) => val ? <code style={{ fontSize: '12px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{val}</code> : <span style={{ color: 'var(--text-muted)' }}>—</span>
+      label: 'Suite File',
+      defaultVisible: false,
+      render: (val) => val ? <code style={{ fontSize: '12px', background: 'var(--bg-inset)', color: 'var(--text-secondary)', padding: '2px 6px', borderRadius: '4px' }}>{val}</code> : <span style={{ color: 'var(--text-muted)' }}>—</span>
     },
     {
       key: 'reportPath',
       label: 'Report Path',
-      render: (val) => val ? <code style={{ fontSize: '12px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{val}</code> : <span style={{ color: 'var(--text-muted)' }}>—</span>
+      defaultVisible: false,
+      render: (val) => val ? <code style={{ fontSize: '12px', background: 'var(--bg-inset)', color: 'var(--text-secondary)', padding: '2px 6px', borderRadius: '4px' }}>{val}</code> : <span style={{ color: 'var(--text-muted)' }}>—</span>
     },
     {
       key: 'runnerType',
-      label: 'Runner Type',
-      render: (val) => <span className="status">{val || 'MAVEN_TESTNG'}</span>
+      label: 'Framework',
+      render: (val) => <span className="status">{frameworkLabel(val)}</span>
     },
     {
       key: 'visible',
@@ -135,25 +179,35 @@ export function ModuleManagement({ setNotice }) {
         </div>
       )
     }
-  ], []);
+  ], [modules, expandedIds, frameworks]);
+
+  // Only top-level (parent) modules are shown by default; a parent's own sub-type variants
+  // (e.g. Architect Empanelment's org types) render as child rows once its arrow is expanded —
+  // see hierarchyRows.js for the reusable tree-building logic behind this.
+  const visibleRows = useMemo(() => buildHierarchyRows(modules, {
+    getParentId: (m) => m.parentModuleId || null,
+    expandedIds
+  }), [modules, expandedIds]);
+
+  const topLevelCount = useMemo(() => modules.filter(m => !m.parentModuleId).length, [modules]);
 
   return (
     <section className="page-grid" style={{ gridTemplateColumns: '1fr' }}>
       <Panel title="Module Management">
         <div style={{ background: '#fffbeb', border: '1px solid #f59e0b', borderRadius: '6px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', color: '#92400e' }}>
-          <strong>How this works:</strong> Add a module here with its Suite XML filename (e.g. <code>land.xml</code>) and Report Path (e.g. <code>reports/MasterReport2.html</code>). Active modules appear in the Execution Center for test runs.
+          <strong>How this works:</strong> Register an execution suite here — its framework (Selenium, Playwright, or a future one), its suite/spec file, and where its report lands. Active modules appear in the Execution Center for test runs. A module can optionally sit under a parent as a sub-type variant (e.g. one org type of a larger workflow) — expand a parent row's arrow to see its variants.
         </div>
 
         <div className="um-toolbar" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
           <button className="primary-action" onClick={() => setShowCreate(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <Plus size={16} /> Add Module
           </button>
-          <span className="um-count">{modules.length} module{modules.length !== 1 ? 's' : ''}</span>
+          <span className="um-count">{topLevelCount} module group{topLevelCount !== 1 ? 's' : ''} · {modules.length} total</span>
         </div>
 
         <DataTable
           columns={columns}
-          data={modules}
+          data={visibleRows}
           loading={loading}
           searchPlaceholder="Filter modules..."
           exportFilename="modules_list.csv"
@@ -164,6 +218,8 @@ export function ModuleManagement({ setNotice }) {
       {showCreate && (
         <Modal title="Add Module" onClose={() => setShowCreate(false)} closeOnBackdrop={false}>
           <ModuleForm
+            allModules={modules}
+            frameworks={frameworks}
             setNotice={setNotice}
             onSaved={() => { setShowCreate(false); fetchModules(); }}
             onCancel={() => setShowCreate(false)}
@@ -176,6 +232,8 @@ export function ModuleManagement({ setNotice }) {
         <Modal title={`Edit Module: ${editModule.name}`} onClose={() => setEditModule(null)} closeOnBackdrop={false}>
           <ModuleForm
             mod={editModule}
+            allModules={modules}
+            frameworks={frameworks}
             setNotice={setNotice}
             onSaved={() => { setEditModule(null); fetchModules(); }}
             onCancel={() => setEditModule(null)}
@@ -207,7 +265,7 @@ export function ModuleManagement({ setNotice }) {
   );
 }
 
-function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
+function ModuleForm({ mod, allModules = [], frameworks = [], setNotice, onSaved, onCancel }) {
   const [form, setForm] = useState({
     name:         mod?.name         || '',
     code:         mod?.code         || '',
@@ -217,16 +275,16 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
     runnerType:   mod?.runnerType   || 'MAVEN_TESTNG',
     visible:      mod ? mod.visible !== false : true,
     allowedRoles: mod?.allowedRoles || '',
-    active:       mod ? mod.active : true
+    active:       mod ? mod.active : true,
+    parentModuleId: mod?.parentModuleId || ''
   });
   const [errors, setErrors] = useState({});
 
-  // Frameworks — drives the Runner Type select. Fetched from the backend's FrameworkRegistry
-  // rather than hardcoded, so new frameworks (e.g. Playwright) are creatable here too.
-  const [frameworks, setFrameworks] = useState([]);
-  useEffect(() => {
-    api.frameworks().then((list) => setFrameworks(list || [])).catch(() => setFrameworks([]));
-  }, []);
+  // A module can only be a sub-type of a top-level workflow module (no 3-level nesting), and
+  // only of one under the same framework — a Selenium sub-type belongs under a Selenium parent.
+  const parentOptions = allModules.filter(m =>
+    !m.parentModuleId && m.runnerType === form.runnerType && m.id !== mod?.id
+  );
 
   const selectedRoles = form.allowedRoles
     ? form.allowedRoles.split(',').map((r) => r.trim()).filter(Boolean)
@@ -248,7 +306,7 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
     const errs = {};
     if (!form.name.trim())    errs.name    = 'Name is required';
     if (!form.code.trim())    errs.code    = 'Code is required (e.g. LAND, EMP_ARCH)';
-    if (!form.xmlFile.trim()) errs.xmlFile = 'Suite XML filename is required (e.g. land.xml)';
+    if (!form.xmlFile.trim()) errs.xmlFile = 'Suite/spec file is required (e.g. land.xml or land.spec.ts)';
     return errs;
   };
 
@@ -256,12 +314,13 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    const payload = { ...form, parentModuleId: form.parentModuleId ? Number(form.parentModuleId) : null };
     try {
       if (mod) {
-        await api.adminUpdateModule(mod.id, form);
+        await api.adminUpdateModule(mod.id, payload);
         setNotice('Module updated successfully.');
       } else {
-        await api.adminCreateModule(form);
+        await api.adminCreateModule(payload);
         setNotice('Module created successfully.');
       }
       onSaved();
@@ -275,12 +334,10 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
       <Field label="Module Name" required value={form.name} onChange={(v) => update('name', v)} error={errors.name} placeholder="e.g. Land Management" />
       <Field label="Module Code" required value={form.code} onChange={(v) => update('code', v.toUpperCase().replace(/\s+/g, '_'))} error={errors.code} disabled={!!mod} placeholder="e.g. LAND" />
       <Field label="Description" value={form.description} onChange={(v) => update('description', v)} placeholder="Optional description" />
-      <Field label="Suite XML File" required value={form.xmlFile} onChange={(v) => update('xmlFile', v)} error={errors.xmlFile} placeholder="e.g. land.xml" />
-      <Field label="Report Path" value={form.reportPath} onChange={(v) => update('reportPath', v)} placeholder="e.g. reports/MasterReport2.html" />
 
       <div className="form-field">
         <label className="form-row">
-          <span>Runner Type (Framework)</span>
+          <span>Framework</span>
           <div className="field-input-wrap">
             <select
               value={form.runnerType}
@@ -297,8 +354,33 @@ function ModuleForm({ mod, setNotice, onSaved, onCancel }) {
           </div>
         </label>
         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-          Options come from the backend's Framework registry — a new framework appears here automatically once registered.
+          Every module belongs to exactly one framework — options come from the backend's Framework
+          registry, so a newly registered framework appears here automatically.
           {mod ? ' Locked on edit: the same code can exist once per framework.' : ''}
+        </span>
+      </div>
+
+      <Field label="Suite / Spec File" required value={form.xmlFile} onChange={(v) => update('xmlFile', v)} error={errors.xmlFile} placeholder="e.g. land.xml (TestNG suite) or land.spec.ts (Playwright spec)" />
+      <Field label="Report Path" value={form.reportPath} onChange={(v) => update('reportPath', v)} placeholder="e.g. reports/MasterReport2.html" />
+
+      <div className="form-field">
+        <label className="form-row">
+          <span>Parent Module (optional)</span>
+          <div className="field-input-wrap">
+            <select
+              value={form.parentModuleId}
+              onChange={(e) => update('parentModuleId', e.target.value)}
+              style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '6px', padding: '0 10px', background: '#fff' }}
+            >
+              <option value="">None — this is its own top-level module</option>
+              {parentOptions.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.code})</option>)}
+            </select>
+          </div>
+        </label>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          Set this when the module is a sub-type variant of a bigger workflow (e.g. one org type
+          of Architect Empanelment) — it shows under its parent as a collapsible child row here,
+          and as a second picker in the Execution Center, instead of its own top-level entry.
         </span>
       </div>
 

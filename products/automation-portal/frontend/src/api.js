@@ -202,7 +202,7 @@ export const api = {
   // ── Portal ────────────────────────────────────────────────────────────────
   dashboardSummary: (range) => request(`/api/dashboard/summary?range=${range || '7d'}`),
   dashboardTrends: (range) => request(`/api/dashboard/trends?range=${range || '7d'}`),
-  dashboardModuleHealth: (range) => request(`/api/dashboard/module-health?range=${range || '30d'}`),
+  dashboardModuleHealth: (range, environmentId) => request(`/api/dashboard/module-health?range=${range || '30d'}${environmentId ? `&environmentId=${environmentId}` : ''}`),
   dashboardRecentActivity: () => request('/api/dashboard/recent-activity'),
   dashboardFailureAnalysis: (range) => request(`/api/dashboard/failure-analysis?range=${range || '30d'}`),
   dashboardSlowTests: (range) => request(`/api/dashboard/slow-tests?range=${range || '30d'}`),

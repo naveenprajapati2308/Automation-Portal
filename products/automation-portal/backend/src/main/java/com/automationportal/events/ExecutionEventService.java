@@ -88,7 +88,22 @@ public class ExecutionEventService {
                 execution.setStartTime(Instant.now());
                 if (data != null) {
                     if (data.containsKey("suiteName")) {
-                        execution.setSuiteName((String) data.get("suiteName"));
+                        String incomingSuiteName = (String) data.get("suiteName");
+                        // Playwright's reporter has no equivalent of TestNG's <suite name="...">
+                        // — it just echoes something derived from its own project checkout (seen in
+                        // practice: literally "Playwright", or "playwright-js" from the folder name),
+                        // which never varies per module/run and would permanently clobber the
+                        // meaningful name ExecutionWorker already derived from the module before
+                        // submission (e.g. "Architect Empanelment - Individual Suite") with the same
+                        // static label every time. So for Playwright this field is never trusted at
+                        // all, regardless of its value. Selenium/TestNG's PortalApiClient, by
+                        // contrast, sends the real <suite name="..."> from testng.xml, which
+                        // genuinely does vary suite to suite, so that case is still accepted as-is.
+                        boolean trustworthy = incomingSuiteName != null && !incomingSuiteName.isBlank()
+                                && !"PLAYWRIGHT".equalsIgnoreCase(execution.getFramework());
+                        if (trustworthy) {
+                            execution.setSuiteName(incomingSuiteName);
+                        }
                     }
                     if (data.containsKey("browser")) {
                         execution.setBrowserName((String) data.get("browser"));

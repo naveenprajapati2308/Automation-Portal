@@ -1,14 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../api.js';
-import { GitCompare, ArrowRight, CheckCircle2, XCircle, Calendar, Info } from 'lucide-react';
+import { GitCompare, ArrowRight, CheckCircle2, XCircle, Info } from 'lucide-react';
+import { ExecutionTreePicker } from './ExecutionTreePicker.jsx';
 import './compare.css';
 
-export function ComparePage({ executions = [] }) {
-  const [baseId, setBaseId] = useState('');
-  const [targetId, setTargetId] = useState('');
+// "Which module family does this execution belong to" — the same moduleCode+framework pair
+// used everywhere else (Module Management, Execution Center) to key a specific module row.
+// Two executions are only ever valid comparison candidates when this key matches exactly, so a
+// Partnership Firm run never gets compared against an unrelated Land or Individual run.
+const executionModuleKey = (exec) => (exec ? `${exec.moduleCode}::${exec.framework}` : null);
+
+export function ComparePage({ executions = [], modules = [] }) {
+  const [baseId, setBaseId] = useState(null);
+  const [targetId, setTargetId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  const baseExec = useMemo(() => executions.find((e) => e.id === baseId) || null, [executions, baseId]);
+  const targetExec = useMemo(() => executions.find((e) => e.id === targetId) || null, [executions, targetId]);
+  const baseModuleKey = executionModuleKey(baseExec);
+  const targetModuleKey = executionModuleKey(targetExec);
+
+  // Picking one side clears the other side's selection if it no longer belongs to the same
+  // module — this is the "keep both dropdowns synchronized" safety net; the tree picker's own
+  // restrictToModuleKey filtering is what stops an invalid pick from happening in the first place.
+  const handleBaseChange = (id) => {
+    setBaseId(id);
+    const exec = executions.find((e) => e.id === id);
+    if (targetId && executionModuleKey(exec) !== targetModuleKey) setTargetId(null);
+  };
+  const handleTargetChange = (id) => {
+    setTargetId(id);
+    const exec = executions.find((e) => e.id === id);
+    if (baseId && executionModuleKey(exec) !== baseModuleKey) setBaseId(null);
+  };
 
   const handleCompare = async () => {
     if (!baseId || !targetId) return;
@@ -56,19 +82,15 @@ export function ComparePage({ executions = [] }) {
         <div className="cp-pick-row">
           <div className="cp-pick">
             <label className="cp-pick-label">Base Execution (Previous)</label>
-            <div className="cp-select-wrap">
-              <span className="cp-select-chip cp-chip-violet"><Calendar size={17} /></span>
-              <select
-                className="cp-select cp-select-violet"
-                value={baseId}
-                onChange={(e) => setBaseId(e.target.value)}
-              >
-                <option value="">Select Base Execution...</option>
-                {executions.map(e => (
-                  <option key={e.id} value={e.id}>{e.executionCode} ({e.moduleCode} - {e.passRate}% Pass)</option>
-                ))}
-              </select>
-            </div>
+            <ExecutionTreePicker
+              modules={modules}
+              executions={executions}
+              value={baseId}
+              onChange={handleBaseChange}
+              placeholder="Select Base Execution..."
+              accent="violet"
+              restrictToModuleKey={targetModuleKey}
+            />
           </div>
 
           <div className="cp-arrow">
@@ -77,19 +99,15 @@ export function ComparePage({ executions = [] }) {
 
           <div className="cp-pick">
             <label className="cp-pick-label">Target Execution (Current/Newer)</label>
-            <div className="cp-select-wrap">
-              <span className="cp-select-chip cp-chip-cyan"><Calendar size={17} /></span>
-              <select
-                className="cp-select cp-select-cyan"
-                value={targetId}
-                onChange={(e) => setTargetId(e.target.value)}
-              >
-                <option value="">Select Target Execution...</option>
-                {executions.map(e => (
-                  <option key={e.id} value={e.id}>{e.executionCode} ({e.moduleCode} - {e.passRate}% Pass)</option>
-                ))}
-              </select>
-            </div>
+            <ExecutionTreePicker
+              modules={modules}
+              executions={executions}
+              value={targetId}
+              onChange={handleTargetChange}
+              placeholder="Select Target Execution..."
+              accent="cyan"
+              restrictToModuleKey={baseModuleKey}
+            />
           </div>
 
           <button

@@ -149,45 +149,6 @@
   color: var(--text-primary);
 }
 
-.db-run-all-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 36px;
-  padding: 0 18px;
-  border: none;
-  border-radius: 9px;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-primary);
-  cursor: pointer;
-  background: linear-gradient(90deg, #2563eb, var(--accent));
-  transition: filter 0.15s;
-  white-space: nowrap;
-}
-.db-run-all-btn:hover {
-  filter: brightness(1.12);
-}
-
-.db-run-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(124, 58, 237, 0.4);
-  background: rgba(124, 58, 237, 0.1);
-  color: var(--indigo-text-soft);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-.db-run-btn:hover {
-  background: rgba(124, 58, 237, 0.22);
-  border-color: var(--accent);
-}
-
 /* ── Table cell content (table-level rules now live in shared/ui/dashboard/tokens.css .tx-table) ── */
 .db-cell-strong {
   font-size: 13px;
@@ -222,19 +183,6 @@
 .db-code-link:hover {
   color: var(--indigo-text-soft);
   text-decoration: underline;
-}
-
-/* Accuracy bar */
-.db-bar-track {
-  width: 80px;
-  height: 6px;
-  background: var(--bg-surface-2);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.db-bar-fill {
-  height: 100%;
-  border-radius: 3px;
 }
 
 /* System info tiles */

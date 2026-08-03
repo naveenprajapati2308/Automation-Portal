@@ -27,8 +27,9 @@ public class DashboardController {
     }
 
     @GetMapping("/module-health")
-    public ApiResponse<List<Map<String, Object>>> moduleHealth(@RequestParam(defaultValue = "30d") String range) {
-        return ApiResponse.ok(dashboardService.getModuleHealth(range));
+    public ApiResponse<List<Map<String, Object>>> moduleHealth(@RequestParam(defaultValue = "30d") String range,
+            @RequestParam(required = false) Long environmentId) {
+        return ApiResponse.ok(dashboardService.getModuleHealth(range, environmentId));
     }
 
     @GetMapping("/recent-activity")

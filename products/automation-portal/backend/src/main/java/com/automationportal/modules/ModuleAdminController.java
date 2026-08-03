@@ -36,6 +36,7 @@ public class ModuleAdminController {
         m.setVisible(body.isVisible());
         m.setAllowedRoles(body.getAllowedRoles());
         m.setRunnerType(runnerType);
+        m.setParentModuleId(body.getParentModuleId());
         return ApiResponse.ok(repository.save(m));
     }
 
@@ -49,6 +50,7 @@ public class ModuleAdminController {
         m.setVisible(body.isVisible());
         m.setAllowedRoles(body.getAllowedRoles());
         m.setActive(body.isActive());
+        m.setParentModuleId(body.getParentModuleId());
         if (body.getRunnerType() != null && !body.getRunnerType().isBlank()) {
             m.setRunnerType(body.getRunnerType());
         }

@@ -27,7 +27,8 @@ public class FrameworkRegistry {
                 Set.of(FrameworkDescriptor.CAP_SCREENSHOTS, FrameworkDescriptor.CAP_LOGS),
                 // Browser is baked into the external Maven/TestNG suite's own code today —
                 // not a portal-selectable parameter, so the "Select Browser" step is skipped.
-                java.util.List.of()
+                java.util.List.of(),
+                "SL"
         ));
         register(new FrameworkDescriptor(
                 "PLAYWRIGHT",
@@ -38,7 +39,8 @@ public class FrameworkRegistry {
                 // Chrome already installed for Selenium); firefox/webkit are commented out there
                 // and their binaries aren't installed in the runner image, so they're left out
                 // here until both are actually wired up.
-                java.util.List.of("chrome")
+                java.util.List.of("chrome"),
+                "PL"
         ));
     }
 

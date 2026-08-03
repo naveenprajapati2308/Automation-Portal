@@ -25,7 +25,6 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -54,6 +53,7 @@ public class ExecutionService {
     private final ModuleEnvironmentRepository moduleEnvironmentRepository;
     private final FrameworkRegistry frameworkRegistry;
     private final AuthenticatedUserService authenticatedUserService;
+    private final ExecutionIdGeneratorService executionIdGeneratorService;
 
     public ExecutionService(ExecutionRepository repository,
                             ExecutionTestCaseRepository testCaseRepository,
@@ -65,7 +65,8 @@ public class ExecutionService {
                             ModuleRepository moduleRepository,
                             ModuleEnvironmentRepository moduleEnvironmentRepository,
                             FrameworkRegistry frameworkRegistry,
-                            AuthenticatedUserService authenticatedUserService) {
+                            AuthenticatedUserService authenticatedUserService,
+                            ExecutionIdGeneratorService executionIdGeneratorService) {
         this.repository = repository;
         this.testCaseRepository = testCaseRepository;
         this.artifactRepository = artifactRepository;
@@ -77,6 +78,7 @@ public class ExecutionService {
         this.moduleEnvironmentRepository = moduleEnvironmentRepository;
         this.frameworkRegistry = frameworkRegistry;
         this.authenticatedUserService = authenticatedUserService;
+        this.executionIdGeneratorService = executionIdGeneratorService;
     }
 
     public Execution queue(RunExecutionRequest request, Long triggeredByUserId) {
@@ -87,7 +89,7 @@ public class ExecutionService {
         }
 
         Execution execution = new Execution();
-        execution.setExecutionCode(generateExecutionCode());
+        execution.setExecutionCode(executionIdGeneratorService.next(resolveFrameworkShortCode(framework)));
         execution.setExecutionType(request.executionType());
         execution.setEnvironmentId(request.environmentId());
         execution.setModuleCode(request.executionType() == ExecutionType.ALL_MODULES ? "ALL" : request.moduleCode());
@@ -100,15 +102,13 @@ public class ExecutionService {
         return repository.save(execution);
     }
 
-    // "AUTO-yyyyMMddHHmmss" alone collides whenever two runs are queued within the same second
-    // (e.g. launching a Playwright and a Selenium run back to back) — execution_code has a
-    // unique DB constraint, so the second insert threw an unhandled DataIntegrityViolationException
-    // (500) instead of a clean error. The random suffix makes same-second collisions effectively
-    // impossible without changing anything that reads this code as an opaque string elsewhere.
-    private static String generateExecutionCode() {
-        String timestamp = DateTimeFormatter.ofPattern("yyyyMMddHHmmss").withZone(java.time.ZoneOffset.UTC).format(Instant.now());
-        int suffix = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000, 10000);
-        return "AUTO-" + timestamp + "-" + suffix;
+    // Resolves a framework's short code (e.g. "SL", "PL") from the registry rather than
+    // hardcoding it here, so a newly registered framework gets a meaningful execution ID with
+    // no change to this class — see FrameworkRegistry/FrameworkDescriptor.shortCode().
+    private String resolveFrameworkShortCode(String framework) {
+        return frameworkRegistry.find(framework)
+                .map(fw -> fw.shortCode())
+                .orElse("GEN");
     }
 
     /**
@@ -238,7 +238,7 @@ public class ExecutionService {
         }
 
         // Create new execution code
-        String newCode = generateExecutionCode();
+        String newCode = executionIdGeneratorService.next(resolveFrameworkShortCode(old.getFramework()));
         String tempSuiteName = "testng-failed-temp-" + newCode + ".xml";
         Path dest = Path.of(properties.getRepositoryPath(), tempSuiteName);
 

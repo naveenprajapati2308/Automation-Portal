@@ -30,7 +30,7 @@ export function DataTable({
   const [pageSize, setPageSize] = useState(10);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'none' });
   const [visibleColumns, setVisibleColumns] = useState(
-    columns.reduce((acc, col) => ({ ...acc, [col.key]: true }), {})
+    columns.reduce((acc, col) => ({ ...acc, [col.key]: col.defaultVisible !== false }), {})
   );
   const [showColumnToggle, setShowColumnToggle] = useState(false);
 

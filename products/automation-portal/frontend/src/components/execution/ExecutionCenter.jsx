@@ -46,13 +46,33 @@ export function ExecutionCenter({
   const activeModules = (modules || []).filter(m => m.active !== false)
     .filter(m => m.runnerType === selectedFramework);
 
+  // The Module picker only ever shows top-level workflow modules — a module with sub-type
+  // variants (e.g. Architect Empanelment's org types) exposes them as a second, dependent
+  // "Type" picker below instead of flattening every combination into this list.
+  const topLevelModules = activeModules.filter(m => !m.parentModuleId);
+
   // If the framework switch made the current module unavailable, fall back to the first
-  // module that is available there.
+  // top-level module that is available there.
   useEffect(() => {
-    if (selectedModule && !activeModules.some(m => m.code === selectedModule)) {
-      setSelectedModule(activeModules[0]?.code || '');
+    if (selectedModule && !topLevelModules.some(m => m.code === selectedModule)) {
+      setSelectedModule(topLevelModules[0]?.code || '');
     }
   }, [selectedFramework, modules]);
+
+  const [selectedSubType, setSelectedSubType] = useState('');
+  const selectedModuleObj = activeModules.find(m => m.code === selectedModule);
+  const childModules = selectedModuleObj
+    ? activeModules.filter(m => m.parentModuleId === selectedModuleObj.id)
+    : [];
+  // Everything below (environments/config/browsers/tags/the actual run) targets whichever is
+  // more specific: the chosen sub-type if one is picked, otherwise the parent module itself —
+  // so selecting just the parent still runs its own combined suite exactly as before.
+  const effectiveModule = childModules.find(m => m.code === selectedSubType) || selectedModuleObj;
+
+  // Selecting a different parent invalidates whatever sub-type was chosen for the previous one.
+  useEffect(() => {
+    setSelectedSubType('');
+  }, [selectedModule]);
 
   const [runnerSuites, setRunnerSuites] = useState([]);
   const [selectedSuite, setSelectedSuite] = useState('');
@@ -68,7 +88,7 @@ export function ExecutionCenter({
       setSupportedEnvironments(environments || []);
       return;
     }
-    const mod = activeModules.find(m => m.code === selectedModule);
+    const mod = effectiveModule;
     if (!mod) {
       setSupportedEnvironments([]);
       return;
@@ -79,7 +99,7 @@ export function ExecutionCenter({
       .catch(e => { console.error('Failed to load supported environments', e); if (!cancelled) setSupportedEnvironments([]); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedModule, showAdvanced, modules]);
+  }, [selectedModule, selectedSubType, showAdvanced, modules]);
 
   // Keep the environment selection valid as the supported list changes.
   useEffect(() => {
@@ -95,7 +115,7 @@ export function ExecutionCenter({
   // full list.
   const [moduleEnvOptions, setModuleEnvOptions] = useState(null);
   useEffect(() => {
-    const mod = activeModules.find(m => m.code === selectedModule);
+    const mod = effectiveModule;
     if (showAdvanced || !mod || !selectedEnv) {
       setModuleEnvOptions(null);
       return;
@@ -106,7 +126,7 @@ export function ExecutionCenter({
       .catch(e => { console.error('Failed to load module/environment options', e); if (!cancelled) setModuleEnvOptions(null); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedModule, selectedEnv, showAdvanced]);
+  }, [selectedModule, selectedSubType, selectedEnv, showAdvanced]);
 
   // Run-scope tags (e.g. "@smoke", "@regression") discovered live from the selected Playwright
   // module's own test titles — purely additive: an empty result just hides the dropdown below,
@@ -114,7 +134,7 @@ export function ExecutionCenter({
   // grep-style filter here), and Advanced mode has no module in play.
   const [moduleTags, setModuleTags] = useState([]);
   useEffect(() => {
-    const mod = activeModules.find(m => m.code === selectedModule);
+    const mod = effectiveModule;
     if (showAdvanced || !mod || selectedFramework !== 'PLAYWRIGHT') {
       setModuleTags([]);
       return;
@@ -125,7 +145,7 @@ export function ExecutionCenter({
       .catch(e => { console.error('Failed to load run-scope tags', e); if (!cancelled) setModuleTags([]); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedModule, selectedFramework, showAdvanced]);
+  }, [selectedModule, selectedSubType, selectedFramework, showAdvanced]);
 
   // Keep the tag selection valid as the module/framework changes — clearing it (back to "All
   // tests", i.e. no filter) is always safe and never blocks a run.
@@ -454,7 +474,7 @@ export function ExecutionCenter({
         await run('XML_SUITE', selectedSuite);
       } else {
         if (!selectedModule) return;
-        await run('MODULE', null, selectedModule);
+        await run('MODULE', null, effectiveModule?.code || selectedModule);
       }
     } catch (e) {
       console.error(e);
@@ -599,7 +619,8 @@ export function ExecutionCenter({
             )}
           </select>
 
-          {/* Module dropdown selector (admin-registered modules) */}
+          {/* Module dropdown selector (admin-registered modules) — top-level workflows only, a
+              module's own sub-type variants (if any) are picked below instead. */}
           <label className="xc-label" style={{ marginTop: 16 }}>What do you want to run?</label>
           <select
             className="xc-select xc-select-primary"
@@ -607,14 +628,34 @@ export function ExecutionCenter({
             onChange={(e) => setSelectedModule(e.target.value)}
             disabled={showAdvanced}
           >
-            {activeModules.length === 0 ? (
+            {topLevelModules.length === 0 ? (
               <option value="">No modules registered — ask an admin to add one</option>
             ) : (
-              activeModules.map(mod => (
+              topLevelModules.map(mod => (
                 <option key={mod.code} value={mod.code}>{mod.name} ({mod.code})</option>
               ))
             )}
           </select>
+
+          {/* Sub-type picker — only appears when the selected module has variants (e.g.
+              Architect Empanelment's org types). Leaving it on "All types (combined)" runs the
+              parent module's own suite exactly as before this existed. */}
+          {!showAdvanced && childModules.length > 0 && (
+            <>
+              <label className="xc-label" style={{ marginTop: 16 }}>Type</label>
+              <select
+                className="xc-select"
+                value={selectedSubType}
+                onChange={(e) => setSelectedSubType(e.target.value)}
+                disabled={activeExec && activeExec.status === 'RUNNING'}
+              >
+                <option value="">All types (combined)</option>
+                {childModules.map(mod => (
+                  <option key={mod.code} value={mod.code}>{mod.name.replace(selectedModuleObj?.name + ' - ', '')}</option>
+                ))}
+              </select>
+            </>
+          )}
 
           {/* Advanced: pick a raw suite/spec directly instead of a registered module — useful
               for a one-off XML suite (Selenium) or a single .spec.ts (Playwright) rather than

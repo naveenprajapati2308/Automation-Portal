@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../api.js';
 import { Loader } from '../../../../../../shared/ui/Loader.jsx';
+import { buildHierarchyRows } from '../../../../../../shared/ui/hierarchyRows.js';
 import { Modal } from '../shared/index.jsx';
 import {
   Globe2,
@@ -17,7 +18,9 @@ import {
   Trash2,
   Save,
   Eye,
-  EyeOff
+  EyeOff,
+  ChevronRight,
+  ChevronDown
 } from 'lucide-react';
 import './environments.css';
 
@@ -51,6 +54,52 @@ function ReachBadge({ env }) {
     return <span className="ev-reach ev-reach-down"><WifiOff size={13} /> Unreachable</span>;
   }
   return <span className="ev-reach ev-reach-nourl"><Link2 size={13} /> No URL set</span>;
+}
+
+// Groups a flat "modules enabled for this environment" list into parent workflows with their
+// sub-type variants collapsible underneath — same expand/collapse pattern as Manage Modules'
+// table (see shared/ui/hierarchyRows.js), so it stays readable once a workflow's variants
+// (e.g. Architect Empanelment's org types) are all enabled here too, instead of one long
+// comma-separated line.
+function UsedByModules({ modules }) {
+  const [expandedIds, setExpandedIds] = useState(new Set());
+  const toggle = (id) => setExpandedIds((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
+  const rows = buildHierarchyRows(modules, {
+    getParentId: (m) => m.parentModuleId || null,
+    expandedIds
+  });
+
+  return (
+    <div className="ev-used-by">
+      <span className="ev-used-by-label">Used by {modules.length} module{modules.length !== 1 ? 's' : ''}:</span>
+      <div className="ev-used-by-list">
+        {rows.map((m) => (
+          <div key={m.id} className="ev-used-by-row" style={{ paddingLeft: m.__isChild ? 20 : 0 }}>
+            {m.__hasChildren ? (
+              <button
+                type="button"
+                className={`ev-used-by-toggle${expandedIds.has(m.id) ? ' open' : ''}`}
+                onClick={() => toggle(m.id)}
+                title={expandedIds.has(m.id) ? 'Collapse' : 'Expand'}
+              >
+                {expandedIds.has(m.id) ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+              </button>
+            ) : m.__isChild ? (
+              <span className="ev-used-by-branch">↳</span>
+            ) : (
+              <span className="ev-used-by-spacer" />
+            )}
+            <span>{m.name} <em>({m.runnerType})</em></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function EnvCard({ env, onSaved, onDeleted }) {
@@ -193,9 +242,7 @@ function EnvCard({ env, onSaved, onDeleted }) {
       </div>
 
       {usedByModules && usedByModules.length > 0 && (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 8px' }}>
-          Used by: {usedByModules.map((m) => `${m.name} (${m.runnerType})`).join(', ')}
-        </div>
+        <UsedByModules modules={usedByModules} />
       )}
 
       <button className="ev-config-toggle" onClick={() => setExpanded((v) => !v)}>

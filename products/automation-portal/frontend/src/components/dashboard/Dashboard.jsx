@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
-  Play,
   Clock3,
   FileText,
   Hourglass,
@@ -19,6 +18,7 @@ import { ExecutionTrendChart } from '../../../../../../shared/ui/dashboard/Execu
 import { StatusMixDonut } from '../../../../../../shared/ui/dashboard/StatusMixDonut.jsx';
 import { Table } from '../../../../../../shared/ui/dashboard/Table.jsx';
 import { EmptyState } from '../../../../../../shared/ui/dashboard/EmptyState.jsx';
+import { ModuleAnalyticsTable } from '../../../../../../shared/ui/dashboard/ModuleAnalyticsTable.jsx';
 
 // Import child components
 import { EnvDistribution } from './EnvDistribution.jsx';
@@ -41,6 +41,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   const [range, setRange] = useDateRange(DATE_RANGE_SCOPES.AUTOMATION, '7d');
   const [loading, setLoading] = useState(true);
   const [selectedEnvId, setSelectedEnvId] = useState('');
+  const [selectedFramework, setSelectedFramework] = useState('');
 
   // Data states from API
   const [summary, setSummary] = useState(null);
@@ -68,7 +69,6 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         summaryData,
         recentData,
         envData,
-        healthData,
         envDistData,
         trendsData,
         slowTestData,
@@ -78,7 +78,6 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
         api.dashboardSummary(range).catch(() => null),
         api.dashboardRecentActivity().catch(() => []),
         api.environments().catch(() => []),
-        api.dashboardModuleHealth(range).catch(() => []),
         api.dashboardEnvDistribution(range).catch(() => []),
         api.dashboardTrends(range).catch(() => []),
         api.dashboardSlowTests(range).catch(() => []),
@@ -89,14 +88,8 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
       if (summaryData) setSummary(summaryData);
       if (recentData) setRecentExecutions(recentData);
 
-      if (envData) {
-        setEnvironments(envData);
-        if (envData.length > 0 && !selectedEnvId) {
-          setSelectedEnvId(envData[0].id);
-        }
-      }
+      if (envData) setEnvironments(envData);
 
-      if (healthData) setModulesHealthData(healthData);
       if (modulesData) setModules(modulesData);
       if (envDistData) setEnvDistribution(envDistData);
       if (trendsData) setTrends(trendsData);
@@ -113,11 +106,29 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
     loadData();
   }, [range]);
 
-  // Keep a ref to the latest loadData (it closes over `range`/`selectedEnvId`) so the SSE
-  // effect below can call the current version without re-subscribing on every render.
+  // Module health is scoped to the selected environment (the backend now groups executions by
+  // moduleCode+framework+environmentId), so it's refetched independently whenever either the
+  // range or the environment filter changes, without re-fetching the rest of the dashboard.
+  const refreshModuleHealth = () => {
+    api.dashboardModuleHealth(range, selectedEnvId || undefined)
+      .then((data) => setModulesHealthData(Array.isArray(data) ? data : []))
+      .catch(() => setModulesHealthData([]));
+  };
+  useEffect(() => {
+    let cancelled = false;
+    api.dashboardModuleHealth(range, selectedEnvId || undefined)
+      .then((data) => { if (!cancelled) setModulesHealthData(Array.isArray(data) ? data : []); })
+      .catch(() => { if (!cancelled) setModulesHealthData([]); });
+    return () => { cancelled = true; };
+  }, [range, selectedEnvId]);
+
+  // Keep refs to the latest loadData/refreshModuleHealth (they close over `range`/`selectedEnvId`)
+  // so the SSE effect below can call the current versions without re-subscribing on every render.
   const loadDataRef = useRef(loadData);
+  const refreshModuleHealthRef = useRef(refreshModuleHealth);
   useEffect(() => {
     loadDataRef.current = loadData;
+    refreshModuleHealthRef.current = refreshModuleHealth;
   });
 
   // Live updates: subscribe once to the dashboard-wide event stream (mirrors the pattern
@@ -137,6 +148,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         loadDataRef.current();
+        refreshModuleHealthRef.current();
       }, 3000);
     };
 
@@ -190,10 +202,7 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   const startTimes = useMemo(() => formatDateTime(lastRun?.startTime), [lastRun]);
   const endTimes = useMemo(() => formatDateTime(lastRun?.endTime), [lastRun]);
 
-  // Module Analytics rows come from the admin-registered modules (active only),
-  // merged with the range-scoped health aggregates by module code. The ALL
-  // master-suite module is excluded — the "Run All Modules" button owns that.
-  // Which modules are shown for the selected environment now comes from the backend's
+  // Which modules are shown for the selected environment comes from the backend's
   // Module<->Environment mapping (single source of truth) rather than the old envCodes CSV.
   const [envSupportedModules, setEnvSupportedModules] = useState(null);
   useEffect(() => {
@@ -211,47 +220,49 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
     return envSupportedModules.some(sm => sm.code === m.code && sm.runnerType === m.runnerType);
   };
 
-  const moduleRows = useMemo(() => {
-    return modules
-      .filter(m => m.active && m.code !== 'ALL' && availableInEnv(m))
-      .map(m => {
-        const health = modulesHealthData.find(h => h.moduleCode === m.code);
-        return {
-          code: m.code,
-          name: m.name,
-          runnerType: m.runnerType,
-          total: health ? (health.totalTests ?? health.total ?? 0) : 0,
-          passed: health ? (health.passed ?? 0) : 0,
-          failed: health ? (health.failed ?? 0) : 0,
-          skipped: health ? (health.skipped ?? 0) : 0,
-          accuracy: health ? (health.passRate ?? 0) : 0
-        };
+  // Module Analytics stats are keyed by moduleCode+framework (a module code can be registered
+  // once per framework), matching how the backend now groups execution health.
+  const healthByKey = useMemo(() => {
+    const map = new Map();
+    for (const h of modulesHealthData) {
+      map.set(`${h.moduleCode}::${h.framework}`, {
+        total: h.totalTests ?? h.total ?? 0,
+        passed: h.passed ?? 0,
+        failed: h.failed ?? 0,
+        skipped: h.skipped ?? 0,
+        accuracy: h.passRate ?? 0
       });
-  }, [modules, modulesHealthData, selectedEnvId, envSupportedModules]);
+    }
+    return map;
+  }, [modulesHealthData]);
 
-  // Trigger run for a module
-  const handleRunModule = async (moduleCode, framework) => {
-    if (!selectedEnvId) {
-      alert('Please select an environment first.');
-      return;
-    }
-    try {
-      const payload = {
-        executionType: moduleCode === 'ALL' ? 'ALL_MODULES' : 'MODULE',
+  // Run a single module — same MODULE execution request the Execution Center uses, so it goes
+  // through the identical queue/worker/report pipeline. The framework always comes from the
+  // module's own registered runnerType, never asked of the user.
+  const runModule = async (mod) => {
+    await api.runExecution({
+      executionType: 'MODULE',
+      environmentId: Number(selectedEnvId),
+      moduleCode: mod.code,
+      framework: mod.runnerType
+    });
+    loadData();
+    refreshModuleHealth();
+  };
+
+  // Run All for one parent module — queues each of its child modules individually (never the
+  // platform-wide ALL_MODULES type), so only that parent's own sub-types are triggered.
+  const runAllForParent = async (parent, children) => {
+    for (const child of children) {
+      await api.runExecution({
+        executionType: 'MODULE',
         environmentId: Number(selectedEnvId),
-        moduleCode: moduleCode === 'ALL' ? null : moduleCode,
-        framework: moduleCode === 'ALL' ? undefined : framework
-      };
-      await api.runExecution(payload);
-      const moduleName = moduleCode === 'ALL'
-        ? 'All Modules'
-        : (modules.find(m => m.code === moduleCode)?.name || moduleCode);
-      alert(`Execution queued successfully for ${moduleName}!`);
-      loadData();
-    } catch (err) {
-      console.error(err);
-      alert(`Failed to trigger execution: ${err.message}`);
+        moduleCode: child.code,
+        framework: child.runnerType
+      });
     }
+    loadData();
+    refreshModuleHealth();
   };
 
   // Accuracy circular ring calculation
@@ -265,8 +276,6 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
   const mixPassed = summary?.passedTests ?? 0;
   const mixFailed = summary?.failedTests ?? 0;
   const mixSkipped = summary?.skippedTests ?? 0;
-
-  const accuracyColor = (pct) => (pct >= 80 ? 'var(--success-text)' : pct >= 50 ? 'var(--warning-text)' : 'var(--danger-text)');
 
   if (loading && !summary) {
     return (
@@ -437,65 +446,22 @@ export function Dashboard({ onSelectExecution, onNavigate }) {
 
       {/* Row 3: Module Analytics */}
       <div className="db-card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-          <h3 className="db-card-title" style={{ margin: 0 }}><Layers size={16} /> Module Analytics</h3>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <select className="db-select" value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
-              {environments.map(env => (
-                <option key={env.id} value={env.id}>{env.name}</option>
-              ))}
-            </select>
-
-            <button className="db-run-all-btn" onClick={() => handleRunModule('ALL')}>
-              <Play size={14} />
-              Run All Modules
-            </button>
-          </div>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <Table>
-            <thead>
-              <tr>
-                <th>Module</th>
-                <th>Total</th>
-                <th>Passed</th>
-                <th>Failed</th>
-                <th>Skipped</th>
-                <th>Accuracy</th>
-                <th style={{ textAlign: 'right' }}>Run</th>
-              </tr>
-            </thead>
-            <tbody>
-              {moduleRows.map((row) => (
-                <tr key={row.code}>
-                  <td className="db-cell-strong">{row.name}</td>
-                  <td>{row.total}</td>
-                  <td style={{ color: 'var(--success-text)', fontWeight: 600 }}>{row.passed}</td>
-                  <td style={{ color: 'var(--danger-text)', fontWeight: 600 }}>{row.failed}</td>
-                  <td style={{ color: 'var(--warning-text)', fontWeight: 600 }}>{row.skipped}</td>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontWeight: 800, color: accuracyColor(row.accuracy), minWidth: 40 }}>
-                        {row.accuracy}%
-                      </span>
-                      <div className="db-bar-track">
-                        <div className="db-bar-fill" style={{ background: accuracyColor(row.accuracy), width: `${row.accuracy}%` }} />
-                      </div>
-                    </div>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="db-run-btn" onClick={() => handleRunModule(row.code, row.runnerType)}>
-                      <Play size={12} />
-                      Run Module
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </div>
+        <ModuleAnalyticsTable
+          title="Module Analytics"
+          icon={Layers}
+          modules={modules}
+          healthByKey={healthByKey}
+          frameworks={frameworks}
+          environments={environments}
+          selectedFramework={selectedFramework}
+          onFrameworkChange={setSelectedFramework}
+          selectedEnvironmentId={selectedEnvId}
+          onEnvironmentChange={setSelectedEnvId}
+          isModuleAvailable={availableInEnv}
+          onRunModule={runModule}
+          onRunAllForParent={runAllForParent}
+          loading={loading}
+        />
       </div>
 
       {/* Row 4: Slowest Test Cases & Flaky Tests */}

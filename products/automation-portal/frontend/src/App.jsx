@@ -394,7 +394,7 @@ export function App() {
       {active === 'reports' && <ReportsCenter onSelectExecution={setSelectedExecutionId} />}
       {active === 'logs' && <LogsViewer />}
       {active === 'screenshots' && <ScreenshotsGallery onSelectExecution={setSelectedExecutionId} />}
-      {active === 'compare' && <ComparePage executions={executions} />}
+      {active === 'compare' && <ComparePage executions={executions} modules={modules} />}
       {active === 'environments' && <EnvironmentView onRefresh={refresh} />}
       {selectedExecutionId && (
         <ExecutionDetailPage

@@ -231,6 +231,73 @@
 .ev-status-text.passed, .ev-status-text.completed { color: var(--success-text); }
 .ev-status-text.running, .ev-status-text.queued { color: var(--warning-text); }
 
+.ev-used-by {
+  font-size: 12px;
+}
+
+.ev-used-by-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ev-used-by-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.ev-used-by-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-muted);
+}
+
+.ev-used-by-row em {
+  font-style: normal;
+  color: var(--text-muted);
+}
+
+.ev-used-by-toggle {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+}
+
+.ev-used-by-toggle:hover {
+  border-color: var(--accent);
+}
+
+.ev-used-by-toggle.open {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.ev-used-by-branch {
+  width: 18px;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.ev-used-by-spacer {
+  width: 18px;
+  flex-shrink: 0;
+}
+
 .ev-config-toggle {
   display: inline-flex;
   align-items: center;
