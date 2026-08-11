@@ -3,10 +3,13 @@ package com.automationportal.screenshots;
 import com.automationportal.common.ApiResponse;
 import com.automationportal.config.PortalAutomationProperties;
 import com.automationportal.executions.*;
+import com.automationportal.workspace.CurrentProjectService;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -27,15 +30,18 @@ public class ScreenshotController {
     private final ExecutionRepository executionRepository;
     private final ExecutionArtifactRepository artifactRepository;
     private final PortalAutomationProperties automationProperties;
+    private final CurrentProjectService currentProjectService;
 
     public ScreenshotController(ExecutionTestCaseRepository testCaseRepository,
                                 ExecutionRepository executionRepository,
                                 ExecutionArtifactRepository artifactRepository,
-                                PortalAutomationProperties automationProperties) {
+                                PortalAutomationProperties automationProperties,
+                                CurrentProjectService currentProjectService) {
         this.testCaseRepository = testCaseRepository;
         this.executionRepository = executionRepository;
         this.artifactRepository = artifactRepository;
         this.automationProperties = automationProperties;
+        this.currentProjectService = currentProjectService;
     }
 
     public record ScreenshotDto(
@@ -54,15 +60,31 @@ public class ScreenshotController {
     public ApiResponse<List<ScreenshotDto>> list(
             @RequestParam(required = false) Long executionId) {
 
+        Long projectId = currentProjectService.requireProjectId();
+        if (executionId != null) {
+            Execution execution = executionRepository.findById(executionId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + executionId));
+            if (!currentProjectService.canAccess(execution.getProjectId())) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + executionId);
+            }
+        }
+
+        // Preload executions to avoid N+1 queries, and to resolve which executionIds are in
+        // scope when no single executionId was requested.
+        List<Execution> allExecutions = executionRepository.findAll();
+        Map<Long, String> executionMap = allExecutions.stream()
+                .collect(Collectors.toMap(Execution::getId, Execution::getExecutionCode, (p1, p2) -> p1));
+        java.util.Set<Long> allowedExecutionIds = allExecutions.stream()
+                .filter(e -> projectId.equals(e.getProjectId()))
+                .map(Execution::getId)
+                .collect(Collectors.toSet());
+
         List<ExecutionTestCase> cases = testCaseRepository.findAll().stream()
                 .filter(tc -> tc.getScreenshotPath() != null && !tc.getScreenshotPath().trim().isEmpty())
                 .filter(tc -> executionId == null || tc.getExecutionId().equals(executionId))
+                .filter(tc -> allowedExecutionIds.contains(tc.getExecutionId()))
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
                 .collect(Collectors.toList());
-
-        // Preload executions to avoid N+1 queries
-        Map<Long, String> executionMap = executionRepository.findAll().stream()
-                .collect(Collectors.toMap(Execution::getId, Execution::getExecutionCode, (p1, p2) -> p1));
 
         List<ScreenshotDto> dtos = new ArrayList<>();
         for (ExecutionTestCase tc : cases) {
@@ -93,6 +115,11 @@ public class ScreenshotController {
     public ApiResponse<String> delete(@PathVariable Long testCaseId) throws IOException {
         ExecutionTestCase tc = testCaseRepository.findById(testCaseId)
                 .orElseThrow(() -> new IllegalArgumentException("Screenshot not found for test case: " + testCaseId));
+        Execution owningExecution = executionRepository.findById(tc.getExecutionId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Screenshot not found for test case: " + testCaseId));
+        if (!currentProjectService.canAccess(owningExecution.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Screenshot not found for test case: " + testCaseId);
+        }
 
         String screenshotPath = tc.getScreenshotPath();
         if (screenshotPath == null || screenshotPath.trim().isEmpty()) {

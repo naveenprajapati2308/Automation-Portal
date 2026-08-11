@@ -12,6 +12,14 @@ public class Execution {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
+    /** Which registered Test Engine ran this execution (docs/version2.3.md Plan 2); null for
+     *  modules that haven't been migrated off the legacy global shared-secret path yet. */
+    @Column(name = "test_engine_id")
+    private Long testEngineId;
+
     @Column(name = "execution_code")
     private String executionCode;
 
@@ -110,6 +118,10 @@ public class Execution {
     private Instant createdAt;
 
     public Long getId() { return id; }
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
+    public Long getTestEngineId() { return testEngineId; }
+    public void setTestEngineId(Long testEngineId) { this.testEngineId = testEngineId; }
     public String getExecutionCode() { return executionCode; }
     public void setExecutionCode(String executionCode) { this.executionCode = executionCode; }
     public ExecutionType getExecutionType() { return executionType; }

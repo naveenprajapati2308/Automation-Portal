@@ -1,6 +1,7 @@
 package com.automationportal.modules;
 
 import com.automationportal.common.ApiResponse;
+import com.automationportal.workspace.CurrentProjectService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,9 +12,11 @@ import java.util.Map;
 public class ModuleAdminController {
 
     private final ModuleRepository repository;
+    private final CurrentProjectService currentProjectService;
 
-    public ModuleAdminController(ModuleRepository repository) {
+    public ModuleAdminController(ModuleRepository repository, CurrentProjectService currentProjectService) {
         this.repository = repository;
+        this.currentProjectService = currentProjectService;
     }
 
     @GetMapping
@@ -30,6 +33,10 @@ public class ModuleAdminController {
                     "A " + runnerType + " module with code '" + body.getCode() + "' already exists.");
         }
         ModuleEntity m = new ModuleEntity(body.getCode(), body.getName());
+        // Super Admin has no project context of its own (excluded from project_users by
+        // design) — every admin-created module is stamped into the Default Workspace, same as
+        // every pre-Phase-3 module already backfilled there.
+        m.setProjectId(currentProjectService.defaultWorkspaceProjectId());
         m.setDescription(body.getDescription());
         m.setXmlFile(body.getXmlFile());
         m.setReportPath(body.getReportPath());
@@ -37,6 +44,7 @@ public class ModuleAdminController {
         m.setAllowedRoles(body.getAllowedRoles());
         m.setRunnerType(runnerType);
         m.setParentModuleId(body.getParentModuleId());
+        m.setTestEngineId(body.getTestEngineId());
         return ApiResponse.ok(repository.save(m));
     }
 
@@ -51,6 +59,7 @@ public class ModuleAdminController {
         m.setAllowedRoles(body.getAllowedRoles());
         m.setActive(body.isActive());
         m.setParentModuleId(body.getParentModuleId());
+        m.setTestEngineId(body.getTestEngineId());
         if (body.getRunnerType() != null && !body.getRunnerType().isBlank()) {
             m.setRunnerType(body.getRunnerType());
         }

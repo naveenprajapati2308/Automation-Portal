@@ -46,6 +46,12 @@ public class User {
     @Column(name = "pending_email")
     private String pendingEmail;
 
+    @Column(name = "business_id")
+    private String businessId;
+
+    @Column(name = "current_project_id")
+    private Long currentProjectId;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
 
@@ -83,4 +89,8 @@ public class User {
     public void setAuthProvider(String authProvider) { this.authProvider = authProvider; }
     public String getPendingEmail() { return pendingEmail; }
     public void setPendingEmail(String pendingEmail) { this.pendingEmail = pendingEmail; }
+    public String getBusinessId() { return businessId; }
+    public void setBusinessId(String businessId) { this.businessId = businessId; }
+    public Long getCurrentProjectId() { return currentProjectId; }
+    public void setCurrentProjectId(Long currentProjectId) { this.currentProjectId = currentProjectId; }
 }

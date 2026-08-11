@@ -6,7 +6,9 @@ import com.automationportal.perftesting.perftest.TargetType;
 import com.automationportal.perftesting.results.PerfTestRun;
 import com.automationportal.perftesting.results.PerfTestRunRepository;
 import com.automationportal.perftesting.results.TestType;
+import com.automationportal.perftesting.security.CurrentProjectService;
 import com.automationportal.perftesting.virtualuser.AuthType;
+import com.automationportal.perftesting.virtualuser.VirtualUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,19 +24,19 @@ public class LoadTestService {
 
     private final LoadTestRepository repository;
     private final PerfTestRunRepository runRepository;
+    private final VirtualUserRepository virtualUserRepository;
+    private final CurrentProjectService currentProjectService;
 
     @Transactional(readOnly = true)
     public List<LoadTestDto> getAll() {
-        return repository.findAll().stream()
+        return repository.findByProjectId(currentProjectService.requireProjectId()).stream()
                 .map(this::toDtoWithStats)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public LoadTestDto getById(Long id) {
-        LoadTest entity = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Load Test not found with ID: " + id));
-        return toDtoWithStats(entity);
+        return toDtoWithStats(find(id));
     }
 
     @Transactional
@@ -42,6 +44,7 @@ public class LoadTestService {
         LoadTest entity = LoadTest.builder()
                 .name(dto.getName())
                 .description(dto.getDescription())
+                .projectId(currentProjectService.requireProjectId())
                 .targetType(dto.getTargetType() != null ? dto.getTargetType() : TargetType.URL)
                 .targetUrl(dto.getTargetUrl())
                 .httpMethod(dto.getHttpMethod() != null ? dto.getHttpMethod() : HttpMethod.GET)
@@ -53,7 +56,7 @@ public class LoadTestService {
                 .authKeyIn(dto.getAuthKeyIn())
                 .timeoutMs(dto.getTimeoutMs() != null ? dto.getTimeoutMs() : 10000)
                 .stages(dto.getStages() != null ? dto.getStages() : new ArrayList<>())
-                .vuAssignments(dto.getVuAssignments() != null ? dto.getVuAssignments() : new ArrayList<>())
+                .vuAssignments(validateVuAssignments(dto.getVuAssignments()))
                 .virtualUserCount(dto.getVirtualUserCount() != null ? dto.getVirtualUserCount() : 10)
                 .rampUpSeconds(dto.getRampUpSeconds() != null ? dto.getRampUpSeconds() : 30)
                 .steadyDurationSeconds(dto.getSteadyDurationSeconds() != null ? dto.getSteadyDurationSeconds() : 60)
@@ -73,8 +76,7 @@ public class LoadTestService {
 
     @Transactional
     public LoadTestDto update(Long id, LoadTestDto dto) {
-        LoadTest existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Load Test not found with ID: " + id));
+        LoadTest existing = find(id);
 
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
@@ -88,7 +90,7 @@ public class LoadTestService {
         existing.setAuthKeyIn(dto.getAuthKeyIn());
         existing.setTimeoutMs(dto.getTimeoutMs() != null ? dto.getTimeoutMs() : 10000);
         existing.setStages(dto.getStages() != null ? dto.getStages() : new ArrayList<>());
-        existing.setVuAssignments(dto.getVuAssignments() != null ? dto.getVuAssignments() : new ArrayList<>());
+        existing.setVuAssignments(validateVuAssignments(dto.getVuAssignments()));
         existing.setVirtualUserCount(dto.getVirtualUserCount() != null ? dto.getVirtualUserCount() : 10);
         existing.setRampUpSeconds(dto.getRampUpSeconds() != null ? dto.getRampUpSeconds() : 30);
         existing.setSteadyDurationSeconds(dto.getSteadyDurationSeconds() != null ? dto.getSteadyDurationSeconds() : 60);
@@ -113,13 +115,37 @@ public class LoadTestService {
 
     @Transactional
     public void delete(Long id) {
-        LoadTest existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Load Test not found with ID: " + id));
+        LoadTest existing = find(id);
         repository.delete(existing);
+    }
+
+    private LoadTest find(Long id) {
+        LoadTest entity = repository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Load Test not found with ID: " + id));
+        if (!currentProjectService.requireProjectId().equals(entity.getProjectId())) {
+            throw ApiException.notFound("Load Test not found with ID: " + id);
+        }
+        return entity;
     }
 
     private boolean isMaskedPlaceholder(String value) {
         return value.endsWith("...***") || value.equals("********");
+    }
+
+    private List<VuAssignment> validateVuAssignments(List<VuAssignment> assignments) {
+        if (assignments == null || assignments.isEmpty()) {
+            return new ArrayList<>();
+        }
+        Long projectId = currentProjectService.requireProjectId();
+        for (VuAssignment assignment : assignments) {
+            boolean ownedByCaller = virtualUserRepository.findById(assignment.getVirtualUserId())
+                    .map(vu -> projectId.equals(vu.getProjectId()))
+                    .orElse(false);
+            if (!ownedByCaller) {
+                throw ApiException.badRequest("Virtual User not found with ID: " + assignment.getVirtualUserId());
+            }
+        }
+        return assignments;
     }
 
     private LoadTestDto toDtoWithStats(LoadTest entity) {

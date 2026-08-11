@@ -31,6 +31,9 @@ public class PerfTestRun {
     @Column(name = "test_name", length = 255)
     private String testName;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "run_trigger", nullable = false)
     @Builder.Default

@@ -4,6 +4,7 @@ import com.automationportal.perftesting.common.ApiException;
 import com.automationportal.perftesting.perftest.PerformanceTestRepository;
 import com.automationportal.perftesting.loadtest.LoadTestRepository;
 import com.automationportal.perftesting.group.TestGroupRepository;
+import com.automationportal.perftesting.security.CurrentProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Service;
@@ -23,33 +24,35 @@ public class PerfTestScheduleService {
     private final PerformanceTestRepository perfTestRepository;
     private final LoadTestRepository loadTestRepository;
     private final TestGroupRepository testGroupRepository;
+    private final CurrentProjectService currentProjectService;
 
     @Transactional(readOnly = true)
     public List<PerfTestScheduleDto> getAll() {
-        return repository.findAll().stream()
+        return repository.findByProjectId(currentProjectService.requireProjectId()).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public PerfTestScheduleDto getById(Long id) {
-        PerfTestSchedule entity = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Schedule not found with ID: " + id));
-        return toDto(entity);
+        return toDto(find(id));
     }
 
     @Transactional
     public PerfTestScheduleDto create(PerfTestSchedule dto) {
+        Long projectId = currentProjectService.requireProjectId();
         // Validate Cron Expression
         if (!CronExpression.isValidExpression(dto.getCronExpression())) {
             throw ApiException.badRequest("Invalid CRON expression: " + dto.getCronExpression());
         }
+        validateTargetOwnership(dto.getTargetType(), dto.getTargetId(), projectId);
 
         LocalDateTime nextRun = calculateNextRun(dto.getCronExpression(), dto.getTimezone());
 
         PerfTestSchedule entity = PerfTestSchedule.builder()
                 .targetType(dto.getTargetType())
                 .targetId(dto.getTargetId())
+                .projectId(projectId)
                 .cronExpression(dto.getCronExpression())
                 .timezone(dto.getTimezone() != null ? dto.getTimezone() : "Asia/Kolkata")
                 .isEnabled(dto.getIsEnabled() != null ? dto.getIsEnabled() : true)
@@ -62,8 +65,7 @@ public class PerfTestScheduleService {
 
     @Transactional
     public PerfTestScheduleDto update(Long id, PerfTestSchedule dto) {
-        PerfTestSchedule existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Schedule not found with ID: " + id));
+        PerfTestSchedule existing = find(id);
 
         if (!CronExpression.isValidExpression(dto.getCronExpression())) {
             throw ApiException.badRequest("Invalid CRON expression: " + dto.getCronExpression());
@@ -79,15 +81,13 @@ public class PerfTestScheduleService {
 
     @Transactional
     public void delete(Long id) {
-        PerfTestSchedule existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Schedule not found with ID: " + id));
+        PerfTestSchedule existing = find(id);
         repository.delete(existing);
     }
 
     @Transactional
     public PerfTestScheduleDto toggle(Long id) {
-        PerfTestSchedule existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Schedule not found with ID: " + id));
+        PerfTestSchedule existing = find(id);
 
         existing.setIsEnabled(!existing.getIsEnabled());
         if (existing.getIsEnabled()) {
@@ -97,6 +97,28 @@ public class PerfTestScheduleService {
         }
 
         return toDto(repository.save(existing));
+    }
+
+    private PerfTestSchedule find(Long id) {
+        PerfTestSchedule entity = repository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Schedule not found with ID: " + id));
+        if (!currentProjectService.requireProjectId().equals(entity.getProjectId())) {
+            throw ApiException.notFound("Schedule not found with ID: " + id);
+        }
+        return entity;
+    }
+
+    /** The scheduled target must belong to the same project — otherwise this schedule would
+     * fire and run another project's test on a cron. */
+    private void validateTargetOwnership(ScheduleTargetType targetType, Long targetId, Long projectId) {
+        boolean owned = switch (targetType) {
+            case PERF_TEST -> perfTestRepository.findById(targetId).map(t -> projectId.equals(t.getProjectId())).orElse(false);
+            case LOAD_TEST -> loadTestRepository.findById(targetId).map(t -> projectId.equals(t.getProjectId())).orElse(false);
+            case GROUP -> testGroupRepository.findById(targetId).map(g -> projectId.equals(g.getProjectId())).orElse(false);
+        };
+        if (!owned) {
+            throw ApiException.badRequest("Schedule target does not exist: " + targetType + " #" + targetId);
+        }
     }
 
     public LocalDateTime calculateNextRun(String cronExpression, String timezone) {

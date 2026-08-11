@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
-    Page<AuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    Page<AuditLog> findByProjectIdOrderByCreatedAtDesc(Long projectId, Pageable pageable);
 
-    Page<AuditLog> findByEntityTypeOrderByCreatedAtDesc(AuditLog.EntityType entityType, Pageable pageable);
+    Page<AuditLog> findByProjectIdAndEntityTypeOrderByCreatedAtDesc(Long projectId, AuditLog.EntityType entityType, Pageable pageable);
 }

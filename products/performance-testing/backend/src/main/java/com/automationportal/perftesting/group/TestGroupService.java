@@ -1,7 +1,10 @@
 package com.automationportal.perftesting.group;
 
 import com.automationportal.perftesting.common.ApiException;
+import com.automationportal.perftesting.loadtest.LoadTestRepository;
+import com.automationportal.perftesting.perftest.PerformanceTestRepository;
 import com.automationportal.perftesting.results.*;
+import com.automationportal.perftesting.security.CurrentProjectService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +30,9 @@ public class TestGroupService {
     private final TestGroupRepository repository;
     private final ResultService resultService;
     private final PerfTestRunRepository runRepository;
+    private final CurrentProjectService currentProjectService;
+    private final PerformanceTestRepository performanceTestRepository;
+    private final LoadTestRepository loadTestRepository;
 
     // Calling executeGroupAsync() on `this` bypasses Spring's @Async proxy entirely
     // (self-invocation never goes through a bean's own AOP proxy) — it actually ran
@@ -42,20 +48,21 @@ public class TestGroupService {
 
     @Transactional(readOnly = true)
     public List<TestGroup> getAll() {
-        return repository.findAll();
+        return repository.findByProjectId(currentProjectService.requireProjectId());
     }
 
     @Transactional(readOnly = true)
     public TestGroup getById(Long id) {
-        return repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Test Group not found with ID: " + id));
+        return find(id);
     }
 
     @Transactional
     public TestGroup create(TestGroup dto) {
+        Long projectId = currentProjectService.requireProjectId();
         TestGroup group = TestGroup.builder()
                 .name(dto.getName())
                 .description(dto.getDescription())
+                .projectId(projectId)
                 .runStrategy(dto.getRunStrategy() != null ? dto.getRunStrategy() : RunStrategy.SEQUENTIAL)
                 .stopOnFailure(dto.getStopOnFailure() != null ? dto.getStopOnFailure() : false)
                 .scheduleCron(dto.getScheduleCron())
@@ -70,6 +77,7 @@ public class TestGroupService {
 
         if (dto.getMembers() != null) {
             for (TestGroupMember m : dto.getMembers()) {
+                validateMemberOwnership(m, projectId);
                 m.setGroupId(group.getId());
                 group.getMembers().add(m);
             }
@@ -80,8 +88,7 @@ public class TestGroupService {
 
     @Transactional
     public TestGroup update(Long id, TestGroup dto) {
-        TestGroup existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Test Group not found with ID: " + id));
+        TestGroup existing = find(id);
 
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
@@ -93,6 +100,7 @@ public class TestGroupService {
         existing.getMembers().clear();
         if (dto.getMembers() != null) {
             for (TestGroupMember m : dto.getMembers()) {
+                validateMemberOwnership(m, existing.getProjectId());
                 m.setGroupId(existing.getId());
                 existing.getMembers().add(m);
             }
@@ -103,8 +111,7 @@ public class TestGroupService {
 
     @Transactional
     public void delete(Long id) {
-        TestGroup existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Test Group not found with ID: " + id));
+        TestGroup existing = find(id);
         repository.delete(existing);
     }
 
@@ -115,6 +122,9 @@ public class TestGroupService {
 
     @Transactional
     public PerfTestRun triggerGroupRun(Long id, RunTrigger trigger) {
+        // Called both from the controller (project-context available) and from the
+        // scheduler/job-queue worker (background thread, no request context) — look the
+        // group up directly rather than through find()'s CurrentProjectService gate.
         TestGroup group = repository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Test Group not found with ID: " + id));
 
@@ -127,6 +137,7 @@ public class TestGroupService {
                 .testType(TestType.GROUP)
                 .testId(id)
                 .testName(group.getName())
+                .projectId(group.getProjectId())
                 .runTrigger(trigger)
                 .status(RunStatus.RUNNING)
                 .startedAt(LocalDateTime.now())
@@ -241,6 +252,28 @@ public class TestGroupService {
             groupRun.setErrorMessage(e.getMessage());
             groupRun.setEndedAt(LocalDateTime.now());
             runRepository.save(groupRun);
+        }
+    }
+
+    private TestGroup find(Long id) {
+        TestGroup group = repository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Test Group not found with ID: " + id));
+        if (!currentProjectService.requireProjectId().equals(group.getProjectId())) {
+            throw ApiException.notFound("Test Group not found with ID: " + id);
+        }
+        return group;
+    }
+
+    /** A member's underlying Performance/Load test must belong to the same project as the
+     * group — otherwise this group's execution would reach into (and actually run) another
+     * project's test. */
+    private void validateMemberOwnership(TestGroupMember member, Long projectId) {
+        boolean owned = member.getTestType() == MemberTestType.PERF
+                ? performanceTestRepository.findById(member.getTestId()).map(t -> projectId.equals(t.getProjectId())).orElse(false)
+                : loadTestRepository.findById(member.getTestId()).map(t -> projectId.equals(t.getProjectId())).orElse(false);
+        if (!owned) {
+            throw ApiException.badRequest((member.getTestType() == MemberTestType.PERF ? "Performance" : "Load")
+                    + " Test does not exist: " + member.getTestId());
         }
     }
 

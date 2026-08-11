@@ -4,6 +4,7 @@ import com.automationportal.perftesting.common.ApiException;
 import com.automationportal.perftesting.results.PerfTestRun;
 import com.automationportal.perftesting.results.PerfTestRunRepository;
 import com.automationportal.perftesting.results.TestType;
+import com.automationportal.perftesting.security.CurrentProjectService;
 import com.automationportal.perftesting.virtualuser.AuthType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,19 +21,18 @@ public class PerformanceTestService {
 
     private final PerformanceTestRepository repository;
     private final PerfTestRunRepository runRepository;
+    private final CurrentProjectService currentProjectService;
 
     @Transactional(readOnly = true)
     public List<PerformanceTestDto> getAll() {
-        return repository.findAll().stream()
+        return repository.findByProjectId(currentProjectService.requireProjectId()).stream()
                 .map(this::toDtoWithStats)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public PerformanceTestDto getById(Long id) {
-        PerformanceTest entity = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Performance Test not found with ID: " + id));
-        return toDtoWithStats(entity);
+        return toDtoWithStats(find(id));
     }
 
     @Transactional
@@ -40,6 +40,7 @@ public class PerformanceTestService {
         PerformanceTest entity = PerformanceTest.builder()
                 .name(dto.getName())
                 .description(dto.getDescription())
+                .projectId(currentProjectService.requireProjectId())
                 .targetType(dto.getTargetType() != null ? dto.getTargetType() : TargetType.URL)
                 .targetUrl(dto.getTargetUrl())
                 .httpMethod(dto.getHttpMethod() != null ? dto.getHttpMethod() : HttpMethod.GET)
@@ -71,8 +72,7 @@ public class PerformanceTestService {
 
     @Transactional
     public PerformanceTestDto update(Long id, PerformanceTestDto dto) {
-        PerformanceTest existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Performance Test not found with ID: " + id));
+        PerformanceTest existing = find(id);
 
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
@@ -111,9 +111,17 @@ public class PerformanceTestService {
 
     @Transactional
     public void delete(Long id) {
-        PerformanceTest existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Performance Test not found with ID: " + id));
+        PerformanceTest existing = find(id);
         repository.delete(existing);
+    }
+
+    private PerformanceTest find(Long id) {
+        PerformanceTest entity = repository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Performance Test not found with ID: " + id));
+        if (!currentProjectService.requireProjectId().equals(entity.getProjectId())) {
+            throw ApiException.notFound("Performance Test not found with ID: " + id);
+        }
+        return entity;
     }
 
     private boolean isMaskedPlaceholder(String value) {

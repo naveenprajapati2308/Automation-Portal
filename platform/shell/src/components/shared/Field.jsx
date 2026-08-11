@@ -2,7 +2,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 
 // ── Shared: Field ─────────────────────────────────────────────────────────────
-export function Field({ label, value, onChange, type = 'text', readOnly = false, required = false, error }) {
+export function Field({ label, value, onChange, type = 'text', readOnly = false, disabled = false, placeholder, required = false, error }) {
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === 'password';
   const inputType = isPassword && showPassword ? 'text' : type;
@@ -15,7 +15,7 @@ export function Field({ label, value, onChange, type = 'text', readOnly = false,
           {required && <span className="required-mark" aria-hidden="true">*</span>}
         </span>
         <div className={isPassword ? 'field-input-wrap password-input-wrap' : 'field-input-wrap'}>
-          <input type={inputType} value={value} onChange={(e) => onChange(e.target.value)} readOnly={readOnly} />
+          <input type={inputType} value={value} onChange={(e) => onChange(e.target.value)} readOnly={readOnly} disabled={disabled} placeholder={placeholder} />
           {isPassword && !readOnly && (
             <button
               type="button"

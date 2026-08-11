@@ -10,6 +10,11 @@ services:
       - ./service/.env
     environment:
       PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:?PORTAL_JWT_SECRET must be set in .env}
+      # Internal-only URLs on the shared testrix_network — the AI Assistant's tools call
+      # these directly, forwarding the caller's own JWT (never a service credential).
+      AUTOMATION_BASE_URL: http://automation-portal-backend:8080
+      API_TESTING_BASE_URL: http://api-testing-backend:8080
+      PERFORMANCE_BASE_URL: http://performance-testing-backend:8080
     ports:
       - "3000:3000"
     networks:

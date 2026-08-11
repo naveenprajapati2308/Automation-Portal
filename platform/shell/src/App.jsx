@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity, AlertTriangle, ArrowUpRight, CalendarCheck, CalendarClock, CheckCircle2, Clock,
+  Activity, AlertTriangle, CalendarCheck, CalendarClock, CheckCircle2, Clock,
   Layers, ListTodo, Loader2, Play, Sparkles, Timer, TimerReset, TrendingUp, XCircle, Zap
 } from 'lucide-react';
 import { api, auth } from './api.js';
-import { ADMIN_WORKSPACE_NAV_FLAT, API_TESTING_NAV, AUTOMATION_NAV, MODULES_ENV_NAV, PERFORMANCE_NAV, isSuperAdmin } from './constants.js';
-import { AiSupportPanel, PortalLayout, Sidebar, Topbar } from './components/layout/index.jsx';
+import { ADMIN_WORKSPACE_NAV_FLAT, API_TESTING_NAV, AUTOMATION_NAV, PERFORMANCE_NAV, isSuperAdmin } from './constants.js';
+import { PortalLayout, Sidebar, Topbar } from './components/layout/index.jsx';
 import { AdminSidebar, AdminTopbar, AdminContent, adminPageTitle } from './components/admin/AdminWorkspace.jsx';
-import { ModuleManagement } from './components/admin/ModuleManagement.jsx';
 import { AutomationWorkspace } from './components/automation/AutomationWorkspace.jsx';
 import { ApiTestingWorkspace } from './components/apitesting/ApiTestingWorkspace.jsx';
 import { PerformanceWorkspace } from './components/performance/PerformanceWorkspace.jsx';
 import { Profile } from './components/profile/Profile.jsx';
 import { AuthPage } from './components/auth/AuthPage.jsx';
+import { ProjectUserManagement } from './components/team/ProjectUserManagement.jsx';
+import { WorkspaceSettings } from './components/team/WorkspaceSettings.jsx';
+import { IntegrationGuide } from './components/shared/IntegrationGuide.jsx';
+import { KpiTile } from './components/shared/KpiTile.jsx';
+import { HealthDot, OverviewCard } from './components/shared/OverviewCard.jsx';
+import { AiAssistantPage } from './components/ai/AiAssistantPage.jsx';
 import { ExecutionTrendChart } from '../../../shared/ui/dashboard/ExecutionTrendChart.jsx';
 import { StatusMixDonut } from '../../../shared/ui/dashboard/StatusMixDonut.jsx';
 import { ModuleAnalyticsTable } from '../../../shared/ui/dashboard/ModuleAnalyticsTable.jsx';
@@ -42,9 +47,8 @@ const ADMIN_PAGE_KEYS = new Set(ADMIN_WORKSPACE_NAV_FLAT.map((item) => item.key)
 const AUTOMATION_PAGE_KEYS = new Set(AUTOMATION_NAV.map((item) => item.key));
 const API_TESTING_PAGE_KEYS = new Set(API_TESTING_NAV.map((item) => item.key));
 const PERFORMANCE_PAGE_KEYS = new Set(PERFORMANCE_NAV.map((item) => item.key));
-const MODULES_ENV_PAGE_KEYS = new Set(MODULES_ENV_NAV.map((item) => item.key));
 
-const DEFAULT_ROUTE = { adminPage: 'admin-dashboard', automationPage: 'dashboard', apitestPage: 'dashboard', perfPage: 'dashboard', modulesEnvPage: 'module-management' };
+const DEFAULT_ROUTE = { adminPage: 'admin-dashboard', automationPage: 'dashboard', apitestPage: 'dashboard', perfPage: 'dashboard' };
 
 const parseHashRoute = () => {
   const [head, sub] = window.location.hash.replace(/^#\/?/, '').split('/');
@@ -60,20 +64,23 @@ const parseHashRoute = () => {
   if (head === 'perf') {
     return { ...DEFAULT_ROUTE, page: 'perf', perfPage: PERFORMANCE_PAGE_KEYS.has(sub) ? sub : 'dashboard' };
   }
-  if (head === 'modules-environments') {
-    return { ...DEFAULT_ROUTE, page: 'modules-environments', modulesEnvPage: MODULES_ENV_PAGE_KEYS.has(sub) ? sub : 'module-management' };
-  }
   if (head === 'profile') {
     return { ...DEFAULT_ROUTE, page: 'profile' };
   }
+  if (head === 'team') {
+    return { ...DEFAULT_ROUTE, page: 'team' };
+  }
+  if (head === 'workspace-settings') {
+    return { ...DEFAULT_ROUTE, page: 'workspace-settings' };
+  }
+  if (head === 'documentation') {
+    return { ...DEFAULT_ROUTE, page: 'documentation' };
+  }
+  if (head === 'ai-assistant') {
+    return { ...DEFAULT_ROUTE, page: 'ai-assistant' };
+  }
   return { ...DEFAULT_ROUTE, page: 'dashboard' };
 };
-
-function HealthDot({ state }) {
-  const cls = state === 'up' ? 'card-dot up' : state === 'down' ? 'card-dot down' : 'card-dot';
-  const label = state === 'up' ? 'Online' : state === 'down' ? 'Offline' : 'Checking…';
-  return <span className="card-health"><span className={cls} />{label}</span>;
-}
 
 function Stat({ label, value, tone }) {
   return (
@@ -83,47 +90,6 @@ function Stat({ label, value, tone }) {
     </div>
   );
 }
-
-// ── Dashboard: compact KPI tile (icon + big value + label) ──
-function KpiTile({ icon: Icon, tone, value, label }) {
-  return (
-    <div className="kpi-tile">
-      <div className={`kpi-icon kpi-icon-${tone}`}><Icon size={18} /></div>
-      <div>
-        <div className="kpi-value">{value}</div>
-        <div className="kpi-label">{label}</div>
-      </div>
-    </div>
-  );
-}
-
-// ── Dashboard: compact top-row product card — status + one KPI + one-line summary ──
-function OverviewCard({ icon: Icon, tone, label, health: healthState, kpiValue, kpiLabel, summary, soon, onSeeMore }) {
-  return (
-    <div className={`card ${soon ? 'card-soon' : ''}`}>
-      <div className="card-head">
-        <div className="card-head-left">
-          <div className={`card-icon card-icon-${tone}`}><Icon size={18} /></div>
-          <h2>{label}</h2>
-        </div>
-        {soon ? <span className="soon">Soon</span> : <HealthDot state={healthState} />}
-      </div>
-      {kpiValue !== undefined && (
-        <div className="card-kpi">
-          <span className="card-kpi-value">{kpiValue}</span>
-          {kpiLabel && <span className="card-kpi-label">{kpiLabel}</span>}
-        </div>
-      )}
-      <p>{summary}</p>
-      {onSeeMore && (
-        <button type="button" className="open-btn" onClick={onSeeMore}>
-          See More <ArrowUpRight size={13} />
-        </button>
-      )}
-    </div>
-  );
-}
-
 
 // ── Dashboard: an accuracy/pass-rate bar cell, shared by both module tables ──
 function AccuracyCell({ rate }) {
@@ -242,12 +208,10 @@ export default function App() {
   const [automationPage, setAutomationPage] = useState(initialRoute.automationPage);
   const [apitestPage, setApitestPage] = useState(initialRoute.apitestPage);
   const [perfPage, setPerfPage] = useState(initialRoute.perfPage);
-  const [modulesEnvPage, setModulesEnvPage] = useState(initialRoute.modulesEnvPage);
   const [notice, setNoticeState] = useState(null);
   const notify = (text) => setNoticeState(text ? { text } : null);
   const [adminNotice, setAdminNotice] = useState('Administration workspace — Super Admin only.');
 
-  const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState([
     { id: 1, from: 'bot', text: 'Hi! I am the Testrix AI assistant. Ask me anything about your testing platform.' }
   ]);
@@ -442,7 +406,7 @@ export default function App() {
   // navigating, so the browser never resets scroll on its own; do it here.
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [page, adminPage, automationPage, apitestPage, perfPage, modulesEnvPage]);
+  }, [page, adminPage, automationPage, apitestPage, perfPage]);
 
   // Every internal nav click already does `window.location.hash = ...`, which
   // pushes a real browser history entry — but nothing was listening for the
@@ -457,11 +421,22 @@ export default function App() {
       setAutomationPage(r.automationPage);
       setApitestPage(r.apitestPage);
       setPerfPage(r.perfPage);
-      setModulesEnvPage(r.modulesEnvPage);
     };
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
+
+  // docs/version2.2.md: Super Admin never works inside a project workspace — their session lives
+  // exclusively in the Admin Workspace shell (see the superAdmin-gated render below), so any
+  // stale/typed-in non-admin hash (an old bookmark, a leftover browser-history entry) is
+  // corrected back to Admin right after login rather than briefly showing workspace content.
+  useEffect(() => {
+    if (!authed) return;
+    if (isSuperAdmin(auth.get()) && page !== 'admin') {
+      setPage('admin');
+      window.location.hash = `#/admin/${ADMIN_PAGE_KEYS.has(adminPage) ? adminPage : 'admin-dashboard'}`;
+    }
+  }, [authed, page]);
 
   // ── Register search action handlers ────────────────────────────────────────
   // Must live here (before the early returns) to satisfy Rules of Hooks.
@@ -485,12 +460,10 @@ export default function App() {
           ? (apitestPage === 'dashboard' ? 'API Testing Overview' : (API_TESTING_NAV.find((i) => i.key === apitestPage)?.label ?? 'API Testing'))
           : page === 'perf'
             ? (perfPage === 'dashboard' ? 'Performance Overview' : (PERFORMANCE_NAV.find((i) => i.key === perfPage)?.label ?? 'Performance'))
-            : page === 'modules-environments'
-              ? (MODULES_ENV_NAV.find((i) => i.key === modulesEnvPage)?.label ?? 'Modules & Environments')
-              : page === 'profile' ? 'Profile' : 'Dashboard';
+            : page === 'profile' ? 'Profile' : 'Dashboard';
 
     document.title = title ? `${title} | TESTRIX` : 'TESTRIX Unified Testing Platform';
-  }, [authed, page, adminPage, automationPage, apitestPage, perfPage, modulesEnvPage]);
+  }, [authed, page, adminPage, automationPage, apitestPage, perfPage]);
 
   if (authed === null) return <FullScreenLoader logoSrc={appLogo} subtitle="Loading TESTRIX" />;
   if (!authed) {
@@ -511,11 +484,32 @@ export default function App() {
     window.location.hash = '#/profile';
   };
 
-  const openAdmin = () => {
-    if (!superAdmin) return;
-    setPage('admin');
-    setAdminPage('admin-dashboard');
-    window.location.hash = '#/admin/admin-dashboard';
+  const goTeam = () => {
+    setPage('team');
+    window.location.hash = '#/team';
+  };
+
+  const goWorkspaceSettings = () => {
+    setPage('workspace-settings');
+    window.location.hash = '#/workspace-settings';
+  };
+
+  const goDocumentation = () => {
+    setPage('documentation');
+    window.location.hash = '#/documentation';
+  };
+
+  const goAiAssistant = () => {
+    setPage('ai-assistant');
+    window.location.hash = '#/ai-assistant';
+  };
+
+  // Lets the AI Assistant's result cards jump straight to the real page a search
+  // hit lives on, reusing the same product nav setters every other entry point uses.
+  const navigateToProduct = (product, sub) => {
+    if (product === 'automation') setAutomationPageAndHash(sub);
+    else if (product === 'api-testing') setApitestPageAndHash(sub);
+    else if (product === 'performance') setPerfPageAndHash(sub);
   };
 
   const setAdminPageAndHash = (nextAdminPage) => {
@@ -541,12 +535,6 @@ export default function App() {
     window.location.hash = `#/perf/${nextPerfPage}`;
   };
 
-  const setModulesEnvPageAndHash = (nextModulesEnvPage) => {
-    setModulesEnvPage(nextModulesEnvPage);
-    setPage('modules-environments');
-    window.location.hash = `#/modules-environments/${nextModulesEnvPage}`;
-  };
-
   const logout = () => {
     api.logout(session?.refreshToken).catch(() => { });
     forceLogout();
@@ -558,6 +546,9 @@ export default function App() {
     const { nav, permission, disabled } = item;
     if (disabled) return;
     if (permission === 'SUPER_ADMIN' && !superAdmin) return;
+    // Super Admin lives exclusively in the Admin Workspace (docs/version2.2.md isolation) — a
+    // stale/irrelevant search result pointing into a workspace product must not navigate them.
+    if (superAdmin && nav.page !== 'admin' && nav.page !== 'profile') return;
 
     setSearchNavLoading(true);
     const color = MODULE_COLOR[nav.page] || '#60b3e0';
@@ -598,7 +589,7 @@ export default function App() {
         body: JSON.stringify({ message: text, userId: user?.username || 'testrix' })
       });
       const data = await r.json();
-      setChatMessages((m) => [...m, { id: Date.now() + 1, from: 'bot', text: data.message || 'No response.' }]);
+      setChatMessages((m) => [...m, { id: Date.now() + 1, from: 'bot', text: data.message || 'No response.', toolResults: data.toolResults || [] }]);
     } catch {
       setChatMessages((m) => [...m, { id: Date.now() + 1, from: 'bot', text: 'AI service is unreachable right now. Please try again.' }]);
     } finally {
@@ -640,15 +631,29 @@ export default function App() {
       { label: 'Home', onClick: goDashboard },
       { label: 'Profile' }
     ];
-  } else if (page === 'modules-environments') {
-    // Nested under Automation in the breadcrumb too, matching its sidebar placement — it's
-    // Automation-only config, not a standalone section of the platform.
-    const subLabel = MODULES_ENV_NAV.find((i) => i.key === modulesEnvPage)?.label ?? 'Modules & Environments';
-    pageTitle = subLabel;
+  } else if (page === 'team') {
+    pageTitle = 'Team Management';
     breadcrumbItems = [
       { label: 'Home', onClick: goDashboard },
-      { label: 'Automation', onClick: () => setAutomationPageAndHash('dashboard') },
-      { label: subLabel }
+      { label: 'Team Management' }
+    ];
+  } else if (page === 'workspace-settings') {
+    pageTitle = 'Workspace Settings';
+    breadcrumbItems = [
+      { label: 'Home', onClick: goDashboard },
+      { label: 'Workspace Settings' }
+    ];
+  } else if (page === 'documentation') {
+    pageTitle = 'Documentation';
+    breadcrumbItems = [
+      { label: 'Home', onClick: goDashboard },
+      { label: 'Documentation' }
+    ];
+  } else if (page === 'ai-assistant') {
+    pageTitle = 'AI Assistant';
+    breadcrumbItems = [
+      { label: 'Home', onClick: goDashboard },
+      { label: 'AI Assistant' }
     ];
   } else if (MODULE_CONFIG[page]) {
     const { label: moduleLabel, nav, activeSubPage, goOverview } = MODULE_CONFIG[page];
@@ -943,72 +948,64 @@ export default function App() {
   return (
     <>
       <PortalLayout
-        isCollapsed={page === 'admin' ? false : isSidebarCollapsed}
-        shellClassName={page === 'admin' && superAdmin ? 'admin-shell' : ''}
-        mainClassName={page === 'admin' && superAdmin ? 'admin-main' : ''}
-        sidebar={page === 'admin' && superAdmin ? (
+        isCollapsed={superAdmin ? false : isSidebarCollapsed}
+        shellClassName={superAdmin ? 'admin-shell' : ''}
+        mainClassName={superAdmin ? 'admin-main' : ''}
+        sidebar={superAdmin ? (
           <AdminSidebar
             activePage={adminPage}
             onNavigate={setAdminPageAndHash}
-            onBack={goDashboard}
             logout={logout}
           />
         ) : (
           <Sidebar
-            active={page === 'modules-environments' ? 'automation' : page}
-            activeChildKey={page === 'automation' ? automationPage : page === 'apitest' ? apitestPage : page === 'perf' ? perfPage : page === 'modules-environments' ? modulesEnvPage : null}
+            active={page}
+            activeChildKey={page === 'automation' ? automationPage : page === 'apitest' ? apitestPage : page === 'perf' ? perfPage : null}
             logout={logout}
-            superAdmin={superAdmin}
+            project={session?.project}
             onNavigate={(key) => {
               if (key === 'dashboard') goDashboard();
               if (key === 'profile') goProfile();
+              if (key === 'team') goTeam();
+              if (key === 'workspace-settings') goWorkspaceSettings();
+              if (key === 'documentation') goDocumentation();
+              if (key === 'ai-assistant') goAiAssistant();
               if (key === 'automation') setAutomationPageAndHash(automationPage);
               if (key === 'apitest') setApitestPageAndHash(apitestPage);
               if (key === 'perf') setPerfPageAndHash(perfPage);
             }}
             onNavigateChild={(parentKey, childKey) => {
-              if (parentKey === 'automation') {
-                // Module control lives nested under Automation's own sub-menu (Automation-only
-                // config) but renders as the shell-native page, not the embedded
-                // automation-portal iframe the rest of Automation's items use.
-                if (childKey === 'module-management') {
-                  setModulesEnvPageAndHash(childKey);
-                } else {
-                  setAutomationPageAndHash(childKey);
-                }
-              }
+              if (parentKey === 'automation') setAutomationPageAndHash(childKey);
               if (parentKey === 'apitest') setApitestPageAndHash(childKey);
               if (parentKey === 'perf') setPerfPageAndHash(childKey);
             }}
             isCollapsed={isSidebarCollapsed}
             onToggle={() => setSidebarCollapsed((c) => !c)}
-            chatOpen={chatOpen}
-            onToggleChat={() => setChatOpen((o) => !o)}
+            onOpenAiAssistant={goAiAssistant}
           />
         )}
-        topbar={page === 'admin' && superAdmin ? (
+        topbar={superAdmin ? (
           <AdminTopbar
             pageTitle={pageTitle}
             notice={adminNotice}
             onNavigateRoot={() => setAdminPageAndHash('admin-dashboard')}
-            onBack={goDashboard}
           />
         ) : (
           <Topbar
             pageTitle={pageTitle}
             breadcrumbItems={breadcrumbItems}
             superAdmin={superAdmin}
-            onOpenAdmin={openAdmin}
             onNavigateHome={goDashboard}
             notifications={notifications}
             user={user}
+            project={session?.project}
             onNavigateProfile={goProfile}
             onNavigate={navigateFromSearch}
             topbarExtra={page === 'dashboard' ? <DateRangeFilter value={range} onChange={setRange} /> : null}
           />
         )}
       >
-        {page === 'admin' && superAdmin ? (
+        {superAdmin ? (
           <AdminContent
             activePage={adminPage}
             setActivePage={setAdminPageAndHash}
@@ -1020,10 +1017,23 @@ export default function App() {
           <ApiTestingWorkspace activePage={apitestPage} />
         ) : page === 'perf' ? (
           <PerformanceWorkspace activePage={perfPage} />
-        ) : page === 'modules-environments' && superAdmin ? (
-          <ModuleManagement setNotice={notify} />
         ) : page === 'profile' ? (
           <Profile setNotice={notify} onProfileSaved={updateSessionUser} />
+        ) : page === 'team' ? (
+          <ProjectUserManagement setNotice={notify} />
+        ) : page === 'workspace-settings' ? (
+          <WorkspaceSettings setNotice={notify} />
+        ) : page === 'documentation' ? (
+          <IntegrationGuide project={session?.project} setNotice={notify} />
+        ) : page === 'ai-assistant' ? (
+          <AiAssistantPage
+            messages={chatMessages}
+            input={chatInput}
+            setInput={setChatInput}
+            busy={chatBusy}
+            onSend={sendChat}
+            onNavigate={navigateToProduct}
+          />
         ) : dashboardLoading ? (
           <FullScreenLoader logoSrc={appLogo} subtitle="Loading Dashboard" />
         ) : dashboardContent}
@@ -1056,17 +1066,6 @@ export default function App() {
         </div>
       )}
 
-      {chatOpen && (
-        <AiSupportPanel
-          isCollapsed={isSidebarCollapsed}
-          messages={chatMessages}
-          input={chatInput}
-          setInput={setChatInput}
-          busy={chatBusy}
-          onSend={sendChat}
-          onClose={() => setChatOpen(false)}
-        />
-      )}
     </>
   );
 }

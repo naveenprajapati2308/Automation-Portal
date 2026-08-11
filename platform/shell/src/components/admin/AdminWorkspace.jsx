@@ -1,7 +1,9 @@
 import {
   BookOpen,
+  Building2,
   ChevronDown,
-  LayoutDashboard,
+  ClipboardList,
+  FolderKanban,
   LogOut,
   Play,
   Shield,
@@ -15,21 +17,23 @@ import { Breadcrumb } from '../layout/index.jsx';
 import { AdminDashboardOverview } from './AdminDashboardOverview.jsx';
 import { UserManagement } from './UserManagement.jsx';
 import { RoleManagement } from './RoleManagement.jsx';
-import { AdminEnvironmentsEmbed } from './AdminEnvironmentsEmbed.jsx';
+import { EnvironmentsAdmin } from './EnvironmentsAdmin.jsx';
 import { ModuleManagement } from './ModuleManagement.jsx';
 import { PortalConfig } from './PortalConfig.jsx';
-import { InternalDocs } from './InternalDocs.jsx';
 import { ApiCollection } from './ApiCollection.jsx';
+import { WorkspaceRequests } from './WorkspaceRequests.jsx';
+import { ProjectManagement } from './ProjectManagement.jsx';
 import { Placeholder } from '../shared/index.jsx';
+import { IntegrationGuide } from '../shared/IntegrationGuide.jsx';
 
-const WS_ICON_MAP = { Shield, Users, BookOpen, Play, Zap };
+const WS_ICON_MAP = { Shield, Users, BookOpen, Play, Zap, Building2, ClipboardList, FolderKanban };
 ADMIN_WORKSPACE_NAV.forEach((item) => { item._icon = WS_ICON_MAP[item.icon]; });
 
 // ── Admin Sidebar — plugs directly into the platform shell's single
 // <PortalLayout>, replacing the main Sidebar while in admin mode (not nested
 // inside it — that was the "app inside an app" bug). Same expand/collapse
 // group pattern as the main Sidebar's automation/apitest sub-menus. ─────────
-export function AdminSidebar({ activePage, onNavigate, onBack, logout }) {
+export function AdminSidebar({ activePage, onNavigate, logout }) {
   const activeGroupKey = ADMIN_WORKSPACE_NAV.find((item) => item.children?.some((c) => c.key === activePage))?.key;
   const [expandedKeys, setExpandedKeys] = useState(() => new Set(activeGroupKey ? [activeGroupKey] : []));
 
@@ -96,11 +100,6 @@ export function AdminSidebar({ activePage, onNavigate, onBack, logout }) {
             </button>
           );
         })}
-
-        <button className="admin-ws-back-btn" onClick={onBack} title="Back to Portal">
-          <LayoutDashboard size={18} />
-          <span>← Back to Portal</span>
-        </button>
       </nav>
       <div className="sidebar-footer admin-sidebar-footer">
         <button className="logout-btn" onClick={logout} title="Logout">
@@ -114,7 +113,7 @@ export function AdminSidebar({ activePage, onNavigate, onBack, logout }) {
 }
 
 // ── Admin Topbar — same slot as the main Topbar, swapped in for admin mode ──
-export function AdminTopbar({ pageTitle, notice, onNavigateRoot, onBack }) {
+export function AdminTopbar({ pageTitle, notice, onNavigateRoot }) {
   return (
     <header className="topbar admin-topbar">
       <div>
@@ -127,9 +126,6 @@ export function AdminTopbar({ pageTitle, notice, onNavigateRoot, onBack }) {
           <Shield size={14} />
           Super Admin
         </div>
-        <button className="admin-ws-back-topbar-btn" onClick={onBack}>
-          ← Back to Portal
-        </button>
       </div>
     </header>
   );
@@ -142,12 +138,14 @@ export function AdminContent({ activePage, setActivePage, setNotice }) {
     <>
       {activePage === 'admin-dashboard' && <AdminDashboardOverview setNotice={setNotice} setActive={setActivePage} />}
       {activePage === 'user-management' && <UserManagement setNotice={setNotice} />}
-      {activePage === 'environments-config' && <AdminEnvironmentsEmbed />}
+      {activePage === 'environments-config' && <EnvironmentsAdmin setNotice={setNotice} />}
       {activePage === 'module-management' && <ModuleManagement setNotice={setNotice} />}
       {activePage === 'portal-config' && <PortalConfig setNotice={setNotice} />}
       {activePage === 'role-management' && <RoleManagement setNotice={setNotice} />}
+      {activePage === 'workspace-requests' && <WorkspaceRequests setNotice={setNotice} />}
+      {activePage === 'project-management' && <ProjectManagement setNotice={setNotice} />}
       {activePage === 'access-management' && <Placeholder title="Access Management" lines={['IP allowlists', 'Session policies', 'Coming in a future phase']} />}
-      {activePage === 'documentation' && <InternalDocs setNotice={setNotice} superAdmin />}
+      {activePage === 'documentation' && <IntegrationGuide superAdmin setNotice={setNotice} />}
       {activePage === 'api-collection' && <ApiCollection />}
       {activePage === 'apitest-admin-soon' && (
         <Placeholder

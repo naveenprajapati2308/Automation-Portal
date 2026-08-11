@@ -317,7 +317,16 @@ public class FrameworkRunnerService {
             Map<String, String> env = pb.environment();
             env.put("PORTAL_URL", portalUrl != null ? portalUrl : "");
             env.put("EXECUTION_ID", executionId);
-            env.put("PORTAL_API_KEY", apiKey != null ? apiKey : "");
+            // A registered-engine dispatch passes an empty apiKey on purpose (docs/version2.3.md
+            // Plan 2 — the engine already has its own key from registration). ProcessBuilder's
+            // environment() starts as a copy of the parent's env, so setting PORTAL_API_KEY="" here
+            // would permanently blank out whatever the framework's own dotenv/.env config already
+            // provides (dotenv does not override an already-set variable) — so it must be left
+            // untouched, not set to empty, exactly like the Maven path's `if (apiKey != null &&
+            // !apiKey.isEmpty())` guard below already does for -DportalApiKey.
+            if (apiKey != null && !apiKey.isEmpty()) {
+                env.put("PORTAL_API_KEY", apiKey);
+            }
             // testrix-reporter.ts can't reliably introspect which --project actually ran (Playwright's
             // FullConfig always lists every configured project, not just the invoked one) — so tell it
             // directly rather than have it guess from config.projects[0].

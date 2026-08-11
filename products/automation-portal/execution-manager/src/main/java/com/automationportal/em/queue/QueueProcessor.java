@@ -121,13 +121,21 @@ public class QueueProcessor {
             return;
         }
 
+        // docs/version2.3.md Plan 2 / docs/test-engine-integration-architecture.md §3.5: a job
+        // tagged with a registered Test Engine withholds EM's own static global credential —
+        // the engine's own environment already holds its own key from the one-time registration
+        // handoff, so Testrix never needs to re-transmit a secret at dispatch time. FrameworkRunnerService
+        // already treats an empty apiKey as "don't override, let the framework's own config win."
+        boolean engineManaged = job.getTestEngineCode() != null && !job.getTestEngineCode().isBlank();
+        String apiKeyForDispatch = engineManaged ? "" : portalApiKey;
+
         // Trigger run on Framework Runner
         boolean success = runnerClient.triggerRun(
                 runnerUrl,
                 job.getJobId(),
                 job.getSuiteXml(),
                 portalBackendUrl,
-                portalApiKey,
+                apiKeyForDispatch,
                 job.getEnvConfigJson(),
                 job.getFramework(),
                 job.getBrowser(),

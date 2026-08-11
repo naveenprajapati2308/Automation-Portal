@@ -1,7 +1,10 @@
 package com.automationportal.executions;
 
 import com.automationportal.common.ApiResponse;
+import com.automationportal.workspace.CurrentProjectService;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -13,11 +16,14 @@ import java.util.stream.Collectors;
 public class ComparisonController {
     private final ExecutionRepository executionRepository;
     private final ExecutionTestCaseRepository testCaseRepository;
+    private final CurrentProjectService currentProjectService;
 
     public ComparisonController(ExecutionRepository executionRepository,
-                                ExecutionTestCaseRepository testCaseRepository) {
+                                ExecutionTestCaseRepository testCaseRepository,
+                                CurrentProjectService currentProjectService) {
         this.executionRepository = executionRepository;
         this.testCaseRepository = testCaseRepository;
+        this.currentProjectService = currentProjectService;
     }
 
     public record ExecutionBriefDto(
@@ -58,8 +64,8 @@ public class ComparisonController {
             @RequestParam Long baseExecutionId,
             @RequestParam Long targetExecutionId) {
 
-        Execution baseExec = executionRepository.findById(baseExecutionId).orElseThrow();
-        Execution targetExec = executionRepository.findById(targetExecutionId).orElseThrow();
+        Execution baseExec = requireExecutionAccess(baseExecutionId);
+        Execution targetExec = requireExecutionAccess(targetExecutionId);
 
         List<ExecutionTestCase> baseCases = testCaseRepository.findByExecutionId(baseExecutionId).stream()
                 .filter(tc -> !tc.isConfigMethod())
@@ -170,7 +176,9 @@ public class ComparisonController {
 
     @GetMapping("/latest")
     public ApiResponse<ComparisonResultDto> compareLatest(@RequestParam String module) {
+        Long projectId = currentProjectService.requireProjectId();
         List<Execution> execs = executionRepository.findAll().stream()
+                .filter(e -> projectId.equals(e.getProjectId()))
                 .filter(e -> module.equalsIgnoreCase(e.getModuleCode()))
                 .filter(e -> e.getStatus() != ExecutionStatus.QUEUED && e.getStatus() != ExecutionStatus.RUNNING)
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
@@ -185,5 +193,14 @@ public class ComparisonController {
 
     private String getTestCaseKey(ExecutionTestCase tc) {
         return tc.getClassName() + "#" + tc.getMethodName() + "#" + (tc.getParameters() != null ? tc.getParameters() : "");
+    }
+
+    private Execution requireExecutionAccess(Long executionId) {
+        Execution execution = executionRepository.findById(executionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + executionId));
+        if (!currentProjectService.canAccess(execution.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + executionId);
+        }
+        return execution;
     }
 }

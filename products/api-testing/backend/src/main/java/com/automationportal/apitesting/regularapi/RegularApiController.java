@@ -2,8 +2,11 @@ package com.automationportal.apitesting.regularapi;
 
 import com.automationportal.apitesting.baseapi.ApiVariableBinding;
 import com.automationportal.apitesting.baseapi.ApiVariableBindingRepository;
+import com.automationportal.apitesting.baseapi.BaseApiRepository;
 import com.automationportal.apitesting.common.RequestConfigMapper;
 import com.automationportal.apitesting.history.ExecutionHistory;
+import com.automationportal.apitesting.module.ApiModuleRepository;
+import com.automationportal.apitesting.security.CurrentProjectService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -21,11 +24,14 @@ public class RegularApiController {
 
     private final RegularApiRepository repository;
     private final ApiVariableBindingRepository bindingRepository;
+    private final BaseApiRepository baseApiRepository;
     private final DependencyExecutionService dependencyExecutionService;
     private final com.automationportal.apitesting.audit.AuditService auditService;
     private final com.automationportal.apitesting.collections.ApiCollectionRepository collectionRepository;
     private final com.automationportal.apitesting.collections.CollectionRequestRepository collectionRequestRepository;
     private final RequestConfigMapper configMapper;
+    private final CurrentProjectService currentProjectService;
+    private final ApiModuleRepository moduleRepository;
 
     @Data
     public static class RegularApiPayload {
@@ -55,7 +61,10 @@ public class RegularApiController {
 
     @GetMapping
     public List<RegularApi> list(@RequestParam(required = false) Long moduleId) {
-        return moduleId == null ? repository.findAll() : repository.findByModuleId(moduleId);
+        Long projectId = currentProjectService.requireProjectId();
+        return moduleId == null
+                ? repository.findByProjectId(projectId)
+                : repository.findByProjectIdAndModuleId(projectId, moduleId);
     }
 
     @GetMapping("/{id}")
@@ -67,6 +76,8 @@ public class RegularApiController {
     public RegularApi create(@Valid @RequestBody RegularApiPayload payload) {
         RegularApi api = new RegularApi();
         apply(api, payload);
+        api.setProjectId(currentProjectService.requireProjectId());
+        validateModule(api.getModuleId(), api.getProjectId());
         api = repository.save(api);
         audit(api.getId(), com.automationportal.apitesting.audit.AuditLog.Action.CREATE,
                 "Created regular API '" + api.getName() + "'");
@@ -77,6 +88,7 @@ public class RegularApiController {
     public RegularApi update(@PathVariable Long id, @Valid @RequestBody RegularApiPayload payload) {
         RegularApi api = find(id);
         apply(api, payload);
+        validateModule(api.getModuleId(), api.getProjectId());
         api = repository.save(api);
         audit(id, com.automationportal.apitesting.audit.AuditLog.Action.UPDATE,
                 "Updated regular API '" + api.getName() + "'");
@@ -85,9 +97,9 @@ public class RegularApiController {
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
-        repository.findById(id).ifPresent(api ->
-                audit(id, com.automationportal.apitesting.audit.AuditLog.Action.DELETE,
-                        "Deleted regular API '" + api.getName() + "'"));
+        RegularApi api = find(id);
+        audit(id, com.automationportal.apitesting.audit.AuditLog.Action.DELETE,
+                "Deleted regular API '" + api.getName() + "'");
         repository.deleteById(id);
     }
 
@@ -102,8 +114,11 @@ public class RegularApiController {
     public com.automationportal.apitesting.collections.CollectionRequest addToCollection(
             @PathVariable Long id, @PathVariable Long collectionId) {
         RegularApi api = find(id);
-        collectionRepository.findById(collectionId)
+        var collection = collectionRepository.findById(collectionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found"));
+        if (!currentProjectService.requireProjectId().equals(collection.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found");
+        }
 
         java.util.Map<String, Object> config = new java.util.LinkedHashMap<>();
         config.put("method", api.getMethod());
@@ -140,6 +155,7 @@ public class RegularApiController {
     @PostMapping("/{id}/bindings")
     public ApiVariableBinding addBinding(@PathVariable Long id, @Valid @RequestBody BindingPayload payload) {
         find(id);
+        Long projectId = currentProjectService.requireProjectId();
         boolean hasBase = payload.getBaseApiId() != null;
         boolean hasRegular = payload.getSourceRegularApiId() != null;
         if (hasBase == hasRegular) {
@@ -148,6 +164,21 @@ public class RegularApiController {
         }
         if (hasRegular && payload.getSourceRegularApiId().equals(id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A regular API cannot bind to itself");
+        }
+        // A binding's source must belong to the same project — otherwise this Regular API's
+        // execution would reach into (and actually invoke) another project's Base/Regular API.
+        if (hasBase) {
+            boolean owned = baseApiRepository.findById(payload.getBaseApiId())
+                    .map(a -> projectId.equals(a.getProjectId())).orElse(false);
+            if (!owned) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Base API does not exist");
+            }
+        } else {
+            boolean owned = repository.findById(payload.getSourceRegularApiId())
+                    .map(a -> projectId.equals(a.getProjectId())).orElse(false);
+            if (!owned) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Regular API does not exist");
+            }
         }
         ApiVariableBinding b = new ApiVariableBinding();
         b.setRegularApiId(id);
@@ -160,7 +191,8 @@ public class RegularApiController {
             String sourceDescription = hasBase
                     ? "base API #" + payload.getBaseApiId()
                     : "regular API #" + payload.getSourceRegularApiId();
-            auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.BINDING, b.getId(),
+            auditService.record(currentProjectService.requireProjectId(),
+                    com.automationportal.apitesting.audit.AuditLog.EntityType.BINDING, b.getId(),
                     com.automationportal.apitesting.audit.AuditLog.Action.CREATE,
                     "Bound {{" + payload.getVariableName() + "}} from " + sourceDescription
                             + " into regular API #" + id);
@@ -173,24 +205,39 @@ public class RegularApiController {
 
     @DeleteMapping("/{id}/bindings/{bindingId}")
     public void deleteBinding(@PathVariable Long id, @PathVariable Long bindingId) {
+        find(id);
         ApiVariableBinding b = bindingRepository.findById(bindingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Binding not found"));
         if (b.getRegularApiId() == null || !b.getRegularApiId().equals(id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Binding does not belong to this API");
         }
         bindingRepository.delete(b);
-        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.BINDING, bindingId,
+        auditService.record(currentProjectService.requireProjectId(),
+                com.automationportal.apitesting.audit.AuditLog.EntityType.BINDING, bindingId,
                 com.automationportal.apitesting.audit.AuditLog.Action.DELETE,
                 "Removed binding {{" + b.getVariableName() + "}} from regular API #" + id);
     }
 
+    private void validateModule(Long moduleId, Long projectId) {
+        if (moduleId == null) return;
+        boolean owned = moduleRepository.findById(moduleId).map(m -> projectId.equals(m.getProjectId())).orElse(false);
+        if (!owned) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Module does not exist");
+        }
+    }
+
     private RegularApi find(Long id) {
-        return repository.findById(id)
+        RegularApi api = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Regular API not found"));
+        if (!currentProjectService.requireProjectId().equals(api.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Regular API not found");
+        }
+        return api;
     }
 
     private void audit(Long id, com.automationportal.apitesting.audit.AuditLog.Action action, String details) {
-        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.REGULAR_API, id, action, details);
+        auditService.record(currentProjectService.requireProjectId(),
+                com.automationportal.apitesting.audit.AuditLog.EntityType.REGULAR_API, id, action, details);
     }
 
     private void apply(RegularApi api, RegularApiPayload p) {

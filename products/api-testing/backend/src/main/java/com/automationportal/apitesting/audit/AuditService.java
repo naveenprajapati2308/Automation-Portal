@@ -15,9 +15,10 @@ public class AuditService {
 
     private final AuditLogRepository repository;
 
-    public void record(AuditLog.EntityType entityType, Long entityId, AuditLog.Action action, String details) {
+    public void record(Long projectId, AuditLog.EntityType entityType, Long entityId, AuditLog.Action action, String details) {
         try {
             AuditLog entry = new AuditLog();
+            entry.setProjectId(projectId);
             entry.setEntityType(entityType);
             entry.setEntityId(entityId);
             entry.setAction(action);

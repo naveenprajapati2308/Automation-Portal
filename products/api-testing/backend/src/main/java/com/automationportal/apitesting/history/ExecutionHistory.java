@@ -19,6 +19,9 @@ public class ExecutionHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "api_type", nullable = false, length = 10)
     private ApiType apiType;

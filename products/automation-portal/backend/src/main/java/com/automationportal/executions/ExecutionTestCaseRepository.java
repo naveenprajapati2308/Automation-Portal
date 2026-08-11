@@ -28,26 +28,31 @@ public interface ExecutionTestCaseRepository extends JpaRepository<ExecutionTest
     java.util.Optional<ExecutionTestCase> findFirstByExecutionIdAndClassNameAndMethodName(
             Long executionId, String className, String methodName);
     
+    // projectId is nullable: NULL means "no restriction" (Super Admin's global dashboard view),
+    // same convention as ExecutionRepository's native aggregates.
     @Query("SELECT tc.exceptionType, COUNT(tc), tc.methodName, MAX(e.executionCode) " +
            "FROM ExecutionTestCase tc JOIN Execution e ON tc.executionId = e.id " +
            "WHERE tc.status = 'FAIL' AND tc.isConfigMethod = false AND tc.createdAt >= :since " +
+           "AND (:projectId IS NULL OR e.projectId = :projectId) " +
            "GROUP BY tc.exceptionType, tc.methodName")
-    List<Object[]> findFailureAnalysisRaw(@Param("since") Instant since);
+    List<Object[]> findFailureAnalysisRaw(@Param("since") Instant since, @Param("projectId") Long projectId);
 
-    @Query("SELECT tc FROM ExecutionTestCase tc " +
+    @Query("SELECT tc FROM ExecutionTestCase tc JOIN Execution e ON tc.executionId = e.id " +
            "WHERE tc.isConfigMethod = false AND tc.createdAt >= :since " +
+           "AND (:projectId IS NULL OR e.projectId = :projectId) " +
            "ORDER BY tc.durationMs DESC")
-    List<ExecutionTestCase> findSlowTestsRaw(@Param("since") Instant since);
+    List<ExecutionTestCase> findSlowTestsRaw(@Param("since") Instant since, @Param("projectId") Long projectId);
 
     @Query("SELECT tc.className, tc.methodName, COUNT(tc), " +
            "SUM(CASE WHEN tc.status = 'FAIL' THEN 1 ELSE 0 END), " +
            "SUM(CASE WHEN tc.status = 'PASS' THEN 1 ELSE 0 END), " +
            "SUM(tc.retries), " +
            "tc.moduleCode " +
-           "FROM ExecutionTestCase tc " +
+           "FROM ExecutionTestCase tc JOIN Execution e ON tc.executionId = e.id " +
            "WHERE tc.createdAt >= :since AND tc.isConfigMethod = false " +
+           "AND (:projectId IS NULL OR e.projectId = :projectId) " +
            "GROUP BY tc.className, tc.methodName, tc.moduleCode")
-    List<Object[]> findFlakyTestsRaw(@Param("since") Instant since);
+    List<Object[]> findFlakyTestsRaw(@Param("since") Instant since, @Param("projectId") Long projectId);
 
     // Feeds DashboardService.getModuleHealth()'s PASSED/FAILED/SKIPPED tally: joined through the
     // permanent test_case_catalog identity (tc.testCaseCatalogId) rather than re-deriving identity
@@ -63,6 +68,7 @@ public interface ExecutionTestCaseRepository extends JpaRepository<ExecutionTest
            "AND e.status <> com.automationportal.executions.ExecutionStatus.QUEUED " +
            "AND e.status <> com.automationportal.executions.ExecutionStatus.RUNNING " +
            "AND (:environmentId IS NULL OR e.environmentId = :environmentId) " +
+           "AND (:projectId IS NULL OR e.projectId = :projectId) " +
            "ORDER BY e.createdAt ASC")
-    List<Object[]> findModuleHealthResultsRaw(@Param("since") Instant since, @Param("environmentId") Long environmentId);
+    List<Object[]> findModuleHealthResultsRaw(@Param("since") Instant since, @Param("environmentId") Long environmentId, @Param("projectId") Long projectId);
 }

@@ -1,5 +1,6 @@
 package com.automationportal.apitesting.module;
 
+import com.automationportal.apitesting.security.CurrentProjectService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
 public class ModuleController {
 
     private final ApiModuleRepository repository;
+    private final CurrentProjectService currentProjectService;
 
     @Data
     public static class ModulePayload {
@@ -37,10 +39,10 @@ public class ModuleController {
         private List<ModuleNode> children = new ArrayList<>();
     }
 
-    /** Full module tree (roots with nested children). */
+    /** Full module tree (roots with nested children), scoped to the caller's current project. */
     @GetMapping
     public List<ModuleNode> tree() {
-        List<ApiModule> all = repository.findAll();
+        List<ApiModule> all = repository.findByProjectId(currentProjectService.requireProjectId());
         Map<Long, ModuleNode> nodes = all.stream().collect(Collectors.toMap(ApiModule::getId, m -> {
             ModuleNode n = new ModuleNode();
             n.setId(m.getId());
@@ -63,19 +65,20 @@ public class ModuleController {
 
     @PostMapping
     public ApiModule create(@Valid @RequestBody ModulePayload payload) {
-        validateParent(payload.getParentModuleId(), null);
+        Long projectId = currentProjectService.requireProjectId();
+        validateParent(payload.getParentModuleId(), null, projectId);
         ApiModule m = new ApiModule();
         m.setName(payload.getName());
         m.setParentModuleId(payload.getParentModuleId());
         m.setDescription(payload.getDescription());
+        m.setProjectId(projectId);
         return repository.save(m);
     }
 
     @PutMapping("/{id}")
     public ApiModule update(@PathVariable Long id, @Valid @RequestBody ModulePayload payload) {
-        ApiModule m = repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
-        validateParent(payload.getParentModuleId(), id);
+        ApiModule m = find(id);
+        validateParent(payload.getParentModuleId(), id, m.getProjectId());
         m.setName(payload.getName());
         m.setParentModuleId(payload.getParentModuleId());
         m.setDescription(payload.getDescription());
@@ -84,6 +87,7 @@ public class ModuleController {
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
+        find(id);
         if (!repository.findByParentModuleId(id).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Module has sub-modules; delete or move them first");
         }
@@ -95,12 +99,23 @@ public class ModuleController {
         }
     }
 
-    private void validateParent(Long parentId, Long selfId) {
+    private ApiModule find(Long id) {
+        ApiModule m = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found"));
+        if (!currentProjectService.requireProjectId().equals(m.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found");
+        }
+        return m;
+    }
+
+    private void validateParent(Long parentId, Long selfId, Long projectId) {
         if (parentId == null) return;
         if (parentId.equals(selfId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Module cannot be its own parent");
         }
-        if (!repository.existsById(parentId)) {
+        ApiModule parent = repository.findById(parentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parent module does not exist"));
+        if (!projectId.equals(parent.getProjectId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parent module does not exist");
         }
     }

@@ -2,8 +2,11 @@ package com.automationportal.executions;
 
 import com.automationportal.auth.AuthenticatedUserService;
 import com.automationportal.common.ApiResponse;
+import com.automationportal.workspace.CurrentProjectService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
@@ -15,6 +18,7 @@ public class ExecutionController {
     private final ExecutionService service;
     private final ExecutionRepository repository;
     private final AuthenticatedUserService authenticatedUserService;
+    private final CurrentProjectService currentProjectService;
     private final java.net.http.HttpClient httpClient;
 
     @org.springframework.beans.factory.annotation.Value("${portal.execution-manager.url:http://localhost:8090}")
@@ -27,10 +31,13 @@ public class ExecutionController {
         return expectedApiKey == null || expectedApiKey.isEmpty() || expectedApiKey.equals(apiKey);
     }
 
-    public ExecutionController(ExecutionService service, ExecutionRepository repository, AuthenticatedUserService authenticatedUserService) {
+    public ExecutionController(ExecutionService service, ExecutionRepository repository,
+                                AuthenticatedUserService authenticatedUserService,
+                                CurrentProjectService currentProjectService) {
         this.service = service;
         this.repository = repository;
         this.authenticatedUserService = authenticatedUserService;
+        this.currentProjectService = currentProjectService;
         this.httpClient = java.net.http.HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(5))
                 .build();
@@ -60,7 +67,12 @@ public class ExecutionController {
 
     @GetMapping("/{id}")
     public ApiResponse<Execution> get(@PathVariable Long id) {
-        return ApiResponse.ok(repository.findById(id).orElseThrow());
+        Execution execution = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + id));
+        if (!currentProjectService.canAccess(execution.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + id);
+        }
+        return ApiResponse.ok(execution);
     }
 
     @GetMapping("/{id}/test-cases")

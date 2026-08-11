@@ -6,6 +6,7 @@ import com.automationportal.apitesting.execution.dto.ExecutionResponse;
 import com.automationportal.apitesting.history.ExecutionHistory;
 import com.automationportal.apitesting.history.ExecutionHistoryRepository;
 import com.automationportal.apitesting.history.ExecutionHistoryService;
+import com.automationportal.apitesting.security.CurrentProjectService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -42,6 +43,7 @@ public class CollectionController {
     private final CollectionEnvironmentRepository environmentRepository;
     private final CollectionFolderRepository folderRepository;
     private final ObjectMapper objectMapper;
+    private final CurrentProjectService currentProjectService;
 
     @Data
     public static class CollectionPayload {
@@ -75,7 +77,7 @@ public class CollectionController {
 
     @GetMapping
     public List<CollectionSummary> list() {
-        return collectionRepository.findAll().stream()
+        return collectionRepository.findByProjectId(currentProjectService.requireProjectId()).stream()
                 .map(c -> new CollectionSummary(c.getId(), c.getName(), c.getDescription(),
                         requestRepository.countByCollectionId(c.getId()), c.getActiveEnvironmentId()))
                 .toList();
@@ -88,6 +90,7 @@ public class CollectionController {
         ApiCollection c = new ApiCollection();
         c.setName(payload.getName());
         c.setDescription(payload.getDescription());
+        c.setProjectId(currentProjectService.requireProjectId());
         return collectionRepository.save(c);
     }
 
@@ -101,6 +104,7 @@ public class CollectionController {
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
+        findCollection(id);
         collectionRepository.deleteById(id);
     }
 
@@ -157,6 +161,7 @@ public class CollectionController {
     /** Full stored config for one request — used to load the workspace page directly by route. */
     @GetMapping("/{id}/requests/{requestId}")
     public CollectionRequest getRequest(@PathVariable Long id, @PathVariable Long requestId) {
+        findCollection(id);
         return requestRepository.findById(requestId)
                 .filter(x -> x.getCollectionId().equals(id))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found in collection"));
@@ -177,6 +182,7 @@ public class CollectionController {
     @SneakyThrows
     public CollectionRequest updateRequest(@PathVariable Long id, @PathVariable Long requestId,
                                            @Valid @RequestBody RequestPayload payload) {
+        findCollection(id);
         CollectionRequest r = requestRepository.findById(requestId)
                 .filter(x -> x.getCollectionId().equals(id))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found in collection"));
@@ -186,6 +192,7 @@ public class CollectionController {
 
     @DeleteMapping("/{id}/requests/{requestId}")
     public void deleteRequest(@PathVariable Long id, @PathVariable Long requestId) {
+        findCollection(id);
         CollectionRequest r = requestRepository.findById(requestId)
                 .filter(x -> x.getCollectionId().equals(id))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found in collection"));
@@ -196,6 +203,7 @@ public class CollectionController {
     @PatchMapping("/{id}/requests/{requestId}/move")
     public CollectionRequest moveRequest(@PathVariable Long id, @PathVariable Long requestId,
                                         @RequestBody MoveRequestPayload payload) {
+        findCollection(id);
         CollectionRequest r = requestRepository.findById(requestId)
                 .filter(x -> x.getCollectionId().equals(id))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found in collection"));
@@ -237,13 +245,13 @@ public class CollectionController {
                     .errorMessage("Unresolved variable {{" + unresolved + "}} — add it under this collection's Variables and try again.")
                     .durationMs(0)
                     .build();
-            executionHistoryService.record(ExecutionHistory.ApiType.COLLECTION, r.getId(), r.getName(),
+            executionHistoryService.record(collection.getProjectId(), ExecutionHistory.ApiType.COLLECTION, r.getId(), r.getName(),
                     null, null, ExecutionHistory.TriggeredBy.MANUAL, config, blocked);
             return blocked;
         }
 
         ExecutionResponse response = executionEngineService.execute(config);
-        executionHistoryService.record(ExecutionHistory.ApiType.COLLECTION, r.getId(), r.getName(),
+        executionHistoryService.record(collection.getProjectId(), ExecutionHistory.ApiType.COLLECTION, r.getId(), r.getName(),
                 null, null, ExecutionHistory.TriggeredBy.MANUAL, config, response);
         return response;
     }
@@ -316,8 +324,12 @@ public class CollectionController {
     // ----
 
     private ApiCollection findCollection(Long id) {
-        return collectionRepository.findById(id)
+        ApiCollection c = collectionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found"));
+        if (!currentProjectService.requireProjectId().equals(c.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found");
+        }
+        return c;
     }
 
     @SneakyThrows

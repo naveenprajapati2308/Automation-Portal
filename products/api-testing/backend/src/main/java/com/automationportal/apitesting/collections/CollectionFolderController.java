@@ -1,5 +1,6 @@
 package com.automationportal.apitesting.collections;
 
+import com.automationportal.apitesting.security.CurrentProjectService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -22,6 +23,7 @@ public class CollectionFolderController {
     private final CollectionFolderRepository folderRepository;
     private final CollectionRequestRepository requestRepository;
     private final ApiCollectionRepository collectionRepository;
+    private final CurrentProjectService currentProjectService;
 
     @Data
     public static class FolderPayload {
@@ -39,6 +41,7 @@ public class CollectionFolderController {
 
     @GetMapping
     public List<FolderNode> tree(@PathVariable Long collectionId) {
+        findCollection(collectionId);
         List<CollectionFolder> all = folderRepository.findByCollectionIdOrderBySeqAsc(collectionId);
         Map<Long, FolderNode> nodes = all.stream().collect(Collectors.toMap(CollectionFolder::getId, f -> {
             FolderNode n = new FolderNode();
@@ -73,6 +76,7 @@ public class CollectionFolderController {
     @PutMapping("/{folderId}")
     public CollectionFolder update(@PathVariable Long collectionId, @PathVariable Long folderId,
                                    @Valid @RequestBody FolderPayload payload) {
+        findCollection(collectionId);
         CollectionFolder f = find(collectionId, folderId);
         validateParent(collectionId, payload.getParentFolderId(), folderId);
         f.setName(payload.getName());
@@ -82,6 +86,7 @@ public class CollectionFolderController {
 
     @DeleteMapping("/{folderId}")
     public void delete(@PathVariable Long collectionId, @PathVariable Long folderId) {
+        findCollection(collectionId);
         find(collectionId, folderId);
         // Requests inside fall back to "Ungrouped" (FK ON DELETE SET NULL);
         // sub-folders cascade-delete with their own contents doing the same.
@@ -107,7 +112,10 @@ public class CollectionFolderController {
     }
 
     private void findCollection(Long id) {
-        collectionRepository.findById(id)
+        ApiCollection c = collectionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found"));
+        if (!currentProjectService.requireProjectId().equals(c.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found");
+        }
     }
 }

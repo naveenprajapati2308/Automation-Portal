@@ -46,6 +46,8 @@ public class TestGroupController {
 
     @PostMapping("/{id}/run")
     public ApiResponse<PerfTestRun> runGroup(@PathVariable Long id) {
+        service.getById(id); // ownership check — triggerGroupRun() itself must stay reachable
+                              // from the background scheduler/job-worker, which has no project context
         return ApiResponse.ok(service.triggerGroupRun(id));
     }
 }

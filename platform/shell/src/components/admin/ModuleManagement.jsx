@@ -5,7 +5,14 @@ import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Globe2, ChevronRight, Che
 import { Field } from '../shared/Field.jsx';
 import { ModuleEnvironmentMappingPanel } from './ModuleEnvironmentMappingPanel.jsx';
 
-const ALL_ROLES = ['SUPER_ADMIN', 'ADMIN', 'QA_LEAD', 'AUTOMATION_ENGINEER', 'VIEWER'];
+// Matches against EITHER the caller's legacy platform role (pre-multi-workspace accounts) OR
+// any of their current project roles (see ExecutionService.validateModuleEnvironmentBrowser) —
+// so both sets are offered here. SUPER_ADMIN/ADMIN are platform-only; the rest are project role
+// catalog codes (PROJECT_ADMIN, QA_LEAD, TECH_LEAD, AUTOMATION_ENGINEER, VIEWER — see
+// ProjectUserController.ASSIGNABLE_ROLE_CODES).
+const ALL_ROLES = [
+  'SUPER_ADMIN', 'ADMIN', 'PROJECT_ADMIN', 'QA_LEAD', 'TECH_LEAD', 'AUTOMATION_ENGINEER', 'VIEWER'
+];
 
 export function ModuleManagement({ setNotice }) {
   const [modules, setModules] = useState([]);
@@ -25,6 +32,14 @@ export function ModuleManagement({ setNotice }) {
     api.frameworks().then((list) => setFrameworks(list || [])).catch(() => setFrameworks([]));
   }, []);
   const frameworkLabel = (code) => frameworks.find((fw) => fw.code === code)?.displayName || code || 'Unknown';
+
+  // Registered Test Engines (docs/version2.3.md Plan 2) — a module can optionally dispatch
+  // through one, so its runs use that engine's own per-workspace credential instead of the
+  // legacy platform-wide shared key. Fetched once, same pattern as frameworks above.
+  const [testEngines, setTestEngines] = useState([]);
+  useEffect(() => {
+    api.adminListTestEngines().then((list) => setTestEngines(list || [])).catch(() => setTestEngines([]));
+  }, []);
 
   const fetchModules = async () => {
     setLoading(true);
@@ -220,6 +235,7 @@ export function ModuleManagement({ setNotice }) {
           <ModuleForm
             allModules={modules}
             frameworks={frameworks}
+            testEngines={testEngines}
             setNotice={setNotice}
             onSaved={() => { setShowCreate(false); fetchModules(); }}
             onCancel={() => setShowCreate(false)}
@@ -234,6 +250,7 @@ export function ModuleManagement({ setNotice }) {
             mod={editModule}
             allModules={modules}
             frameworks={frameworks}
+            testEngines={testEngines}
             setNotice={setNotice}
             onSaved={() => { setEditModule(null); fetchModules(); }}
             onCancel={() => setEditModule(null)}
@@ -265,7 +282,7 @@ export function ModuleManagement({ setNotice }) {
   );
 }
 
-function ModuleForm({ mod, allModules = [], frameworks = [], setNotice, onSaved, onCancel }) {
+function ModuleForm({ mod, allModules = [], frameworks = [], testEngines = [], setNotice, onSaved, onCancel }) {
   const [form, setForm] = useState({
     name:         mod?.name         || '',
     code:         mod?.code         || '',
@@ -276,8 +293,15 @@ function ModuleForm({ mod, allModules = [], frameworks = [], setNotice, onSaved,
     visible:      mod ? mod.visible !== false : true,
     allowedRoles: mod?.allowedRoles || '',
     active:       mod ? mod.active : true,
-    parentModuleId: mod?.parentModuleId || ''
+    parentModuleId: mod?.parentModuleId || '',
+    testEngineId: mod?.testEngineId || ''
   });
+
+  // MAVEN_TESTNG modules dispatch through a SELENIUM engine, PLAYWRIGHT modules through a
+  // PLAYWRIGHT engine — only offer engines of the matching type.
+  const matchingEngines = testEngines.filter((e) =>
+    form.runnerType === 'PLAYWRIGHT' ? e.engineType === 'PLAYWRIGHT' : e.engineType === 'SELENIUM'
+  );
   const [errors, setErrors] = useState({});
 
   // A module can only be a sub-type of a top-level workflow module (no 3-level nesting), and
@@ -314,7 +338,11 @@ function ModuleForm({ mod, allModules = [], frameworks = [], setNotice, onSaved,
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-    const payload = { ...form, parentModuleId: form.parentModuleId ? Number(form.parentModuleId) : null };
+    const payload = {
+      ...form,
+      parentModuleId: form.parentModuleId ? Number(form.parentModuleId) : null,
+      testEngineId: form.testEngineId ? Number(form.testEngineId) : null
+    };
     try {
       if (mod) {
         await api.adminUpdateModule(mod.id, payload);
@@ -341,7 +369,7 @@ function ModuleForm({ mod, allModules = [], frameworks = [], setNotice, onSaved,
           <div className="field-input-wrap">
             <select
               value={form.runnerType}
-              onChange={(e) => update('runnerType', e.target.value)}
+              onChange={(e) => setForm(prev => ({ ...prev, runnerType: e.target.value, testEngineId: '' }))}
               disabled={!!mod}
               style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '6px', padding: '0 10px', background: '#fff' }}
             >
@@ -381,6 +409,27 @@ function ModuleForm({ mod, allModules = [], frameworks = [], setNotice, onSaved,
           Set this when the module is a sub-type variant of a bigger workflow (e.g. one org type
           of Architect Empanelment) — it shows under its parent as a collapsible child row here,
           and as a second picker in the Execution Center, instead of its own top-level entry.
+        </span>
+      </div>
+
+      <div className="form-field">
+        <label className="form-row">
+          <span>Test Engine (optional)</span>
+          <div className="field-input-wrap">
+            <select
+              value={form.testEngineId}
+              onChange={(e) => update('testEngineId', e.target.value)}
+              style={{ width: '100%', height: '38px', border: '1px solid #cfdae6', borderRadius: '6px', padding: '0 10px', background: '#fff' }}
+            >
+              <option value="">None — use the legacy shared platform connection</option>
+              {matchingEngines.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.businessId})</option>)}
+            </select>
+          </div>
+        </label>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          If a Project Admin has registered a Test Engine (Workspace Settings → Framework Connection) for this
+          framework, link it here so this module's runs authenticate with that engine's own credential instead
+          of the platform-wide shared key. Leave unset to keep today's legacy behavior.
         </span>
       </div>
 

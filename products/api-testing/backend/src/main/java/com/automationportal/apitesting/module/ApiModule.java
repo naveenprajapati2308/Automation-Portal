@@ -23,6 +23,9 @@ public class ApiModule {
     @Column(length = 500)
     private String description;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private Instant createdAt;
 

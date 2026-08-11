@@ -4,17 +4,25 @@ import com.automationportal.audit.AuditAction;
 import com.automationportal.audit.AuditService;
 import com.automationportal.common.ApiResponse;
 import com.automationportal.users.*;
+import com.automationportal.workspace.ProjectDtos;
+import com.automationportal.workspace.ProjectResolutionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -22,10 +30,13 @@ public class AuthController {
     private final OtpService otpService;
     private final AuthenticatedUserService authenticatedUserService;
     private final AuditService auditService;
+    private final ProjectResolutionService projectResolutionService;
+    private final MailService mailService;
 
     public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
                           RefreshTokenService refreshTokenService, OtpService otpService,
-                          AuthenticatedUserService authenticatedUserService, AuditService auditService) {
+                          AuthenticatedUserService authenticatedUserService, AuditService auditService,
+                          ProjectResolutionService projectResolutionService, MailService mailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -33,6 +44,8 @@ public class AuthController {
         this.otpService = otpService;
         this.authenticatedUserService = authenticatedUserService;
         this.auditService = auditService;
+        this.projectResolutionService = projectResolutionService;
+        this.mailService = mailService;
     }
 
     @PostMapping("/login")
@@ -50,14 +63,79 @@ public class AuthController {
         refreshTokenService.revokeActiveTokensFor(user);
         RefreshToken refreshToken = refreshTokenService.create(user, request.rememberMe());
         auditService.record(user, AuditAction.LOGIN, "User logged in", servletRequest);
-        return ApiResponse.ok(new LoginResponse(jwtService.createAccessToken(user), refreshToken.getToken(), UserProfileDto.from(user)));
+        return ApiResponse.ok(buildSessionResponse(user, refreshToken.getToken()));
     }
 
+    // @Transactional so that rotate()'s revoke-old/create-new commit rolls back together with
+    // this method's own validation — a failure after rotate() (e.g. buildSessionResponse's
+    // zero-projects check) must not leave the caller's old refresh token burned with no new one
+    // returned to them.
     @PostMapping("/refresh")
+    @Transactional
     public ApiResponse<LoginResponse> refresh(@Valid @RequestBody AuthDtos.RefreshRequest request) {
         RefreshToken refreshToken = refreshTokenService.rotate(request.refreshToken());
         User user = refreshToken.getUser();
-        return ApiResponse.ok(new LoginResponse(jwtService.createAccessToken(user), refreshToken.getToken(), UserProfileDto.from(user)));
+        return ApiResponse.ok(buildSessionResponse(user, refreshToken.getToken()));
+    }
+
+    /**
+     * Called after a login/refresh returned {@code needsProjectSelection=true} (or to switch
+     * projects mid-session), once the user has picked which of their Projects to enter.
+     */
+    @PostMapping("/select-project")
+    @Transactional
+    public ApiResponse<LoginResponse> selectProject(@Valid @RequestBody AuthDtos.SelectProjectRequest request) {
+        RefreshToken refreshToken = refreshTokenService.rotate(request.refreshToken());
+        User user = refreshToken.getUser();
+        boolean isMember = projectResolutionService.activeProjects(user.getId()).stream()
+            .anyMatch(rp -> rp.project().getId().equals(request.projectId()));
+        if (!isMember) {
+            throw new IllegalArgumentException("You are not a member of that project");
+        }
+        user.setCurrentProjectId(request.projectId());
+        userRepository.save(user);
+        return ApiResponse.ok(buildSessionResponse(user, refreshToken.getToken()));
+    }
+
+    @GetMapping("/my-projects")
+    public ApiResponse<List<ProjectDtos.MyProjectSummary>> myProjects() {
+        User user = authenticatedUserService.currentUser();
+        return ApiResponse.ok(projectResolutionService.activeProjects(user.getId()).stream()
+            .map(projectResolutionService::toSummary).toList());
+    }
+
+    /**
+     * Super Admin never has a project. Everyone else: exactly one active Project auto-selects
+     * (today's default-workspace-backfilled case for every existing user — fully backward
+     * compatible); more than one prefers whichever Project the user last selected if still valid,
+     * otherwise returns {@code needsProjectSelection=true} so the shell can show a picker.
+     */
+    private LoginResponse buildSessionResponse(User user, String refreshTokenValue) {
+        if (user.getRole() == UserRole.SUPER_ADMIN) {
+            return LoginResponse.simple(jwtService.createAccessToken(user), refreshTokenValue, UserProfileDto.from(user));
+        }
+        List<ProjectResolutionService.ResolvedProject> projects = projectResolutionService.activeProjects(user.getId());
+        if (projects.isEmpty()) {
+            throw new IllegalArgumentException("Your account is not assigned to any workspace. Contact your administrator.");
+        }
+        if (projects.size() == 1) {
+            return withProjectResponse(user, refreshTokenValue, projects.get(0));
+        }
+        Optional<ProjectResolutionService.ResolvedProject> preferred = user.getCurrentProjectId() == null
+            ? Optional.empty()
+            : projects.stream().filter(rp -> rp.project().getId().equals(user.getCurrentProjectId())).findFirst();
+        if (preferred.isPresent()) {
+            return withProjectResponse(user, refreshTokenValue, preferred.get());
+        }
+        List<ProjectDtos.MyProjectSummary> summaries = projects.stream().map(projectResolutionService::toSummary).toList();
+        return LoginResponse.pendingSelection(jwtService.createAccessToken(user), refreshTokenValue, UserProfileDto.from(user), summaries);
+    }
+
+    private LoginResponse withProjectResponse(User user, String refreshTokenValue, ProjectResolutionService.ResolvedProject resolved) {
+        user.setCurrentProjectId(resolved.project().getId());
+        userRepository.save(user);
+        String token = jwtService.createProjectAccessToken(user, projectResolutionService.toContext(resolved));
+        return LoginResponse.withProject(token, refreshTokenValue, UserProfileDto.from(user), projectResolutionService.toSummary(resolved));
     }
 
     @PostMapping("/logout")
@@ -89,6 +167,7 @@ public class AuthController {
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
         auditService.record(user, AuditAction.PASSWORD_RESET, "Password reset completed", servletRequest);
+        notifyPasswordChanged(user);
         return ApiResponse.ok(Map.of("status", "password_reset"));
     }
 
@@ -102,6 +181,7 @@ public class AuthController {
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
         auditService.record(user, AuditAction.PASSWORD_CHANGE, "Password changed", servletRequest);
+        notifyPasswordChanged(user);
         return ApiResponse.ok(Map.of("status", "password_changed"));
     }
 
@@ -111,6 +191,17 @@ public class AuthController {
             "loginUrl", "/oauth2/authorization/google",
             "note", "Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to enable Google OAuth2 login"
         ));
+    }
+
+    // A password-change mail hiccup must never undo (or fail to report) a password that has
+    // already been changed — same swallow-and-continue pattern as WorkspaceProvisioningService's
+    // approval email.
+    private void notifyPasswordChanged(User user) {
+        try {
+            mailService.sendPasswordChanged(user.getEmail(), user.getUsername());
+        } catch (RuntimeException ex) {
+            log.warn("password-changed notification failed for {}: {}", user.getUsername(), ex.getMessage());
+        }
     }
 
     private void validatePassword(String password) {

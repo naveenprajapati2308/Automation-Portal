@@ -16,14 +16,18 @@ public interface PerfTestRunRepository extends JpaRepository<PerfTestRun, Long> 
     List<PerfTestRun> findByTestTypeAndTestIdOrderByCreatedAtDesc(TestType testType, Long testId);
 
     @Query("SELECT r FROM PerfTestRun r WHERE " +
+           "r.projectId = :projectId AND " +
            "(:testType IS NULL OR r.testType = :testType) AND " +
            "(:status IS NULL OR r.status = :status) AND " +
            "(:trigger IS NULL OR r.runTrigger = :trigger)")
-    Page<PerfTestRun> findFiltered(@Param("testType") TestType testType,
+    Page<PerfTestRun> findFiltered(@Param("projectId") Long projectId,
+                                   @Param("testType") TestType testType,
                                    @Param("status") RunStatus status,
                                    @Param("trigger") RunTrigger trigger,
                                    Pageable pageable);
 
     @Query(value = "SELECT * FROM perf_test_run WHERE test_type = :testType AND test_id = :testId AND status = 'PASSED' ORDER BY created_at DESC LIMIT 1", nativeQuery = true)
     Optional<PerfTestRun> findLatestPassedRun(@Param("testType") String testType, @Param("testId") Long testId);
+
+    List<PerfTestRun> findByProjectId(Long projectId);
 }

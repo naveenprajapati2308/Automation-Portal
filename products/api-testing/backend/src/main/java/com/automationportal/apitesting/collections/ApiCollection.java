@@ -29,6 +29,9 @@ public class ApiCollection {
     @Column(name = "active_environment_id")
     private Long activeEnvironmentId;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private Instant createdAt;
 

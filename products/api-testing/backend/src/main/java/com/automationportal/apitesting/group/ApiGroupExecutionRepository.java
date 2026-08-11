@@ -15,4 +15,8 @@ public interface ApiGroupExecutionRepository extends JpaRepository<ApiGroupExecu
     ApiGroupExecution findFirstByGroupIdOrderByStartedAtDesc(Long groupId);
 
     List<ApiGroupExecution> findByStatus(ApiGroupExecution.Status status);
+
+    Page<ApiGroupExecution> findByProjectIdOrderByStartedAtDesc(Long projectId, Pageable pageable);
+
+    List<ApiGroupExecution> findByProjectIdAndStatus(Long projectId, ApiGroupExecution.Status status);
 }

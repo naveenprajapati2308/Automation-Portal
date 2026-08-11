@@ -8,7 +8,10 @@ import com.automationportal.frameworks.FrameworkRegistry;
 import com.automationportal.moduleenvironments.ModuleEnvironmentEntity;
 import com.automationportal.moduleenvironments.ModuleEnvironmentRepository;
 import com.automationportal.moduleenvironments.ModuleEnvironmentResolver;
+import com.automationportal.workspace.CurrentProjectService;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -20,6 +23,7 @@ public class ModuleController {
     private final ModuleEnvironmentRepository moduleEnvironmentRepository;
     private final EnvironmentRepository environmentRepository;
     private final FrameworkRegistry frameworkRegistry;
+    private final CurrentProjectService currentProjectService;
     private final java.net.http.HttpClient httpClient;
 
     @org.springframework.beans.factory.annotation.Value("${portal.execution-manager.url:http://localhost:8090}")
@@ -28,11 +32,13 @@ public class ModuleController {
     public ModuleController(ModuleRepository repository,
                              ModuleEnvironmentRepository moduleEnvironmentRepository,
                              EnvironmentRepository environmentRepository,
-                             FrameworkRegistry frameworkRegistry) {
+                             FrameworkRegistry frameworkRegistry,
+                             CurrentProjectService currentProjectService) {
         this.repository = repository;
         this.moduleEnvironmentRepository = moduleEnvironmentRepository;
         this.environmentRepository = environmentRepository;
         this.frameworkRegistry = frameworkRegistry;
+        this.currentProjectService = currentProjectService;
         this.httpClient = java.net.http.HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(5))
                 .build();
@@ -40,12 +46,15 @@ public class ModuleController {
 
     // Public listing consumed by the Execution Center / Dashboard pickers — only modules that
     // are both active (not disabled) and visible (not hidden) ever appear here; admin screens
-    // use ModuleAdminController's unfiltered listing instead.
+    // use ModuleAdminController's unfiltered listing instead. Scoped to the caller's project; a
+    // project-less caller (Super Admin) is rejected (403) rather than shown every project's
+    // modules (docs/version2.2.md isolation).
     @GetMapping
     public ApiResponse<List<ModuleEntity>> list(@RequestParam(required = false) String framework) {
+        Long projectId = currentProjectService.requireProjectId();
         List<ModuleEntity> modules = (framework != null && !framework.isBlank())
-                ? repository.findByRunnerType(framework)
-                : repository.findAll();
+                ? repository.findByProjectIdAndRunnerType(projectId, framework)
+                : repository.findByProjectId(projectId);
         return ApiResponse.ok(modules.stream()
                 .filter(ModuleEntity::isActive)
                 .filter(ModuleEntity::isVisible)
@@ -55,6 +64,7 @@ public class ModuleController {
     // "Load Supported Environments" step: only environments explicitly enabled for this module.
     @GetMapping("/{id}/environments")
     public ApiResponse<List<EnvironmentSummaryDto>> supportedEnvironments(@PathVariable Long id) {
+        requireModuleAccess(id);
         List<Long> environmentIds = moduleEnvironmentRepository.findByModuleId(id).stream()
                 .filter(ModuleEnvironmentEntity::isEnabled)
                 .map(ModuleEnvironmentEntity::getEnvironmentId)
@@ -72,6 +82,7 @@ public class ModuleController {
     @GetMapping("/{id}/environments/{environmentId}/options")
     public ApiResponse<Map<String, Object>> environmentOptions(@PathVariable Long id, @PathVariable Long environmentId) {
         ModuleEntity module = repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Module not found: " + id));
+        requireModuleAccess(module);
         EnvironmentEntity environment = environmentRepository.findById(environmentId)
                 .orElseThrow(() -> new IllegalArgumentException("Environment not found: " + environmentId));
         ModuleEnvironmentEntity mapping = moduleEnvironmentRepository
@@ -98,7 +109,8 @@ public class ModuleController {
     public ApiResponse<List<String>> tags(@PathVariable Long id) {
         try {
             ModuleEntity module = repository.findById(id).orElse(null);
-            if (module == null || module.getXmlFile() == null || module.getXmlFile().isBlank()) {
+            if (module == null || !currentProjectService.canAccess(module.getProjectId())
+                    || module.getXmlFile() == null || module.getXmlFile().isBlank()) {
                 return ApiResponse.ok(List.of());
             }
             String url = executionManagerUrl + "/em/tags?path="
@@ -120,6 +132,18 @@ public class ModuleController {
             // (runner unreachable, malformed response) degrades to "no tags available" instead
             // of surfacing an error to a run screen the user needs to keep working.
             return ApiResponse.ok(List.of());
+        }
+    }
+
+    private void requireModuleAccess(Long moduleId) {
+        ModuleEntity module = repository.findById(moduleId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found: " + moduleId));
+        requireModuleAccess(module);
+    }
+
+    private void requireModuleAccess(ModuleEntity module) {
+        if (!currentProjectService.canAccess(module.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found: " + module.getId());
         }
     }
 }

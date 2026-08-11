@@ -32,6 +32,9 @@ public class VirtualUser {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_type", nullable = false)
     @Builder.Default

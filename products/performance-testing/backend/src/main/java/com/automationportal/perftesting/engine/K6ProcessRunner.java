@@ -134,7 +134,7 @@ public class K6ProcessRunner {
 
             Process process = pb.start();
             activeProcesses.put(runId, process);
-            MetricIngestor ingestor = new MetricIngestor(runId, sseEmitterManager, sampleRepository);
+            MetricIngestor ingestor = new MetricIngestor(runId, run.getProjectId(), sseEmitterManager, sampleRepository);
 
             // Read process output line by line
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
@@ -209,7 +209,7 @@ public class K6ProcessRunner {
                 log.error("Failed to run drift detection for run ID {}", runId, e);
             }
 
-            sseEmitterManager.sendRunComplete(runId, run);
+            sseEmitterManager.sendRunComplete(runId, run.getProjectId(), run);
 
         } catch (Exception ex) {
             log.error("Error executing k6 run {}", runId, ex);
@@ -217,7 +217,7 @@ public class K6ProcessRunner {
             run.setEndedAt(LocalDateTime.now());
             run.setErrorMessage(ex.getMessage());
             runRepository.save(run);
-            sseEmitterManager.sendRunError(runId, ex.getMessage());
+            sseEmitterManager.sendRunError(runId, run.getProjectId(), ex.getMessage());
 
             // Clean up files in case of crash
             try {

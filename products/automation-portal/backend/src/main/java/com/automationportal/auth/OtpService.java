@@ -8,6 +8,8 @@ import java.time.Instant;
 
 @Service
 public class OtpService {
+    private static final int OTP_EXPIRY_MINUTES = 10;
+
     private final OtpVerificationRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
@@ -31,9 +33,9 @@ public class OtpService {
         verification.setEmail(email);
         verification.setPurpose(purpose);
         verification.setOtpCode(passwordEncoder.encode(otp));
-        verification.setExpiresAt(Instant.now().plusSeconds(10 * 60));
+        verification.setExpiresAt(Instant.now().plusSeconds(OTP_EXPIRY_MINUTES * 60L));
         repository.save(verification);
-        mailService.sendOtp(email, otp, purpose);
+        mailService.sendOtp(email, otp, purpose, OTP_EXPIRY_MINUTES);
         return otp;
     }
 

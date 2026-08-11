@@ -14,7 +14,8 @@ public interface ExecutionHistoryRepository extends JpaRepository<ExecutionHisto
 
     @Query("""
             SELECT h FROM ExecutionHistory h
-            WHERE (:apiType IS NULL OR h.apiType = :apiType)
+            WHERE h.projectId = :projectId
+              AND (:apiType IS NULL OR h.apiType = :apiType)
               AND (:apiId IS NULL OR h.apiId = :apiId)
               AND (:moduleId IS NULL OR h.moduleId = :moduleId)
               AND (:statusClass IS NULL OR h.responseStatusClass = :statusClass)
@@ -26,7 +27,8 @@ public interface ExecutionHistoryRepository extends JpaRepository<ExecutionHisto
               AND (:to IS NULL OR h.executedAt <= :to)
             ORDER BY h.executedAt DESC
             """)
-    Page<ExecutionHistory> search(@Param("apiType") ExecutionHistory.ApiType apiType,
+    Page<ExecutionHistory> search(@Param("projectId") Long projectId,
+                                  @Param("apiType") ExecutionHistory.ApiType apiType,
                                   @Param("apiId") Long apiId,
                                   @Param("moduleId") Long moduleId,
                                   @Param("statusClass") String statusClass,
@@ -45,6 +47,10 @@ public interface ExecutionHistoryRepository extends JpaRepository<ExecutionHisto
     List<ExecutionHistory> findByGroupExecutionIdOrderByExecutedAtAsc(Long groupExecutionId);
 
     List<ExecutionHistory> findByExecutedAtAfterAndModuleId(Instant since, Long moduleId);
+
+    List<ExecutionHistory> findByProjectIdAndExecutedAtAfter(Long projectId, Instant since);
+
+    List<ExecutionHistory> findByProjectIdAndExecutedAtAfterAndModuleId(Long projectId, Instant since, Long moduleId);
 
     @Query("SELECT h.responseBodyObjectKey FROM ExecutionHistory h WHERE h.executedAt < :cutoff AND h.responseBodyObjectKey IS NOT NULL")
     List<String> findObjectKeysOlderThan(@Param("cutoff") Instant cutoff);

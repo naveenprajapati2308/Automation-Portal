@@ -27,6 +27,9 @@ public class PerfTestSchedule {
     @Column(name = "target_id", nullable = false)
     private Long targetId;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(name = "cron_expression", nullable = false, length = 100)
     private String cronExpression;
 

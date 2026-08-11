@@ -8,6 +8,10 @@ public class EnvironmentEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(name = "project_id")
+    private Long projectId;
+
     private String code;
     private String name;
 
@@ -19,6 +23,9 @@ public class EnvironmentEntity {
     @Column(name = "config_json", columnDefinition = "TEXT")
     private String configJson;
 
+    @Column(name = "business_id")
+    private String businessId;
+
     protected EnvironmentEntity() {
     }
 
@@ -28,6 +35,8 @@ public class EnvironmentEntity {
     }
 
     public Long getId() { return id; }
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }
     public String getName() { return name; }
@@ -38,4 +47,6 @@ public class EnvironmentEntity {
     public void setActive(boolean active) { this.active = active; }
     public String getConfigJson() { return configJson; }
     public void setConfigJson(String configJson) { this.configJson = configJson; }
+    public String getBusinessId() { return businessId; }
+    public void setBusinessId(String businessId) { this.businessId = businessId; }
 }

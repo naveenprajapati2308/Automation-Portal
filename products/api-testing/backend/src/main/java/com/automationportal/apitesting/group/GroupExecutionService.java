@@ -53,6 +53,7 @@ public class GroupExecutionService {
         List<ApiGroupMember> members = memberRepository.findByGroupIdOrderBySeqAsc(group.getId());
         ApiGroupExecution execution = new ApiGroupExecution();
         execution.setGroupId(group.getId());
+        execution.setProjectId(group.getProjectId());
         execution.setCorrelationId(UUID.randomUUID().toString());
         execution.setTriggeredBy(trigger);
         execution.setScheduleId(scheduleId);

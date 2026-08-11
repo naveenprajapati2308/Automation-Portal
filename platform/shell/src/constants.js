@@ -30,25 +30,16 @@ export const PERFORMANCE_NAV = [
   { key: 'runs', label: 'Run History', icon: 'History', path: '/runs' }
 ];
 
-// Module control — Automation-only config (which Selenium/Playwright modules exist, which
-// environments they run in, per-combo overrides), so it belongs nested under "Automation" in
-// the sidebar, not as its own top-level menu. Rendered as an extra item appended to Automation's
-// sub-menu (see Sidebar in components/layout/index.jsx), superAdmin-only for now (today's only
-// real permission check, same as the Topbar's "Admin Panel" chip) — once granular
-// user-management roles exist, that's the one gate to swap for a real per-role check.
-// Environment management deliberately has NO separate admin entry here — AUTOMATION_NAV's own
-// "Environments" page already covers create/edit/delete/config/health in one place; a second
-// "Manage Environments" screen was tried and reverted the same day for duplicating it without
-// adding real capability (see project memory).
-export const MODULES_ENV_NAV = [
-  { key: 'module-management', label: 'Manage Modules', icon: 'Package' }
-];
-
+// Module & Environment administration (which Selenium/Playwright modules exist, which
+// environments they run in, per-combo overrides) lives exclusively under the Admin Workspace's
+// own nav (ADMIN_WORKSPACE_NAV below, automation-admin -> module-management / environments-config)
+// — Super Admin never works inside the regular product sidebar (docs/version2.2.md isolation).
 export const SIDEBAR_NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
   { key: 'automation', label: 'Automation', icon: 'Play', children: AUTOMATION_NAV },
   { key: 'apitest', label: 'API Testing', icon: 'Globe2', children: API_TESTING_NAV },
   { key: 'perf', label: 'Performance', icon: 'Gauge', children: PERFORMANCE_NAV },
+  { key: 'documentation', label: 'Documentation', icon: 'BookOpen' },
   { key: 'profile', label: 'Profile', icon: 'UserCircle' }
 ];
 
@@ -88,6 +79,15 @@ export const ADMIN_WORKSPACE_NAV = [
     ]
   },
   {
+    key: 'workspace-management-admin',
+    label: 'Workspace Management',
+    icon: 'Building2',
+    children: [
+      { key: 'workspace-requests', label: 'Workspace Requests', icon: 'ClipboardList' },
+      { key: 'project-management', label: 'Project Management', icon: 'FolderKanban' }
+    ]
+  },
+  {
     key: 'docs-admin',
     label: 'Documentation',
     icon: 'BookOpen',
@@ -101,6 +101,15 @@ export const ADMIN_WORKSPACE_NAV = [
 
 export const ADMIN_WORKSPACE_NAV_FLAT = ADMIN_WORKSPACE_NAV.flatMap((item) => item.children ?? [item]);
 
-export const ROLES = ['SUPER_ADMIN', 'ADMIN', 'Tech lead ', 'QA_LEAD', 'AUTOMATION_ENGINEER', 'VIEWER'];
+export const ROLES = ['SUPER_ADMIN', 'ADMIN', 'QA_LEAD', 'AUTOMATION_ENGINEER', 'VIEWER'];
 
 export const isSuperAdmin = (session) => session?.user?.role === 'SUPER_ADMIN';
+
+// Which project_modules module_type(s) unlock each top-level sidebar entry — a project that only
+// requested e.g. API Testing hides the Automation/Performance entries entirely. This Sidebar only
+// ever renders for a project user; Super Admin lives in the separate Admin Workspace shell.
+export const NAV_MODULE_REQUIREMENT = {
+  automation: ['AUTOMATION_SELENIUM', 'AUTOMATION_PLAYWRIGHT'],
+  apitest: ['API_TESTING'],
+  perf: ['PERFORMANCE_TESTING']
+};

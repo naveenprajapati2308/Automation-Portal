@@ -1,0 +1,75 @@
+import { FolderKanban, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { api } from '../../api.js';
+import { Panel, DataTable, ConfirmDialog } from '../shared/index.jsx';
+
+const MODULE_LABELS = {
+  AUTOMATION_SELENIUM: 'Automation (Selenium)',
+  AUTOMATION_PLAYWRIGHT: 'Automation (Playwright)',
+  API_TESTING: 'API Testing',
+  PERFORMANCE_TESTING: 'Performance Testing'
+};
+
+// ── Super Admin: platform-wide view of every provisioned Project (= Workspace). ────────────────
+export function ProjectManagement({ setNotice }) {
+  const [projects, setProjects] = useState([]);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const load = () => api.adminListProjects().then(setProjects).catch((e) => setNotice(e.message));
+  useEffect(() => { load(); }, []);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const result = await api.adminDeleteProject(deleteTarget.id);
+      setNotice(result.message || `Workspace "${deleteTarget.name}" deleted.`);
+      setDeleteTarget(null);
+      load();
+    } catch (e) {
+      setNotice(e.message);
+      setDeleteTarget(null);
+    }
+  };
+
+  const columns = useMemo(() => [
+    { key: 'name', label: 'Project / Workspace', render: (v, p) => (<div><strong>{v}</strong><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.projectCode} · {p.workspaceCode}</div></div>) },
+    { key: 'tenantName', label: 'Tenant' },
+    { key: 'enabledModules', label: 'Modules', render: (v) => (v || []).map((m) => MODULE_LABELS[m] || m).join(', ') || '—' },
+    { key: 'memberCount', label: 'Members' },
+    { key: 'status', label: 'Status', render: (v) => <span className={`status ${v?.toLowerCase()}`}>{v}</span> },
+    { key: 'createdAt', label: 'Created', render: (v) => v ? new Date(v).toLocaleDateString() : '—' },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (_, p) => (
+        <button className="action-btn delete-btn" onClick={() => setDeleteTarget(p)} title="Delete workspace" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <Trash2 size={12} /> Delete
+        </button>
+      )
+    }
+  ], []);
+
+  return (
+    <section className="page-grid" style={{ gridTemplateColumns: '1fr' }}>
+      <Panel title="Project / Workspace Management">
+        <div className="um-toolbar">
+          <span className="um-count"><FolderKanban size={15} style={{ verticalAlign: 'middle', marginRight: 6 }} />{projects.length} project{projects.length !== 1 ? 's' : ''}</span>
+        </div>
+        <DataTable columns={columns} data={projects} searchPlaceholder="Filter projects..." exportFilename="projects_list.csv" />
+      </Panel>
+
+      {deleteTarget && (
+        <ConfirmDialog onClose={() => setDeleteTarget(null)}>
+          <div className="confirm-icon" style={{ color: '#dc2626' }}><Trash2 size={30} /></div>
+          <h3>Delete Workspace?</h3>
+          <p>Permanently delete <strong>{deleteTarget.name}</strong> ({deleteTarget.projectCode})?</p>
+          <p className="confirm-warning">Only succeeds if the workspace has no modules, environments, executions, collections, or performance data — otherwise it's rejected so real data is never silently lost.</p>
+          <div className="confirm-actions">
+            <button className="secondary-action" onClick={() => setDeleteTarget(null)}>Cancel</button>
+            <button className="danger-action" onClick={handleDelete}>Delete</button>
+          </div>
+        </ConfirmDialog>
+      )}
+    </section>
+  );
+}

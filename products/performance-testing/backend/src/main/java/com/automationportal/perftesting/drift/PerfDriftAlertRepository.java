@@ -8,4 +8,6 @@ import java.util.List;
 @Repository
 public interface PerfDriftAlertRepository extends JpaRepository<PerfDriftAlert, Long> {
     List<PerfDriftAlert> findByIsAcknowledgedFalseOrderByCreatedAtDesc();
+
+    List<PerfDriftAlert> findByProjectIdAndIsAcknowledgedFalseOrderByCreatedAtDesc(Long projectId);
 }

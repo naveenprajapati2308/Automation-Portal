@@ -12,12 +12,17 @@ import com.automationportal.moduleenvironments.ModuleEnvironmentResolver;
 import com.automationportal.modules.ModuleEntity;
 import com.automationportal.modules.ModuleRepository;
 import com.automationportal.users.UserRole;
+import com.automationportal.workspace.CurrentProjectService;
+import com.automationportal.workspace.ProjectContext;
+import com.automationportal.workspace.ProjectContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpStatus;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,6 +59,7 @@ public class ExecutionService {
     private final FrameworkRegistry frameworkRegistry;
     private final AuthenticatedUserService authenticatedUserService;
     private final ExecutionIdGeneratorService executionIdGeneratorService;
+    private final CurrentProjectService currentProjectService;
 
     public ExecutionService(ExecutionRepository repository,
                             ExecutionTestCaseRepository testCaseRepository,
@@ -66,7 +72,8 @@ public class ExecutionService {
                             ModuleEnvironmentRepository moduleEnvironmentRepository,
                             FrameworkRegistry frameworkRegistry,
                             AuthenticatedUserService authenticatedUserService,
-                            ExecutionIdGeneratorService executionIdGeneratorService) {
+                            ExecutionIdGeneratorService executionIdGeneratorService,
+                            CurrentProjectService currentProjectService) {
         this.repository = repository;
         this.testCaseRepository = testCaseRepository;
         this.artifactRepository = artifactRepository;
@@ -79,16 +86,29 @@ public class ExecutionService {
         this.frameworkRegistry = frameworkRegistry;
         this.authenticatedUserService = authenticatedUserService;
         this.executionIdGeneratorService = executionIdGeneratorService;
+        this.currentProjectService = currentProjectService;
     }
 
     public Execution queue(RunExecutionRequest request, Long triggeredByUserId) {
+        // A real caller identity is required to queue a run — Super Admin (no project context)
+        // is deliberately not a day-to-day execution trigger, matching how they never got a
+        // project_users row in V21's backfill.
+        return queueForProject(request, triggeredByUserId, currentProjectService.requireProjectId());
+    }
+
+    // Shared by queue() (real caller identity) and rerun()/rerunFailed() (which must stamp the
+    // ORIGINAL execution's project, not the caller's — a Super Admin can rerun any execution
+    // per requireExecutionAccess()'s null-safe bypass, but has no project context of their own
+    // to stamp the new row with).
+    private Execution queueForProject(RunExecutionRequest request, Long triggeredByUserId, Long projectId) {
         String framework = request.framework() != null && !request.framework().isBlank() ? request.framework() : "MAVEN_TESTNG";
 
         if (request.executionType() == ExecutionType.MODULE) {
-            validateModuleEnvironmentBrowser(request.moduleCode(), framework, request.environmentId(), request.requestedBrowser());
+            validateModuleEnvironmentBrowser(request.moduleCode(), framework, request.environmentId(), request.requestedBrowser(), projectId);
         }
 
         Execution execution = new Execution();
+        execution.setProjectId(projectId);
         execution.setExecutionCode(executionIdGeneratorService.next(resolveFrameworkShortCode(framework)));
         execution.setExecutionType(request.executionType());
         execution.setEnvironmentId(request.environmentId());
@@ -117,11 +137,12 @@ public class ExecutionService {
      * stopped a raw API call from bypassing that. Also enforces the module's optional
      * allowedRoles execution-permission list.
      */
-    private void validateModuleEnvironmentBrowser(String moduleCode, String framework, Long environmentId, String requestedBrowser) {
+    private void validateModuleEnvironmentBrowser(String moduleCode, String framework, Long environmentId, String requestedBrowser, Long projectId) {
         if (moduleCode == null || moduleCode.isBlank()) {
             return;
         }
         ModuleEntity module = moduleRepository.findByCodeAndRunnerType(moduleCode.toUpperCase(), framework)
+                .filter(m -> projectId.equals(m.getProjectId()))
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Module '" + moduleCode + "' does not exist for framework " + framework));
 
@@ -142,10 +163,25 @@ public class ExecutionService {
         }
 
         if (module.getAllowedRoles() != null && !module.getAllowedRoles().isBlank()) {
-            UserRole currentRole = authenticatedUserService.currentUser().getRole();
             List<String> allowedRoles = Arrays.stream(module.getAllowedRoles().split(","))
                     .map(String::trim).filter(s -> !s.isEmpty()).toList();
-            if (currentRole == null || !allowedRoles.contains(currentRole.name())) {
+            // Every project-scoped user created since the multi-workspace rollout gets the
+            // platform-level UserRole hardcoded to VIEWER — their real authority lives in their
+            // project role(s) (project_users + Role catalog) instead. If we OR'd the platform
+            // role in alongside a present project context, "VIEWER" in allowedRoles would match
+            // every such user regardless of their actual project role, defeating the ACL. So the
+            // platform role is only consulted for legacy accounts with no project context at all;
+            // once a project context exists, project roles are the sole source of truth.
+            ProjectContext context = ProjectContextHolder.get();
+            boolean roleMatches;
+            if (context != null) {
+                roleMatches = context.projectRoles() != null
+                        && context.projectRoles().stream().anyMatch(allowedRoles::contains);
+            } else {
+                UserRole currentRole = authenticatedUserService.currentUser().getRole();
+                roleMatches = currentRole != null && allowedRoles.contains(currentRole.name());
+            }
+            if (!roleMatches) {
                 throw new IllegalArgumentException("You do not have permission to execute this module.");
             }
         }
@@ -158,7 +194,7 @@ public class ExecutionService {
      */
     @Transactional
     public void delete(Long id) {
-        Execution e = repository.findById(id).orElseThrow();
+        Execution e = requireExecutionAccess(id);
         if (e.getStatus() == ExecutionStatus.QUEUED || e.getStatus() == ExecutionStatus.RUNNING) {
             throw new IllegalStateException("Cannot delete a QUEUED/RUNNING execution — cancel it first.");
         }
@@ -190,11 +226,14 @@ public class ExecutionService {
     }
 
     public List<Execution> recent() {
-        return repository.findTop25ByOrderByCreatedAtDesc();
+        Long projectId = currentProjectService.requireProjectId();
+        return repository.findTop25ByProjectIdOrderByCreatedAtDesc(projectId);
     }
 
     public List<Execution> filter(String status, String module, String framework, Instant from, Instant to) {
+        Long projectId = currentProjectService.requireProjectId();
         return repository.findAll().stream()
+                .filter(e -> projectId.equals(e.getProjectId()))
                 .filter(e -> status == null || status.trim().isEmpty() || e.getStatus().toString().equalsIgnoreCase(status))
                 .filter(e -> module == null || module.trim().isEmpty() || (e.getModuleCode() != null && e.getModuleCode().equalsIgnoreCase(module)))
                 .filter(e -> framework == null || framework.trim().isEmpty() || (e.getFramework() != null && e.getFramework().equalsIgnoreCase(framework)))
@@ -205,11 +244,12 @@ public class ExecutionService {
     }
 
     public void cancel(Long id) {
+        requireExecutionAccess(id);
         worker.cancelExecution(id);
     }
 
     public Execution rerun(Long id, Long triggeredByUserId) {
-        Execution old = repository.findById(id).orElseThrow();
+        Execution old = requireExecutionAccess(id);
         RunExecutionRequest req = new RunExecutionRequest(
                 old.getExecutionType(),
                 old.getEnvironmentId(),
@@ -219,12 +259,12 @@ public class ExecutionService {
                 old.getRequestedBrowser(),
                 old.getTagFilter()
         );
-        return queue(req, triggeredByUserId);
+        return queueForProject(req, triggeredByUserId, old.getProjectId());
     }
 
     public Execution rerunFailed(Long id, Long triggeredByUserId) {
-        Execution old = repository.findById(id).orElseThrow();
-        
+        Execution old = requireExecutionAccess(id);
+
         // Find failed xml artifact
         List<ExecutionArtifact> failedArtifacts = artifactRepository.findByExecutionIdAndArtifactType(id, "TESTNG_FAILED_XML");
         if (failedArtifacts.isEmpty()) {
@@ -249,6 +289,7 @@ public class ExecutionService {
         }
 
         Execution execution = new Execution();
+        execution.setProjectId(old.getProjectId());
         execution.setExecutionCode(newCode);
         execution.setExecutionType(ExecutionType.XML_SUITE);
         execution.setEnvironmentId(old.getEnvironmentId());
@@ -264,19 +305,22 @@ public class ExecutionService {
     }
 
     public List<ExecutionTestCase> getTestCases(Long id) {
+        requireExecutionAccess(id);
         return testCaseRepository.findByExecutionIdWithTags(id);
     }
 
     public List<ExecutionArtifact> getArtifacts(Long id) {
+        requireExecutionAccess(id);
         return artifactRepository.findByExecutionId(id);
     }
 
     public List<ExecutionLog> getLogs(Long id) {
+        requireExecutionAccess(id);
         return logRepository.findByExecutionId(id);
     }
 
     public Map<String, Object> getSummary(Long id) {
-        Execution e = repository.findById(id).orElseThrow();
+        Execution e = requireExecutionAccess(id);
         Map<String, Object> map = new HashMap<>();
         map.put("executionCode", e.getExecutionCode());
         map.put("status", e.getStatus());
@@ -377,5 +421,17 @@ public class ExecutionService {
                     e.getId(), e.getStartTime(), STALE_RUNNING_GRACE_PERIOD);
             markStaleIfStillRunning(e.getId());
         }
+    }
+
+    // Not used by updateState()/markStaleIfStillRunning()/reapStaleRunningExecutions() — those
+    // are reached via the API-key-gated system callbacks or the @Scheduled reaper, both of which
+    // have no request-scoped project context and must stay able to act on any execution.
+    private Execution requireExecutionAccess(Long id) {
+        Execution execution = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + id));
+        if (!currentProjectService.canAccess(execution.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + id);
+        }
+        return execution;
     }
 }

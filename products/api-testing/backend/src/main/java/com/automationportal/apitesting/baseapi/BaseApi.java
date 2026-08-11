@@ -20,6 +20,9 @@ public class BaseApi {
     @Column(name = "module_id")
     private Long moduleId;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(nullable = false, length = 150)
     private String name;
 

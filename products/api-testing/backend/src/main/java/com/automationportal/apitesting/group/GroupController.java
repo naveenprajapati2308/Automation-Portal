@@ -8,8 +8,10 @@ import com.automationportal.apitesting.baseapi.BaseApi;
 import com.automationportal.apitesting.baseapi.BaseApiRepository;
 import com.automationportal.apitesting.history.ExecutionHistory;
 import com.automationportal.apitesting.history.ExecutionHistoryRepository;
+import com.automationportal.apitesting.module.ApiModuleRepository;
 import com.automationportal.apitesting.regularapi.RegularApi;
 import com.automationportal.apitesting.regularapi.RegularApiRepository;
+import com.automationportal.apitesting.security.CurrentProjectService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -46,6 +48,8 @@ public class GroupController {
     private final ExecutionHistoryRepository historyRepository;
     private final GroupExecutionService groupExecutionService;
     private final AuditService auditService;
+    private final CurrentProjectService currentProjectService;
+    private final ApiModuleRepository moduleRepository;
 
     // ------------------------------------------------------------- payloads
 
@@ -128,7 +132,7 @@ public class GroupController {
 
     @GetMapping
     public List<GroupSummary> list() {
-        return groupRepository.findAllByOrderByUpdatedAtDesc().stream().map(g -> {
+        return groupRepository.findByProjectIdOrderByUpdatedAtDesc(currentProjectService.requireProjectId()).stream().map(g -> {
             GroupSummary s = new GroupSummary();
             s.setGroup(g);
             s.setMemberCount(memberRepository.countByGroupId(g.getId()));
@@ -139,13 +143,16 @@ public class GroupController {
 
     @PostMapping
     public ApiGroup create(@Valid @RequestBody GroupPayload payload) {
-        if (groupRepository.existsByNameIgnoreCase(payload.getName().trim())) {
+        Long projectId = currentProjectService.requireProjectId();
+        if (groupRepository.existsByProjectIdAndNameIgnoreCase(projectId, payload.getName().trim())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A group with this name already exists");
         }
         ApiGroup group = new ApiGroup();
         apply(group, payload);
+        group.setProjectId(projectId);
+        validateModule(group.getModuleId(), projectId);
         group = groupRepository.save(group);
-        auditService.record(AuditLog.EntityType.GROUP, group.getId(), AuditLog.Action.CREATE,
+        auditService.record(projectId, AuditLog.EntityType.GROUP, group.getId(), AuditLog.Action.CREATE,
                 "Created group '" + group.getName() + "' (" + group.getGroupType() + ")");
         return group;
     }
@@ -154,8 +161,9 @@ public class GroupController {
     public ApiGroup update(@PathVariable Long id, @Valid @RequestBody GroupPayload payload) {
         ApiGroup group = find(id);
         apply(group, payload);
+        validateModule(group.getModuleId(), group.getProjectId());
         group = groupRepository.save(group);
-        auditService.record(AuditLog.EntityType.GROUP, id, AuditLog.Action.UPDATE,
+        auditService.record(currentProjectService.requireProjectId(), AuditLog.EntityType.GROUP, id, AuditLog.Action.UPDATE,
                 "Updated group '" + group.getName() + "'");
         return group;
     }
@@ -164,7 +172,7 @@ public class GroupController {
     public void delete(@PathVariable Long id) {
         ApiGroup group = find(id);
         groupRepository.delete(group);
-        auditService.record(AuditLog.EntityType.GROUP, id, AuditLog.Action.DELETE,
+        auditService.record(currentProjectService.requireProjectId(), AuditLog.EntityType.GROUP, id, AuditLog.Action.DELETE,
                 "Deleted group '" + group.getName() + "'");
     }
 
@@ -252,6 +260,7 @@ public class GroupController {
     public ApiGroupMember addMember(@PathVariable Long id, @Valid @RequestBody MemberPayload payload) {
         ApiGroup group = find(id);
         RegularApi api = regularApiRepository.findById(payload.getRegularApiId())
+                .filter(a -> group.getProjectId().equals(a.getProjectId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Regular API does not exist"));
         if (memberRepository.existsByGroupIdAndRegularApiId(id, api.getId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "API is already in this group");
@@ -261,7 +270,7 @@ public class GroupController {
         member.setRegularApiId(api.getId());
         member.setSeq((int) memberRepository.countByGroupId(id));
         member = memberRepository.save(member);
-        auditService.record(AuditLog.EntityType.GROUP, id, AuditLog.Action.UPDATE,
+        auditService.record(currentProjectService.requireProjectId(), AuditLog.EntityType.GROUP, id, AuditLog.Action.UPDATE,
                 "Added API '" + api.getName() + "' to group '" + group.getName() + "'");
         return member;
     }
@@ -271,14 +280,17 @@ public class GroupController {
     public void removeMember(@PathVariable Long id, @PathVariable Long regularApiId) {
         ApiGroup group = find(id);
         memberRepository.deleteByGroupIdAndRegularApiId(id, regularApiId);
-        auditService.record(AuditLog.EntityType.GROUP, id, AuditLog.Action.UPDATE,
+        auditService.record(currentProjectService.requireProjectId(), AuditLog.EntityType.GROUP, id, AuditLog.Action.UPDATE,
                 "Removed API #" + regularApiId + " from group '" + group.getName() + "'");
     }
 
     /** Which groups contain this API — used by the Regular API editor. */
     @GetMapping("/by-api/{regularApiId}")
     public List<Long> groupsForApi(@PathVariable Long regularApiId) {
-        return memberRepository.findByRegularApiId(regularApiId).stream()
+        RegularApi api = regularApiRepository.findById(regularApiId)
+                .filter(a -> currentProjectService.requireProjectId().equals(a.getProjectId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Regular API not found"));
+        return memberRepository.findByRegularApiId(api.getId()).stream()
                 .map(ApiGroupMember::getGroupId)
                 .toList();
     }
@@ -292,7 +304,7 @@ public class GroupController {
         if (memberRepository.countByGroupId(id) == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Group has no APIs to execute");
         }
-        auditService.record(AuditLog.EntityType.GROUP, id, AuditLog.Action.EXECUTE,
+        auditService.record(currentProjectService.requireProjectId(), AuditLog.EntityType.GROUP, id, AuditLog.Action.EXECUTE,
                 "Manual execution of group '" + group.getName() + "'");
         return groupExecutionService.executeAsync(group);
     }
@@ -302,9 +314,11 @@ public class GroupController {
                                               @RequestParam(defaultValue = "0") int page,
                                               @RequestParam(defaultValue = "25") int size) {
         PageRequest pr = PageRequest.of(page, Math.min(size, 100));
-        return groupId == null
-                ? executionRepository.findAllByOrderByStartedAtDesc(pr)
-                : executionRepository.findByGroupIdOrderByStartedAtDesc(groupId, pr);
+        if (groupId == null) {
+            return executionRepository.findByProjectIdOrderByStartedAtDesc(currentProjectService.requireProjectId(), pr);
+        }
+        find(groupId);
+        return executionRepository.findByGroupIdOrderByStartedAtDesc(groupId, pr);
     }
 
     /** One group run with every API execution it produced (light rows). */
@@ -312,6 +326,9 @@ public class GroupController {
     public GroupExecutionDetail executionDetail(@PathVariable Long executionId) {
         ApiGroupExecution execution = executionRepository.findById(executionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Group execution not found"));
+        if (!currentProjectService.requireProjectId().equals(execution.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Group execution not found");
+        }
         GroupExecutionDetail d = new GroupExecutionDetail();
         d.setExecution(execution);
         d.setGroupName(groupRepository.findById(execution.getGroupId())
@@ -330,9 +347,21 @@ public class GroupController {
 
     // ---------------------------------------------------------------- helpers
 
+    private void validateModule(Long moduleId, Long projectId) {
+        if (moduleId == null) return;
+        boolean owned = moduleRepository.findById(moduleId).map(m -> projectId.equals(m.getProjectId())).orElse(false);
+        if (!owned) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Module does not exist");
+        }
+    }
+
     private ApiGroup find(Long id) {
-        return groupRepository.findById(id)
+        ApiGroup group = groupRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found"));
+        if (!currentProjectService.requireProjectId().equals(group.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found");
+        }
+        return group;
     }
 
     private void apply(ApiGroup group, GroupPayload p) {

@@ -104,7 +104,7 @@ public class BaseApiExecutionService {
         dynamicValueResolver.resolve(request, context.getDynamicValueCache());
         ExecutionResponse response = engine.execute(request);
 
-        ExecutionHistory history = historyService.record(ExecutionHistory.ApiType.BASE, api.getId(), api.getName(),
+        ExecutionHistory history = historyService.record(api.getProjectId(), ExecutionHistory.ApiType.BASE, api.getId(), api.getName(),
                 api.getModuleId(), null, trigger, request, response, context, null);
 
         Boolean passed = validationEngine.validate(ExecutionHistory.ApiType.BASE, api.getId(),

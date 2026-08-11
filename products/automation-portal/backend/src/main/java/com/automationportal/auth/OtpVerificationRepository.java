@@ -6,4 +6,6 @@ import java.util.Optional;
 
 public interface OtpVerificationRepository extends JpaRepository<OtpVerification, Long> {
     Optional<OtpVerification> findTopByEmailAndPurposeAndVerifiedFalseOrderByIdDesc(String email, OtpPurpose purpose);
+
+    boolean existsByEmailAndPurposeAndVerifiedTrue(String email, OtpPurpose purpose);
 }

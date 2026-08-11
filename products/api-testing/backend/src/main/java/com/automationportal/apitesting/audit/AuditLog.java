@@ -30,6 +30,9 @@ public class AuditLog {
     @Column(name = "entity_id")
     private Long entityId;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Action action;

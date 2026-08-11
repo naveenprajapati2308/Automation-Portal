@@ -2,6 +2,7 @@ package com.automationportal.auth;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public final class AuthDtos {
     private AuthDtos() {}
@@ -9,6 +10,8 @@ public final class AuthDtos {
     public record OtpVerifyRequest(@Email @NotBlank String email, @NotBlank String otp) {}
 
     public record RefreshRequest(@NotBlank String refreshToken) {}
+
+    public record SelectProjectRequest(@NotNull Long projectId, @NotBlank String refreshToken) {}
 
     public record LogoutRequest(@NotBlank String refreshToken) {}
 

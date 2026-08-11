@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Bell,
-  Bot,
+  BookOpen,
+  Building2,
   Camera,
   CalendarClock,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -21,21 +23,24 @@ import {
   Moon,
   Package,
   Play,
-  Send,
+  Settings,
+  Sparkles,
   Sun,
   TerminalSquare,
   UserCircle,
-  Workflow,
-  X
+  Users,
+  Workflow
 } from 'lucide-react';
 import { GlobalSearchDropdown } from '../../search/components/GlobalSearchDropdown.jsx';
-import { SIDEBAR_NAV, MODULES_ENV_NAV } from '../../constants.js';
+import { SIDEBAR_NAV, NAV_MODULE_REQUIREMENT } from '../../constants.js';
 import { getStoredThemePref, resolveEffectiveTheme } from '../../../../../shared/ui/theme-sync.js';
+import { api, auth } from '../../api.js';
 import testrixLogo from '../../assets/testrix_logo.png';
 
 const NAV_ICON_MAP = {
   LayoutDashboard, Play, Globe2, Gauge, UserCircle, FileText, TerminalSquare, Camera, GitCompare,
-  Send, Database, Workflow, CalendarClock, History, FolderTree, Package
+  Database, Workflow, CalendarClock, History, FolderTree, Package, Users, Settings, BookOpen,
+  Sparkles
 };
 
 // ── Layout: Sidebar ─────────────────────────────────────────────────────────
@@ -47,9 +52,8 @@ export function Sidebar({
   onNavigateChild,
   isCollapsed,
   onToggle,
-  chatOpen,
-  onToggleChat,
-  superAdmin
+  onOpenAiAssistant,
+  project
 }) {
   const isExpandable = (key) => SIDEBAR_NAV.some((item) => item.key === key && item.children);
   const [expandedKeys, setExpandedKeys] = useState(() => (isExpandable(active) ? { [active]: true } : {}));
@@ -57,6 +61,29 @@ export function Sidebar({
   useEffect(() => {
     if (isExpandable(active)) setExpandedKeys((k) => ({ ...k, [active]: true }));
   }, [active]);
+
+  // This Sidebar only ever renders for a project user (Super Admin lives exclusively in the
+  // Admin Workspace shell — see AdminSidebar) — a project that only enabled a subset of modules
+  // hides the rest entirely.
+  const visibleNav = project
+    ? SIDEBAR_NAV.filter((item) => {
+        const required = NAV_MODULE_REQUIREMENT[item.key];
+        return !required || required.some((m) => project.enabledModules?.includes(m));
+      })
+    : SIDEBAR_NAV;
+
+  // "Team Management" + "Workspace Settings" are Project-Admin-only, inserted just before Profile.
+  const navItems = [...visibleNav];
+  if (project?.roles?.includes('PROJECT_ADMIN')) {
+    const profileIdx = navItems.findIndex((i) => i.key === 'profile');
+    const teamItem = { key: 'team', label: 'Team Management', icon: 'Users' };
+    const settingsItem = { key: 'workspace-settings', label: 'Workspace Settings', icon: 'Settings' };
+    if (profileIdx >= 0) {
+      navItems.splice(profileIdx, 0, settingsItem, teamItem);
+    } else {
+      navItems.push(settingsItem, teamItem);
+    }
+  }
 
   return (
     <aside
@@ -89,7 +116,7 @@ export function Sidebar({
         >
           {isCollapsed ? 'NAV' : 'Navigation'}
         </div>
-        {SIDEBAR_NAV.map((item) => {
+        {navItems.map((item) => {
           const Icon = NAV_ICON_MAP[item.icon] || LayoutDashboard;
           const isActive = active === item.key;
           const commonStyle = {
@@ -97,12 +124,7 @@ export function Sidebar({
             padding: isCollapsed ? '0' : '0 12px',
             borderRadius: '8px'
           };
-          // Module & Environment control is Automation-only config, so it's appended to
-          // Automation's own sub-menu rather than being a separate top-level item —
-          // superAdmin-only for now, same gate as the Topbar's "Admin Panel" chip.
-          const children = item.key === 'automation' && superAdmin
-            ? [...item.children, ...MODULES_ENV_NAV]
-            : item.children;
+          const children = item.children;
           if (children && !isCollapsed) {
             const isExpanded = !!expandedKeys[item.key];
             return (
@@ -211,13 +233,13 @@ export function Sidebar({
 
         <div className="sidebar-footer">
           <button
-            onClick={onToggleChat}
-            title="AI Support"
-            className={`ai-chat-btn ${chatOpen ? 'active' : ''}`}
+            onClick={onOpenAiAssistant}
+            title="AI Assistant"
+            className={`ai-chat-btn ${active === 'ai-assistant' ? 'active' : ''}`}
             style={{ justifyContent: isCollapsed ? 'center' : 'flex-start', padding: isCollapsed ? '0' : '0 12px' }}
           >
-            <Bot size={18} style={{ flexShrink: 0 }} />
-            {!isCollapsed && <span style={{ animation: 'fadeIn 0.2s' }}>AI Support</span>}
+            <Sparkles size={18} style={{ flexShrink: 0 }} />
+            {!isCollapsed && <span style={{ animation: 'fadeIn 0.2s' }}>AI Assistant</span>}
           </button>
           <button
             onClick={logout}
@@ -239,53 +261,6 @@ export function Sidebar({
         }
       `}</style>
     </aside>
-  );
-}
-
-// ── AI Support chat — the real /genai/chat assistant, anchored to the sidebar
-export function AiSupportPanel({ isCollapsed, messages, input, setInput, busy, onSend, onClose }) {
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages]);
-
-  return (
-    <div className="ai-chat-panel" style={{ left: isCollapsed ? '82px' : '292px' }}>
-      <div className="ai-chat-header">
-        <Bot size={20} />
-        <div style={{ flex: 1 }}>
-          <strong style={{ fontSize: '13px', color: 'var(--text-primary)', display: 'block' }}>AI Support</strong>
-          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Testrix AI Assistant</span>
-        </div>
-        <button className="tb-icon-btn" onClick={onClose} title="Close chat">
-          <X size={15} />
-        </button>
-      </div>
-
-      <div className="ai-chat-messages" ref={scrollRef}>
-        {messages.map((m) => (
-          <div key={m.id} className={`ai-chat-bubble ${m.from === 'user' ? 'ai-chat-bubble-user' : ''}`}>
-            {m.text}
-          </div>
-        ))}
-        {busy && <div className="ai-chat-bubble">Thinking…</div>}
-      </div>
-
-      <form
-        className="ai-chat-input-row"
-        onSubmit={(e) => { e.preventDefault(); onSend(); }}
-      >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask the AI assistant…"
-        />
-        <button type="submit" className="tb-icon-btn" title="Send" disabled={busy}>
-          <Send size={15} />
-        </button>
-      </form>
-    </div>
   );
 }
 
@@ -349,8 +324,80 @@ export function Breadcrumb({ items = [], rootLabel = 'Home', mid, pageTitle, onN
   return <Breadcrumb items={legacyItems} />;
 }
 
+// ── Workspace badge — shows the current session's Project (Super Admin never has one). Clicking
+// lazily fetches the user's full project list; if they belong to more than one, a dropdown lets
+// them switch. Invisible/no-op interaction for the common single-project case. ────────────────────
+function WorkspaceBadge({ project }) {
+  const [open, setOpen] = useState(false);
+  const [projects, setProjects] = useState(null);
+  const [switching, setSwitching] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickOutside = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [open]);
+
+  const toggle = async () => {
+    if (open) { setOpen(false); return; }
+    setOpen(true);
+    if (!projects) {
+      try { setProjects(await api.myProjects()); } catch { setProjects([]); }
+    }
+  };
+
+  const switchTo = async (targetId) => {
+    if (targetId === project.id || switching) return;
+    setSwitching(true);
+    try {
+      const session = auth.get();
+      const updated = await api.selectProject(targetId, session.refreshToken);
+      auth.set(updated);
+      window.location.reload();
+    } catch {
+      setSwitching(false);
+    }
+  };
+
+  if (!project) return null;
+
+  return (
+    <div className="ws-badge-wrap" ref={ref}>
+      <button type="button" className="tb-chip ws-badge-btn" onClick={toggle} title={`${project.name} (${project.projectCode})`}>
+        <Building2 size={14} />
+        <span className="ws-badge-name">{project.name}</span>
+        {projects === null || projects.length > 1 ? <ChevronDown size={12} /> : null}
+      </button>
+      {open && (
+        <div className="ws-badge-dropdown">
+          {projects === null ? (
+            <div className="ws-badge-loading">Loading workspaces…</div>
+          ) : projects.length <= 1 ? (
+            <div className="ws-badge-loading">You belong to only this workspace.</div>
+          ) : (
+            projects.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                className="ws-badge-option"
+                disabled={switching}
+                onClick={() => switchTo(p.id)}
+              >
+                {p.id === project.id ? <Check size={13} /> : <span style={{ width: 13 }} />}
+                <span>{p.name}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Layout: Topbar ───────────────────────────────────────────────────────────
-export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, onOpenAdmin, onNavigateHome, notifications, user, onNavigateProfile, onNavigate, topbarExtra }) {
+export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, onNavigateHome, notifications, user, project, onNavigateProfile, onNavigate, topbarExtra }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [themePref, setThemePref] = useState(() => getStoredThemePref());
 
@@ -387,6 +434,7 @@ export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, 
 
       <div className="topbar-right">
         {topbarExtra}
+        <WorkspaceBadge project={project} />
         <GlobalSearchDropdown onNavigate={onNavigate} superAdmin={superAdmin} />
 
         <div style={{ position: 'relative' }}>
@@ -459,13 +507,6 @@ export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, 
             <Moon size={15} />
           </button>
         </div>
-
-        {superAdmin && (
-          <button className="tb-chip tb-chip-blue" onClick={onOpenAdmin} title="Open Administration Workspace">
-            <LayoutDashboard size={15} />
-            Admin Panel
-          </button>
-        )}
 
         {user && (
           <button className="tb-user-chip" onClick={onNavigateProfile} title="View profile">

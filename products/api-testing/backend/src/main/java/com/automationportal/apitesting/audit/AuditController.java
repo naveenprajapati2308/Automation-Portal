@@ -1,5 +1,6 @@
 package com.automationportal.apitesting.audit;
 
+import com.automationportal.apitesting.security.CurrentProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -14,14 +15,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuditController {
 
     private final AuditLogRepository repository;
+    private final CurrentProjectService currentProjectService;
 
     @GetMapping
     public Page<AuditLog> list(@RequestParam(required = false) AuditLog.EntityType entityType,
                                @RequestParam(defaultValue = "0") int page,
                                @RequestParam(defaultValue = "25") int size) {
         PageRequest pr = PageRequest.of(page, Math.min(size, 100));
+        Long projectId = currentProjectService.requireProjectId();
         return entityType == null
-                ? repository.findAllByOrderByCreatedAtDesc(pr)
-                : repository.findByEntityTypeOrderByCreatedAtDesc(entityType, pr);
+                ? repository.findByProjectIdOrderByCreatedAtDesc(projectId, pr)
+                : repository.findByProjectIdAndEntityTypeOrderByCreatedAtDesc(projectId, entityType, pr);
     }
 }

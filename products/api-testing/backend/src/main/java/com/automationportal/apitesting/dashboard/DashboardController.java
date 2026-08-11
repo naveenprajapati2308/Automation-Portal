@@ -10,6 +10,7 @@ import com.automationportal.apitesting.module.ApiModuleRepository;
 import com.automationportal.apitesting.regularapi.RegularApiRepository;
 import com.automationportal.apitesting.scheduling.Schedule;
 import com.automationportal.apitesting.scheduling.ScheduleRepository;
+import com.automationportal.apitesting.security.CurrentProjectService;
 import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +50,7 @@ public class DashboardController {
     private final ApiGroupExecutionRepository groupExecutionRepository;
     @Qualifier("scheduleWorkerExecutor")
     private final ThreadPoolTaskExecutor workerExecutor;
+    private final CurrentProjectService currentProjectService;
 
     @Data
     @Builder
@@ -109,10 +111,11 @@ public class DashboardController {
     public Summary summary(@RequestParam(required = false) Long moduleId,
                            @RequestParam(required = false) String range,
                            @RequestParam(defaultValue = "30") int days) {
+        Long projectId = currentProjectService.requireProjectId();
         Instant since = sinceFor(range, days);
         List<ExecutionHistory> window = moduleId == null
-                ? historyRepository.findByExecutedAtAfter(since)
-                : historyRepository.findByExecutedAtAfterAndModuleId(since, moduleId);
+                ? historyRepository.findByProjectIdAndExecutedAtAfter(projectId, since)
+                : historyRepository.findByProjectIdAndExecutedAtAfterAndModuleId(projectId, since, moduleId);
 
         long passed = window.stream().filter(DashboardController::isPassed).count();
         long failed = window.size() - passed;
@@ -126,10 +129,10 @@ public class DashboardController {
                 h.getResponseStatusClass() == null ? "ERROR" : h.getResponseStatusClass(), 1L, Long::sum));
 
         List<ScheduleHealth> failing = scheduleRepository
-                .findByStatusAndLastRunStatus(Schedule.Status.ACTIVE, Schedule.RunStatus.FAILED)
+                .findByProjectIdAndStatusAndLastRunStatus(projectId, Schedule.Status.ACTIVE, Schedule.RunStatus.FAILED)
                 .stream().map(DashboardController::toHealth).toList();
         List<ScheduleHealth> next = scheduleRepository
-                .findTop10ByStatusOrderByNextRunAtAsc(Schedule.Status.ACTIVE)
+                .findTop10ByProjectIdAndStatusOrderByNextRunAtAsc(projectId, Schedule.Status.ACTIVE)
                 .stream().map(DashboardController::toHealth).toList();
 
         return Summary.builder()
@@ -139,21 +142,21 @@ public class DashboardController {
                 .successRate(window.isEmpty() ? 0 : Math.round(passed * 1000.0 / window.size()) / 10.0)
                 .avgDurationMs(Math.round(avg))
                 .statusClassBreakdown(breakdown)
-                .activeSchedules(scheduleRepository.countByStatus(Schedule.Status.ACTIVE))
-                .totalSchedules(scheduleRepository.count())
+                .activeSchedules(scheduleRepository.countByProjectIdAndStatus(projectId, Schedule.Status.ACTIVE))
+                .totalSchedules(scheduleRepository.countByProjectId(projectId))
                 .failingSchedules(failing)
                 .nextRuns(next)
-                .totalRegularApis(regularApiRepository.count())
-                .totalBaseApis(baseApiRepository.count())
-                .totalModules(moduleRepository.count())
-                .totalGroups(groupRepository.count())
+                .totalRegularApis(regularApiRepository.countByProjectId(projectId))
+                .totalBaseApis(baseApiRepository.countByProjectId(projectId))
+                .totalModules(moduleRepository.countByProjectId(projectId))
+                .totalGroups(groupRepository.countByProjectId(projectId))
                 .fastestApi(apiSpeed(window, true))
                 .slowestApi(apiSpeed(window, false))
                 .failedRegularExecutions(countFailed(window, ExecutionHistory.ApiType.REGULAR))
                 .failedBaseExecutions(countFailed(window, ExecutionHistory.ApiType.BASE))
                 .moduleStats(moduleStats(window))
-                .schedulerStatus(schedulerStatus())
-                .groupHealth(groupHealth())
+                .schedulerStatus(schedulerStatus(projectId))
+                .groupHealth(groupHealth(projectId))
                 .build();
     }
 
@@ -161,11 +164,12 @@ public class DashboardController {
     public List<TrendPoint> trend(@RequestParam(required = false) Long moduleId,
                                   @RequestParam(required = false) String range,
                                   @RequestParam(defaultValue = "7") int days) {
+        Long projectId = currentProjectService.requireProjectId();
         int window = Math.min(Math.max(daysFor(range, days), 1), 90);
         Instant since = Instant.now().minus(window, ChronoUnit.DAYS);
         List<ExecutionHistory> records = moduleId == null
-                ? historyRepository.findByExecutedAtAfter(since)
-                : historyRepository.findByExecutedAtAfterAndModuleId(since, moduleId);
+                ? historyRepository.findByProjectIdAndExecutedAtAfter(projectId, since)
+                : historyRepository.findByProjectIdAndExecutedAtAfterAndModuleId(projectId, since, moduleId);
 
         Map<LocalDate, List<ExecutionHistory>> byDay = records.stream()
                 .collect(Collectors.groupingBy(h -> h.getExecutedAt().atZone(ZoneOffset.UTC).toLocalDate()));
@@ -236,7 +240,7 @@ public class DashboardController {
     }
 
     private List<ModuleStat> moduleStats(List<ExecutionHistory> window) {
-        Map<Long, String> moduleNames = moduleRepository.findAll().stream()
+        Map<Long, String> moduleNames = moduleRepository.findByProjectId(currentProjectService.requireProjectId()).stream()
                 .collect(Collectors.toMap(m -> m.getId(), m -> m.getName()));
         Map<Long, List<ExecutionHistory>> byModule = window.stream()
                 .filter(h -> h.getModuleId() != null)
@@ -253,14 +257,14 @@ public class DashboardController {
                 .toList();
     }
 
-    private SchedulerStatus schedulerStatus() {
+    private SchedulerStatus schedulerStatus(Long projectId) {
         var pool = workerExecutor.getThreadPoolExecutor();
         return new SchedulerStatus(pool.getActiveCount(), pool.getPoolSize(), pool.getQueue().size(),
-                groupExecutionRepository.findByStatus(ApiGroupExecution.Status.RUNNING).size());
+                groupExecutionRepository.findByProjectIdAndStatus(projectId, ApiGroupExecution.Status.RUNNING).size());
     }
 
-    private List<GroupHealth> groupHealth() {
-        return groupRepository.findAllByOrderByUpdatedAtDesc().stream()
+    private List<GroupHealth> groupHealth(Long projectId) {
+        return groupRepository.findByProjectIdOrderByUpdatedAtDesc(projectId).stream()
                 .limit(10)
                 .map(g -> {
                     ApiGroupExecution last = groupExecutionRepository.findFirstByGroupIdOrderByStartedAtDesc(g.getId());

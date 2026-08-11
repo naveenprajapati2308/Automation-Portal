@@ -1,6 +1,7 @@
 package com.automationportal.apitesting.collections;
 
 import com.automationportal.apitesting.execution.dto.KeyValueItem;
+import com.automationportal.apitesting.security.CurrentProjectService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,6 +27,7 @@ public class CollectionEnvironmentController {
     private final CollectionEnvironmentRepository environmentRepository;
     private final ApiCollectionRepository collectionRepository;
     private final CollectionVariableResolver variableResolver;
+    private final CurrentProjectService currentProjectService;
 
     @Data
     public static class EnvironmentPayload {
@@ -40,6 +42,7 @@ public class CollectionEnvironmentController {
 
     @GetMapping
     public List<CollectionEnvironment> list(@PathVariable Long collectionId) {
+        findCollection(collectionId);
         return environmentRepository.findByCollectionIdOrderByName(collectionId);
     }
 
@@ -59,6 +62,7 @@ public class CollectionEnvironmentController {
     @PutMapping("/{envId}")
     public CollectionEnvironment update(@PathVariable Long collectionId, @PathVariable Long envId,
                                         @Valid @RequestBody EnvironmentPayload payload) {
+        findCollection(collectionId);
         CollectionEnvironment env = find(collectionId, envId);
         apply(env, payload);
         return environmentRepository.save(env);
@@ -98,7 +102,11 @@ public class CollectionEnvironmentController {
     }
 
     private ApiCollection findCollection(Long id) {
-        return collectionRepository.findById(id)
+        ApiCollection c = collectionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found"));
+        if (!currentProjectService.requireProjectId().equals(c.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found");
+        }
+        return c;
     }
 }

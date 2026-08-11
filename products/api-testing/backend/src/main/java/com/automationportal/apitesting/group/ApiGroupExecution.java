@@ -26,6 +26,9 @@ public class ApiGroupExecution {
     @Column(name = "group_id", nullable = false)
     private Long groupId;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(name = "correlation_id", nullable = false, length = 64)
     private String correlationId;
 

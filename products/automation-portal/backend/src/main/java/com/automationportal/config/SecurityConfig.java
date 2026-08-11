@@ -49,9 +49,13 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/login",
                     "/api/auth/refresh",
+                    "/api/auth/select-project",
                     "/api/auth/forgot-password",
                     "/api/auth/reset-password",
                     "/api/auth/google/login-url",
+                    "/api/workspace-requests",
+                    "/api/workspace-requests/send-otp",
+                    "/api/workspace-requests/verify-otp",
                     "/oauth2/**",
                     "/login/oauth2/**",
                     "/uploads/**",
@@ -67,17 +71,22 @@ public class SecurityConfig {
                     "/api/events/execution",
                     "/api/executions/*/state",
                     "/api/executions/*/job-finished",
+                    // Called by the registered engine process itself (X-API-Key, not a user
+                    // JWT) — self-validated inside TestEngineController, same pattern as
+                    // /api/events/execution above.
+                    "/api/test-engines/*/heartbeat",
                     "/error"
                 ).permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                 // /api/environments (GET, plain list) stays open to any authenticated user —
                 // it's a configJson-stripped DTO now (EnvironmentSummaryDto), used broadly for
-                // dropdown/selector data. Everything else here reads or writes raw configJson
-                // (credentials, captcha keys), so it's admin-only.
+                // dropdown/selector data.
                 .requestMatchers(HttpMethod.GET, "/api/environments/health").hasRole("SUPER_ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/environments").hasRole("SUPER_ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/environments/*").hasRole("SUPER_ADMIN")
-                .requestMatchers(HttpMethod.DELETE, "/api/environments/*").hasRole("SUPER_ADMIN")
+                // POST/PUT/DELETE /api/environments/** used to be a blanket SUPER_ADMIN-only rule
+                // here; Phase 4 (Workspace Settings) lets a project's own Project Admin manage
+                // their own project's environments too, so authorization moved into
+                // EnvironmentController itself (ProjectContextHolder-based, same pattern as
+                // ProjectUserController) rather than staying a platform-role path rule.
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

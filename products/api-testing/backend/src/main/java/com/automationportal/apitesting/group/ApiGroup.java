@@ -36,6 +36,9 @@ public class ApiGroup {
     @Column(name = "module_id")
     private Long moduleId;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "time_frequency", length = 20)
     private TimeFrequency timeFrequency;

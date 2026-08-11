@@ -18,6 +18,7 @@ public class MetricIngestor {
     private static final Logger log = LoggerFactory.getLogger(MetricIngestor.class);
 
     private final Long runId;
+    private final Long projectId;
     private final SseEmitterManager sseEmitterManager;
     private final PerfMetricSampleRepository sampleRepository;
 
@@ -45,8 +46,9 @@ public class MetricIngestor {
 
     private Instant runStartInstant;
 
-    public MetricIngestor(Long runId, SseEmitterManager sseEmitterManager, PerfMetricSampleRepository sampleRepository) {
+    public MetricIngestor(Long runId, Long projectId, SseEmitterManager sseEmitterManager, PerfMetricSampleRepository sampleRepository) {
         this.runId = runId;
+        this.projectId = projectId;
         this.sseEmitterManager = sseEmitterManager;
         this.sampleRepository = sampleRepository;
         this.runStartInstant = Instant.now();
@@ -140,7 +142,7 @@ public class MetricIngestor {
 
         try {
             sampleRepository.save(sample);
-            sseEmitterManager.sendRunMetric(runId, sample);
+            sseEmitterManager.sendRunMetric(runId, projectId, sample);
         } catch (Exception e) {
             log.error("Failed to save and broadcast metric sample for run ID {}", runId, e);
         }

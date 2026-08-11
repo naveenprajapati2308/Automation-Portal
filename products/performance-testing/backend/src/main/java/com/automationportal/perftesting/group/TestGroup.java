@@ -28,6 +28,9 @@ public class TestGroup {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "run_strategy", nullable = false)
     @Builder.Default

@@ -1,11 +1,17 @@
 package com.automationportal.environments;
 
 import com.automationportal.common.ApiResponse;
+import com.automationportal.common.EntityIdGeneratorService;
 import com.automationportal.modules.ModuleEntity;
 import com.automationportal.modules.ModuleRepository;
 import com.automationportal.moduleenvironments.ModuleEnvironmentEntity;
 import com.automationportal.moduleenvironments.ModuleEnvironmentRepository;
+import com.automationportal.workspace.CurrentProjectService;
+import com.automationportal.workspace.ProjectContext;
+import com.automationportal.workspace.ProjectContextHolder;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -17,20 +23,31 @@ public class EnvironmentController {
     private final EnvironmentHealthService healthService;
     private final ModuleEnvironmentRepository moduleEnvironmentRepository;
     private final ModuleRepository moduleRepository;
+    private final EntityIdGeneratorService entityIdGeneratorService;
+    private final CurrentProjectService currentProjectService;
 
     public EnvironmentController(EnvironmentRepository repository,
                                   EnvironmentHealthService healthService,
                                   ModuleEnvironmentRepository moduleEnvironmentRepository,
-                                  ModuleRepository moduleRepository) {
+                                  ModuleRepository moduleRepository,
+                                  EntityIdGeneratorService entityIdGeneratorService,
+                                  CurrentProjectService currentProjectService) {
         this.repository = repository;
         this.healthService = healthService;
         this.moduleEnvironmentRepository = moduleEnvironmentRepository;
         this.moduleRepository = moduleRepository;
+        this.entityIdGeneratorService = entityIdGeneratorService;
+        this.currentProjectService = currentProjectService;
     }
 
+    // Project-scoped only — a project-less caller (Super Admin) is rejected (403) rather than
+    // shown every project's environments. Super Admin manages environments across projects via
+    // the dedicated EnvironmentAdminController instead (docs/version2.2.md isolation).
     @GetMapping
     public ApiResponse<List<EnvironmentSummaryDto>> list() {
-        return ApiResponse.ok(repository.findAll().stream().map(EnvironmentSummaryDto::from).toList());
+        Long projectId = currentProjectService.requireProjectId();
+        List<EnvironmentEntity> environments = repository.findByProjectId(projectId);
+        return ApiResponse.ok(environments.stream().map(EnvironmentSummaryDto::from).toList());
     }
 
     // Reverse lookup used by Dashboard's "Run Now" quick-launch and the admin cross-link
@@ -38,6 +55,11 @@ public class EnvironmentController {
     @GetMapping("/{id}/modules")
     public ApiResponse<List<ModuleEntity>> supportedModules(@PathVariable Long id,
                                                               @RequestParam(required = false) String framework) {
+        EnvironmentEntity environment = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Environment not found: " + id));
+        if (!currentProjectService.canAccess(environment.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Environment not found: " + id);
+        }
         List<Long> moduleIds = moduleEnvironmentRepository.findByEnvironmentId(id).stream()
                 .filter(ModuleEnvironmentEntity::isEnabled)
                 .map(ModuleEnvironmentEntity::getModuleId)
@@ -55,6 +77,10 @@ public class EnvironmentController {
         return ApiResponse.ok(healthService.health());
     }
 
+    // Write access (create/update/delete) is the caller's own project's Project Admin acting
+    // only on their own project's environments — enforced in code via ProjectContextHolder
+    // rather than a blanket Spring Security rule, same pattern as ProjectUserController. Super
+    // Admin (no project context) uses EnvironmentAdminController instead.
     @PostMapping
     public ApiResponse<EnvironmentEntity> create(@RequestBody EnvironmentEntity entity) {
         if (entity.getCode() == null || entity.getCode().trim().isEmpty()) {
@@ -63,6 +89,10 @@ public class EnvironmentController {
         if (entity.getName() == null || entity.getName().trim().isEmpty()) {
             throw new IllegalArgumentException("Name is required");
         }
+        entity.setBusinessId(entityIdGeneratorService.next("ENV"));
+        Long callerProjectId = currentProjectService.requireProjectId();
+        requireProjectAdmin();
+        entity.setProjectId(callerProjectId);
         return ApiResponse.ok(repository.save(entity));
     }
 
@@ -70,6 +100,7 @@ public class EnvironmentController {
     public ApiResponse<EnvironmentEntity> update(@PathVariable Long id, @RequestBody EnvironmentEntity entity) {
         EnvironmentEntity existing = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Environment not found: " + id));
+        requireWriteAccess(existing.getProjectId());
         if (entity.getCode() != null && !entity.getCode().trim().isEmpty()) {
             existing.setCode(entity.getCode());
         }
@@ -88,10 +119,25 @@ public class EnvironmentController {
 
     @DeleteMapping("/{id}")
     public ApiResponse<String> delete(@PathVariable Long id) {
-        if (!repository.existsById(id)) {
-            throw new IllegalArgumentException("Please Try again Environment not found: " + id);
-        }
+        EnvironmentEntity existing = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Please Try again Environment not found: " + id));
+        requireWriteAccess(existing.getProjectId());
         repository.deleteById(id);
         return ApiResponse.ok("Environment deleted successfully");
+    }
+
+    private void requireProjectAdmin() {
+        ProjectContext context = ProjectContextHolder.get();
+        if (context == null || !context.hasRole("PROJECT_ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only a Project Admin can manage environments");
+        }
+    }
+
+    private void requireWriteAccess(Long entityProjectId) {
+        Long callerProjectId = currentProjectService.requireProjectId();
+        requireProjectAdmin();
+        if (!callerProjectId.equals(entityProjectId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Environment not found");
+        }
     }
 }

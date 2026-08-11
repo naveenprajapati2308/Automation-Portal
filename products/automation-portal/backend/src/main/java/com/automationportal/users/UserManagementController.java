@@ -4,6 +4,7 @@ package com.automationportal.users;
 import com.automationportal.audit.AuditAction;
 import com.automationportal.audit.AuditService;
 import com.automationportal.common.ApiResponse;
+import com.automationportal.common.EntityIdGeneratorService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -26,15 +27,18 @@ public class UserManagementController {
     private final PasswordEncoder passwordEncoder;
     private final AuditService auditService;
     private final JdbcTemplate jdbcTemplate;
+    private final EntityIdGeneratorService entityIdGeneratorService;
 
     public UserManagementController(UserRepository userRepository,
                                     PasswordEncoder passwordEncoder,
                                     AuditService auditService,
-                                    JdbcTemplate jdbcTemplate) {
+                                    JdbcTemplate jdbcTemplate,
+                                    EntityIdGeneratorService entityIdGeneratorService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditService = auditService;
         this.jdbcTemplate = jdbcTemplate;
+        this.entityIdGeneratorService = entityIdGeneratorService;
     }
 
     /** List all users (paginated result kept simple for now). */
@@ -66,6 +70,14 @@ public class UserManagementController {
         if (email != null && userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("Email already exists");
         }
+        // A username that matches another account's email (or vice versa) makes login-by-that-string
+        // ambiguous — findByUsernameOrEmail would match two rows and blow up at login time.
+        if (userRepository.existsByEmail(request.username())) {
+            throw new IllegalArgumentException("Username can't be the same as another account's email");
+        }
+        if (email != null && userRepository.existsByUsername(email)) {
+            throw new IllegalArgumentException("This email is already in use as another account's username");
+        }
         validatePassword(request.password());
 
         User user = new User();
@@ -80,6 +92,7 @@ public class UserManagementController {
         user.setStatus(UserStatus.ACTIVE);
         user.setEmailVerified(true);
         user.setAuthProvider("LOCAL");
+        user.setBusinessId(entityIdGeneratorService.next("USR"));
         userRepository.save(user);
 
         auditService.record(user, AuditAction.USER_CREATE, "User created by admin", servletRequest);
@@ -160,16 +173,33 @@ public class UserManagementController {
         if (user.getRole() == UserRole.SUPER_ADMIN) {
             throw new IllegalArgumentException("Cannot delete the Super Admin account");
         }
-        
+
+        // docs/version2.1.md "Project Administration Protection": never leave a workspace with
+        // zero active Project Admins — mirrors ProjectUserController.guardLastProjectAdmin at this,
+        // the platform-level delete entry point.
+        List<Long> soleAdminProjects = jdbcTemplate.query(
+            "SELECT pu.project_id FROM project_users pu " +
+            "JOIN roles r ON r.id = pu.role_id " +
+            "WHERE pu.user_id = ? AND r.code = 'PROJECT_ADMIN' AND pu.status = 'ACTIVE' " +
+            "AND (SELECT COUNT(*) FROM project_users pu2 JOIN roles r2 ON r2.id = pu2.role_id " +
+            "     WHERE pu2.project_id = pu.project_id AND r2.code = 'PROJECT_ADMIN' AND pu2.status = 'ACTIVE') <= 1",
+            (rs, rowNum) -> rs.getLong("project_id"), id);
+        if (!soleAdminProjects.isEmpty()) {
+            throw new IllegalArgumentException(
+                "This user is the only active Project Admin of at least one workspace — assign another Project Admin there first");
+        }
+
         // Record audit event first, while the user exists
         auditService.record(user, AuditAction.USER_DELETE, "User deleted by admin", servletRequest);
-        
+
         // Clean up database foreign key constraint references
         jdbcTemplate.update("DELETE FROM user_roles WHERE user_id = ?", id);
         jdbcTemplate.update("DELETE FROM refresh_tokens WHERE user_id = ?", id);
+        jdbcTemplate.update("DELETE FROM project_users WHERE user_id = ?", id);
         jdbcTemplate.update("UPDATE audit_logs SET user_id = NULL WHERE user_id = ?", id);
+        jdbcTemplate.update("UPDATE workspace_requests SET reviewed_by = NULL WHERE reviewed_by = ?", id);
         jdbcTemplate.update("UPDATE executions SET triggered_by = (SELECT MIN(id) FROM users WHERE role = 'SUPER_ADMIN') WHERE triggered_by = ?", id);
-        
+
         // Delete user
         userRepository.deleteById(id);
         

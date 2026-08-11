@@ -2,6 +2,7 @@ package com.automationportal.apitesting.scheduling;
 
 import com.automationportal.apitesting.regularapi.RegularApi;
 import com.automationportal.apitesting.regularapi.RegularApiRepository;
+import com.automationportal.apitesting.security.CurrentProjectService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -29,6 +30,7 @@ public class ScheduleController {
     private final com.automationportal.apitesting.audit.AuditService auditService;
     private final ScheduleWorker scheduleWorker;
     private final org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor scheduleWorkerExecutor;
+    private final CurrentProjectService currentProjectService;
 
     @Data
     public static class SchedulePayload {
@@ -53,11 +55,12 @@ public class ScheduleController {
     /** List with API/group/module info; groupBy is rendered client-side from these fields. */
     @GetMapping
     public List<ScheduleView> list(@RequestParam(required = false) Long moduleId) {
-        Map<Long, RegularApi> apis = regularApiRepository.findAll().stream()
+        Long projectId = currentProjectService.requireProjectId();
+        Map<Long, RegularApi> apis = regularApiRepository.findByProjectId(projectId).stream()
                 .collect(Collectors.toMap(RegularApi::getId, a -> a));
-        Map<Long, String> groupNames = groupRepository.findAll().stream()
+        Map<Long, String> groupNames = groupRepository.findByProjectIdOrderByUpdatedAtDesc(projectId).stream()
                 .collect(Collectors.toMap(g -> g.getId(), g -> g.getName()));
-        return repository.findAll().stream()
+        return repository.findByProjectId(projectId).stream()
                 .map(s -> {
                     ScheduleView v = new ScheduleView();
                     v.setSchedule(s);
@@ -79,9 +82,11 @@ public class ScheduleController {
     public Schedule create(@Valid @RequestBody SchedulePayload payload) {
         Schedule s = new Schedule();
         apply(s, payload);
+        s.setProjectId(currentProjectService.requireProjectId());
         s.setNextRunAt(initialNextRun(s)); // anchored types wait for their time; others run on the next poll tick
         s = repository.save(s);
-        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, s.getId(),
+        auditService.record(currentProjectService.requireProjectId(),
+                com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, s.getId(),
                 com.automationportal.apitesting.audit.AuditLog.Action.CREATE,
                 "Created schedule '" + s.getName() + "' (" + s.getFrequencyType() + ", target " + s.getTargetType() + ")");
         return s;
@@ -94,7 +99,8 @@ public class ScheduleController {
         s.setRetryCount(0);
         s.setNextRunAt(initialNextRun(s)); // re-anchor to the (possibly new) cadence
         s = repository.save(s);
-        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
+        auditService.record(currentProjectService.requireProjectId(),
+                com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
                 com.automationportal.apitesting.audit.AuditLog.Action.UPDATE,
                 "Updated schedule '" + s.getName() + "' (" + s.getFrequencyType()
                         + (s.getFrequencyValue() != null ? " " + s.getFrequencyValue() : "") + ")");
@@ -117,21 +123,27 @@ public class ScheduleController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Schedule is already running");
         }
         scheduleWorkerExecutor.execute(() -> scheduleWorker.run(id));
-        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
+        auditService.record(currentProjectService.requireProjectId(),
+                com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
                 com.automationportal.apitesting.audit.AuditLog.Action.EXECUTE,
                 "Manually triggered schedule '" + s.getName() + "'");
         return s;
     }
 
     private void apply(Schedule s, SchedulePayload payload) {
+        Long projectId = currentProjectService.requireProjectId();
         Schedule.TargetType target = payload.getTargetType() == null
                 ? Schedule.TargetType.API : payload.getTargetType();
         if (target == Schedule.TargetType.API) {
-            if (payload.getRegularApiId() == null || !regularApiRepository.existsById(payload.getRegularApiId())) {
+            boolean owned = payload.getRegularApiId() != null && regularApiRepository.findById(payload.getRegularApiId())
+                    .map(a -> projectId.equals(a.getProjectId())).orElse(false);
+            if (!owned) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Regular API does not exist");
             }
         } else {
-            if (payload.getGroupId() == null || !groupRepository.existsById(payload.getGroupId())) {
+            boolean owned = payload.getGroupId() != null && groupRepository.findById(payload.getGroupId())
+                    .map(g -> projectId.equals(g.getProjectId())).orElse(false);
+            if (!owned) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Group does not exist");
             }
         }
@@ -150,7 +162,8 @@ public class ScheduleController {
         Schedule s = find(id);
         s.setStatus(Schedule.Status.PAUSED);
         s = repository.save(s);
-        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
+        auditService.record(currentProjectService.requireProjectId(),
+                com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
                 com.automationportal.apitesting.audit.AuditLog.Action.PAUSE, "Paused schedule '" + s.getName() + "'");
         return s;
     }
@@ -163,23 +176,29 @@ public class ScheduleController {
             s.setNextRunAt(initialNextRun(s)); // anchored types resume at their next slot, not immediately
         }
         s = repository.save(s);
-        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
+        auditService.record(currentProjectService.requireProjectId(),
+                com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
                 com.automationportal.apitesting.audit.AuditLog.Action.RESUME, "Resumed schedule '" + s.getName() + "'");
         return s;
     }
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
-        repository.findById(id).ifPresent(s ->
-                auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
-                        com.automationportal.apitesting.audit.AuditLog.Action.DELETE,
-                        "Deleted schedule '" + s.getName() + "'"));
+        Schedule s = find(id);
+        auditService.record(currentProjectService.requireProjectId(),
+                com.automationportal.apitesting.audit.AuditLog.EntityType.SCHEDULE, id,
+                com.automationportal.apitesting.audit.AuditLog.Action.DELETE,
+                "Deleted schedule '" + s.getName() + "'");
         repository.deleteById(id);
     }
 
     private Schedule find(Long id) {
-        return repository.findById(id)
+        Schedule s = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Schedule not found"));
+        if (!currentProjectService.requireProjectId().equals(s.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Schedule not found");
+        }
+        return s;
     }
 
     private void validateFrequency(SchedulePayload p) {

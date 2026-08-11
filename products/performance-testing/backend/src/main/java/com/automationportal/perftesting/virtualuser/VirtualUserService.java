@@ -3,6 +3,7 @@ package com.automationportal.perftesting.virtualuser;
 import com.automationportal.perftesting.common.ApiException;
 import com.automationportal.perftesting.common.KeyValue;
 import com.automationportal.perftesting.common.Variable;
+import com.automationportal.perftesting.security.CurrentProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,19 +21,18 @@ import java.util.stream.Collectors;
 public class VirtualUserService {
 
     private final VirtualUserRepository repository;
+    private final CurrentProjectService currentProjectService;
 
     @Transactional(readOnly = true)
     public List<VirtualUserDto> getAll() {
-        return repository.findAll().stream()
+        return repository.findByProjectId(currentProjectService.requireProjectId()).stream()
                 .map(VirtualUserDto::fromEntity)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public VirtualUserDto getById(Long id) {
-        VirtualUser entity = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Virtual User not found with ID: " + id));
-        return VirtualUserDto.fromEntity(entity);
+        return VirtualUserDto.fromEntity(find(id));
     }
 
     @Transactional
@@ -40,7 +40,8 @@ public class VirtualUserService {
         VirtualUser entity = VirtualUser.builder()
                 .name(dto.getName())
                 .description(dto.getDescription())
-                .authType(dto.getAuthType())
+                .projectId(currentProjectService.requireProjectId())
+                .authType(dto.getAuthType() != null ? dto.getAuthType() : AuthType.NONE)
                 .authValue(dto.getAuthValue())
                 .authKeyName(dto.getAuthKeyName())
                 .authKeyIn(dto.getAuthKeyIn())
@@ -55,8 +56,7 @@ public class VirtualUserService {
 
     @Transactional
     public VirtualUserDto update(Long id, VirtualUserDto dto) {
-        VirtualUser existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Virtual User not found with ID: " + id));
+        VirtualUser existing = find(id);
 
         existing.setName(dto.getName());
         existing.setDescription(dto.getDescription());
@@ -87,20 +87,19 @@ public class VirtualUserService {
 
     @Transactional
     public void delete(Long id) {
-        VirtualUser existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Virtual User not found with ID: " + id));
+        VirtualUser existing = find(id);
         // In the future, check if it's referenced in any active load tests before deleting.
         repository.delete(existing);
     }
 
     @Transactional
     public VirtualUserDto clone(Long id) {
-        VirtualUser existing = repository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Virtual User not found with ID: " + id));
+        VirtualUser existing = find(id);
 
         VirtualUser clone = VirtualUser.builder()
                 .name(existing.getName() + " (Copy)")
                 .description(existing.getDescription())
+                .projectId(existing.getProjectId())
                 .authType(existing.getAuthType())
                 .authValue(existing.getAuthValue())
                 .authKeyName(existing.getAuthKeyName())
@@ -194,6 +193,7 @@ public class VirtualUserService {
                 VirtualUser vu = VirtualUser.builder()
                         .name(name)
                         .description(description)
+                        .projectId(currentProjectService.requireProjectId())
                         .authType(authType)
                         .authValue(authValue)
                         .authKeyName(authKeyName)
@@ -220,6 +220,15 @@ public class VirtualUserService {
                 .collect(Collectors.toList());
     }
     
+    private VirtualUser find(Long id) {
+        VirtualUser entity = repository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Virtual User not found with ID: " + id));
+        if (!currentProjectService.requireProjectId().equals(entity.getProjectId())) {
+            throw ApiException.notFound("Virtual User not found with ID: " + id);
+        }
+        return entity;
+    }
+
     private String getVal(List<String> values, Map<String, Integer> colMap, String colName) {
         Integer index = colMap.get(colName);
         if (index == null || index >= values.size()) return null;

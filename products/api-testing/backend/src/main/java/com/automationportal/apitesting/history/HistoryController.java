@@ -1,5 +1,6 @@
 package com.automationportal.apitesting.history;
 
+import com.automationportal.apitesting.security.CurrentProjectService;
 import com.automationportal.apitesting.validation.ValidationResultRepository;
 import com.automationportal.apitesting.validation.ValidationResultView;
 import lombok.Data;
@@ -22,6 +23,7 @@ public class HistoryController {
     private final ExecutionHistoryRepository repository;
     private final ValidationResultRepository validationResultRepository;
     private final BodyStore bodyStore;
+    private final CurrentProjectService currentProjectService;
 
     @GetMapping
     public Page<ExecutionHistory> list(
@@ -45,7 +47,7 @@ public class HistoryController {
         // per-schedule drill-down) still find an API that only ever runs as a
         // dependency, same as before.
         boolean topLevelOnly = groupExecutionId == null && apiId == null;
-        Page<ExecutionHistory> result = repository.search(apiType, apiId, moduleId,
+        Page<ExecutionHistory> result = repository.search(currentProjectService.requireProjectId(), apiType, apiId, moduleId,
                 (status == null || status.isBlank()) ? null : status,
                 scheduleId,
                 (method == null || method.isBlank()) ? null : method.toUpperCase(),
@@ -73,6 +75,9 @@ public class HistoryController {
     public HistoryDetail detail(@PathVariable Long id) {
         ExecutionHistory h = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found"));
+        if (!currentProjectService.requireProjectId().equals(h.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found");
+        }
         HistoryDetail d = new HistoryDetail();
         d.setExecution(h);
         d.setResponseBody(h.getResponseBodyInline() != null

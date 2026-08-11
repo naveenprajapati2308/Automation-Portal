@@ -18,6 +18,10 @@ public interface PerfTestScheduleRepository extends JpaRepository<PerfTestSchedu
 
     List<PerfTestSchedule> findByTargetTypeAndTargetId(ScheduleTargetType targetType, Long targetId);
 
+    List<PerfTestSchedule> findByProjectId(Long projectId);
+
+    long countByProjectIdAndIsEnabled(Long projectId, boolean isEnabled);
+
     @Query(value = "SELECT * FROM perf_test_schedule " +
            "WHERE is_enabled = true AND (next_run_at IS NULL OR next_run_at <= :now) " +
            "ORDER BY next_run_at ASC LIMIT 1 FOR UPDATE SKIP LOCKED", nativeQuery = true)

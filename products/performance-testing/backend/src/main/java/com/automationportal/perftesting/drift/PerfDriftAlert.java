@@ -30,6 +30,9 @@ public class PerfDriftAlert {
     @Column(name = "test_id", nullable = false)
     private Long testId;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Column(name = "current_p95_ms", nullable = false)
     private Double currentP95Ms;
 

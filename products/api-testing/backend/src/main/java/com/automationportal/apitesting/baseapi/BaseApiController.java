@@ -1,6 +1,8 @@
 package com.automationportal.apitesting.baseapi;
 
 import com.automationportal.apitesting.execution.dto.ExecutionResponse;
+import com.automationportal.apitesting.module.ApiModuleRepository;
+import com.automationportal.apitesting.security.CurrentProjectService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -23,6 +25,8 @@ public class BaseApiController {
     private final com.automationportal.apitesting.collections.ApiCollectionRepository collectionRepository;
     private final com.automationportal.apitesting.collections.CollectionRequestRepository collectionRequestRepository;
     private final com.automationportal.apitesting.common.RequestConfigMapper configMapper;
+    private final CurrentProjectService currentProjectService;
+    private final ApiModuleRepository moduleRepository;
 
     @Data
     public static class BaseApiPayload {
@@ -48,7 +52,10 @@ public class BaseApiController {
 
     @GetMapping
     public List<BaseApi> list(@RequestParam(required = false) Long moduleId) {
-        List<BaseApi> apis = moduleId == null ? repository.findAll() : repository.findByModuleId(moduleId);
+        Long projectId = currentProjectService.requireProjectId();
+        List<BaseApi> apis = moduleId == null
+                ? repository.findByProjectId(projectId)
+                : repository.findByProjectIdAndModuleId(projectId, moduleId);
         // Snapshots can be large; the list view doesn't need them.
         apis.forEach(a -> a.setLastResponseSnapshot(null));
         return apis;
@@ -63,6 +70,8 @@ public class BaseApiController {
     public BaseApi create(@Valid @RequestBody BaseApiPayload payload) {
         BaseApi api = new BaseApi();
         apply(api, payload);
+        api.setProjectId(currentProjectService.requireProjectId());
+        validateModule(api.getModuleId(), api.getProjectId());
         api = repository.save(api);
         audit(api.getId(), com.automationportal.apitesting.audit.AuditLog.Action.CREATE,
                 "Created base API '" + api.getName() + "'");
@@ -73,6 +82,7 @@ public class BaseApiController {
     public BaseApi update(@PathVariable Long id, @Valid @RequestBody BaseApiPayload payload) {
         BaseApi api = find(id);
         apply(api, payload);
+        validateModule(api.getModuleId(), api.getProjectId());
         api = repository.save(api);
         audit(id, com.automationportal.apitesting.audit.AuditLog.Action.UPDATE,
                 "Updated base API '" + api.getName() + "'");
@@ -81,9 +91,9 @@ public class BaseApiController {
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
-        repository.findById(id).ifPresent(api ->
-                audit(id, com.automationportal.apitesting.audit.AuditLog.Action.DELETE,
-                        "Deleted base API '" + api.getName() + "'"));
+        BaseApi api = find(id);
+        audit(id, com.automationportal.apitesting.audit.AuditLog.Action.DELETE,
+                "Deleted base API '" + api.getName() + "'");
         repository.deleteById(id);
     }
 
@@ -101,8 +111,11 @@ public class BaseApiController {
     public com.automationportal.apitesting.collections.CollectionRequest addToCollection(
             @PathVariable Long id, @PathVariable Long collectionId) {
         BaseApi api = find(id);
-        collectionRepository.findById(collectionId)
+        var collection = collectionRepository.findById(collectionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found"));
+        if (!currentProjectService.requireProjectId().equals(collection.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Collection not found");
+        }
 
         java.util.Map<String, Object> config = new java.util.LinkedHashMap<>();
         config.put("method", api.getMethod());
@@ -168,6 +181,7 @@ public class BaseApiController {
 
     @DeleteMapping("/{id}/bindings/{bindingId}")
     public void deleteExtraction(@PathVariable Long id, @PathVariable Long bindingId) {
+        find(id);
         ApiVariableBinding b = bindingRepository.findById(bindingId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Binding not found"));
         if (b.getBaseApiId() == null || !b.getBaseApiId().equals(id)) {
@@ -176,13 +190,26 @@ public class BaseApiController {
         bindingRepository.delete(b);
     }
 
+    private void validateModule(Long moduleId, Long projectId) {
+        if (moduleId == null) return;
+        boolean owned = moduleRepository.findById(moduleId).map(m -> projectId.equals(m.getProjectId())).orElse(false);
+        if (!owned) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Module does not exist");
+        }
+    }
+
     private BaseApi find(Long id) {
-        return repository.findById(id)
+        BaseApi api = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Base API not found"));
+        if (!currentProjectService.requireProjectId().equals(api.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Base API not found");
+        }
+        return api;
     }
 
     private void audit(Long id, com.automationportal.apitesting.audit.AuditLog.Action action, String details) {
-        auditService.record(com.automationportal.apitesting.audit.AuditLog.EntityType.BASE_API, id, action, details);
+        auditService.record(currentProjectService.requireProjectId(),
+                com.automationportal.apitesting.audit.AuditLog.EntityType.BASE_API, id, action, details);
     }
 
     private void apply(BaseApi api, BaseApiPayload p) {

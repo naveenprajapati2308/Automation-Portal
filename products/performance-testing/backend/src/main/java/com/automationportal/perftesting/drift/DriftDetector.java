@@ -4,6 +4,7 @@ import com.automationportal.perftesting.common.ApiException;
 import com.automationportal.perftesting.results.PerfTestRun;
 import com.automationportal.perftesting.results.PerfTestRunRepository;
 import com.automationportal.perftesting.results.RunStatus;
+import com.automationportal.perftesting.security.CurrentProjectService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ public class DriftDetector {
 
     private final PerfDriftAlertRepository alertRepository;
     private final PerfTestRunRepository runRepository;
+    private final CurrentProjectService currentProjectService;
 
     @Value("${perf.drift.warning-threshold-pct:10}")
     private double warningThresholdPct;
@@ -76,6 +78,7 @@ public class DriftDetector {
                     .runId(currentRun.getId())
                     .testType(currentRun.getTestType())
                     .testId(currentRun.getTestId())
+                    .projectId(currentRun.getProjectId())
                     .currentP95Ms(currentP95)
                     .baselineP95Ms(baselineP95)
                     .driftPct(driftPct)
@@ -91,13 +94,16 @@ public class DriftDetector {
 
     @Transactional(readOnly = true)
     public List<PerfDriftAlert> getUnacknowledgedAlerts() {
-        return alertRepository.findByIsAcknowledgedFalseOrderByCreatedAtDesc();
+        return alertRepository.findByProjectIdAndIsAcknowledgedFalseOrderByCreatedAtDesc(currentProjectService.requireProjectId());
     }
 
     @Transactional
     public void acknowledgeAlert(Long id) {
         PerfDriftAlert alert = alertRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Drift alert not found with ID: " + id));
+        if (!currentProjectService.requireProjectId().equals(alert.getProjectId())) {
+            throw ApiException.notFound("Drift alert not found with ID: " + id);
+        }
         alert.setIsAcknowledged(true);
         alertRepository.save(alert);
     }

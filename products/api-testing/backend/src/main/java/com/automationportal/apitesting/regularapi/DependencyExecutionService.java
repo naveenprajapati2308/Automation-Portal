@@ -89,7 +89,7 @@ public class DependencyExecutionService {
                         .errorMessage(ex.getMessage())
                         .durationMs(0)
                         .build();
-                ExecutionHistory h = historyService.record(ExecutionHistory.ApiType.REGULAR, api.getId(),
+                ExecutionHistory h = historyService.record(api.getProjectId(), ExecutionHistory.ApiType.REGULAR, api.getId(),
                         api.getName(), api.getModuleId(), scheduleId, trigger, request, failed,
                         context, result.getResolvedVariables());
                 result.setResponse(failed);
@@ -107,7 +107,7 @@ public class DependencyExecutionService {
                             + (api.isDynamic() ? "Check the API's variable bindings." : "Enable dynamic data and bind it to a Base API."))
                     .durationMs(0)
                     .build();
-            ExecutionHistory h = historyService.record(ExecutionHistory.ApiType.REGULAR, api.getId(),
+            ExecutionHistory h = historyService.record(api.getProjectId(), ExecutionHistory.ApiType.REGULAR, api.getId(),
                     api.getName(), api.getModuleId(), scheduleId, trigger, request, failed,
                     context, result.getResolvedVariables());
             result.setResponse(failed);
@@ -117,7 +117,7 @@ public class DependencyExecutionService {
 
         // 3. Execute + record
         ExecutionResponse response = engine.execute(request);
-        ExecutionHistory history = historyService.record(ExecutionHistory.ApiType.REGULAR, api.getId(),
+        ExecutionHistory history = historyService.record(api.getProjectId(), ExecutionHistory.ApiType.REGULAR, api.getId(),
                 api.getName(), api.getModuleId(), scheduleId, trigger, request, response,
                 context, result.getResolvedVariables());
 

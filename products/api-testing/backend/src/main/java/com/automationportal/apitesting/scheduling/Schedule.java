@@ -36,6 +36,9 @@ public class Schedule {
     @Column(name = "group_id")
     private Long groupId;
 
+    @Column(name = "project_id")
+    private Long projectId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "frequency_type", nullable = false, length = 20)
     private FrequencyType frequencyType;

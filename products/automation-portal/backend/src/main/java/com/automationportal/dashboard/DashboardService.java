@@ -4,6 +4,7 @@ import com.automationportal.executions.*;
 import com.automationportal.modules.ModuleEntity;
 import com.automationportal.modules.ModuleRepository;
 import com.automationportal.testcasecatalog.TestCaseCatalogService;
+import com.automationportal.workspace.CurrentProjectService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -24,20 +25,32 @@ public class DashboardService {
     private final ExecutionTestCaseRepository testCaseRepository;
     private final TestCaseCatalogService testCaseCatalogService;
     private final ModuleRepository moduleRepository;
+    private final CurrentProjectService currentProjectService;
 
     public DashboardService(ExecutionRepository executionRepository,
             ExecutionTestCaseRepository testCaseRepository,
             TestCaseCatalogService testCaseCatalogService,
-            ModuleRepository moduleRepository) {
+            ModuleRepository moduleRepository,
+            CurrentProjectService currentProjectService) {
         this.executionRepository = executionRepository;
         this.testCaseRepository = testCaseRepository;
         this.testCaseCatalogService = testCaseCatalogService;
         this.moduleRepository = moduleRepository;
+        this.currentProjectService = currentProjectService;
+    }
+
+    // docs/version2.2.md: this is the Automation product's own operational dashboard — Super
+    // Admin (no project context) is rejected rather than shown a cross-project blend; their
+    // "Global Dashboard" is the separate, platform-level Admin Dashboard instead.
+    private Long projectIdOrNull() {
+        return currentProjectService.requireProjectId();
     }
 
     public Map<String, Object> getSummary(String range) {
         Instant since = getSinceInstant(range);
+        Long projectId = projectIdOrNull();
         List<Execution> executions = executionRepository.findAll().stream()
+                .filter(e -> projectId == null || projectId.equals(e.getProjectId()))
                 .filter(e -> e.getCreatedAt() != null && e.getCreatedAt().isAfter(since))
                 .collect(Collectors.toList());
 
@@ -121,8 +134,10 @@ public class DashboardService {
             labelFmt = DateTimeFormatter.ofPattern("MM-dd").withZone(zone);
         }
         final Instant rangeStart = start;
+        Long projectId = projectIdOrNull();
 
         List<Execution> executions = executionRepository.findAll().stream()
+                .filter(e -> projectId == null || projectId.equals(e.getProjectId()))
                 .filter(e -> e.getCreatedAt() != null && !e.getCreatedAt().isBefore(rangeStart))
                 .sorted(Comparator.comparing(Execution::getCreatedAt))
                 .collect(Collectors.toList());
@@ -176,10 +191,12 @@ public class DashboardService {
     // parent is never itself executed and so never has its own catalog/execution rows.
     public List<Map<String, Object>> getModuleHealth(String range, Long environmentId) {
         Instant since = getSinceInstant(range);
+        Long projectId = projectIdOrNull();
 
         // lastExecutionStatus keeps its original algorithm/semantics untouched — it's not part of
         // the TOTAL-inflation bug this method is otherwise being rewritten to fix.
         List<Execution> executions = executionRepository.findAll().stream()
+                .filter(e -> projectId == null || projectId.equals(e.getProjectId()))
                 .filter(e -> e.getCreatedAt() != null && e.getCreatedAt().isAfter(since))
                 .filter(e -> environmentId == null || environmentId.equals(e.getEnvironmentId()))
                 .collect(Collectors.toList());
@@ -206,7 +223,7 @@ public class DashboardService {
 
         // PASSED/FAILED/SKIPPED: reduce the FK-joined raw rows (ordered ASC by execution time) to
         // the latest status per catalog test case, then tally per moduleCode::framework.
-        List<Object[]> raw = testCaseRepository.findModuleHealthResultsRaw(since, environmentId);
+        List<Object[]> raw = testCaseRepository.findModuleHealthResultsRaw(since, environmentId, projectId);
         Map<Long, String> latestStatusByCatalogId = new LinkedHashMap<>();
         Map<Long, String> keyByCatalogId = new HashMap<>();
         for (Object[] row : raw) {
@@ -261,7 +278,7 @@ public class DashboardService {
             rowsByKey.put(key, moduleMap);
         }
 
-        addParentAggregateRows(rowsByKey);
+        addParentAggregateRows(rowsByKey, projectId);
 
         return new ArrayList<>(rowsByKey.values());
     }
@@ -277,8 +294,10 @@ public class DashboardService {
     // which is worse than the alternative of over-counting under a wrong parent (visible/obvious)
     // instead of quietly missing tests (invisible). Two-level only, matching buildHierarchyRows.js
     // (shared/ui/hierarchyRows.js), which never renders a grandchild either.
-    private void addParentAggregateRows(Map<String, Map<String, Object>> rowsByKey) {
-        List<ModuleEntity> modules = moduleRepository.findAll();
+    private void addParentAggregateRows(Map<String, Map<String, Object>> rowsByKey, Long projectId) {
+        List<ModuleEntity> modules = projectId != null
+                ? moduleRepository.findByProjectId(projectId)
+                : moduleRepository.findAll();
         Map<Long, List<ModuleEntity>> childrenByParentId = modules.stream()
                 .filter(m -> m.getParentModuleId() != null)
                 .collect(Collectors.groupingBy(ModuleEntity::getParentModuleId));
@@ -330,12 +349,15 @@ public class DashboardService {
     }
 
     public List<Execution> getRecentActivity() {
-        return executionRepository.findTop25ByOrderByCreatedAtDesc();
+        Long projectId = projectIdOrNull();
+        return projectId != null
+                ? executionRepository.findTop25ByProjectIdOrderByCreatedAtDesc(projectId)
+                : executionRepository.findTop25ByOrderByCreatedAtDesc();
     }
 
     public List<Map<String, Object>> getFailureAnalysis(String range) {
         Instant since = getSinceInstant(range);
-        List<Object[]> raw = testCaseRepository.findFailureAnalysisRaw(since);
+        List<Object[]> raw = testCaseRepository.findFailureAnalysisRaw(since, projectIdOrNull());
 
         List<Map<String, Object>> analysis = new ArrayList<>();
         for (Object[] row : raw) {
@@ -354,7 +376,7 @@ public class DashboardService {
 
     public List<Map<String, Object>> getSlowTests(String range) {
         Instant since = getSinceInstant(range);
-        List<ExecutionTestCase> raw = testCaseRepository.findSlowTestsRaw(since);
+        List<ExecutionTestCase> raw = testCaseRepository.findSlowTestsRaw(since, projectIdOrNull());
 
         List<Map<String, Object>> slow = new ArrayList<>();
         // Group by class and method name to get distinct slowest cases
@@ -377,7 +399,7 @@ public class DashboardService {
 
     public List<Map<String, Object>> getFlakyTests(String range) {
         Instant since = getSinceInstant(range);
-        List<Object[]> raw = testCaseRepository.findFlakyTestsRaw(since);
+        List<Object[]> raw = testCaseRepository.findFlakyTestsRaw(since, projectIdOrNull());
         List<Map<String, Object>> flaky = new ArrayList<>();
 
         for (Object[] row : raw) {
@@ -417,7 +439,7 @@ public class DashboardService {
 
     public List<Map<String, Object>> getPassRateTrend(String range) {
         Instant since = getSinceInstant(range);
-        List<Object[]> raw = executionRepository.findDailyTrend(since);
+        List<Object[]> raw = executionRepository.findDailyTrend(since, projectIdOrNull());
         List<Map<String, Object>> result = new ArrayList<>();
         for (Object[] row : raw) {
             Map<String, Object> map = new HashMap<>();
@@ -440,7 +462,7 @@ public class DashboardService {
 
     public List<Map<String, Object>> getDurationTrend(String range) {
         Instant since = getSinceInstant(range);
-        List<Object[]> raw = executionRepository.findDurationTrend(since);
+        List<Object[]> raw = executionRepository.findDurationTrend(since, projectIdOrNull());
         List<Map<String, Object>> result = new ArrayList<>();
         for (Object[] row : raw) {
             Map<String, Object> map = new HashMap<>();
@@ -455,7 +477,7 @@ public class DashboardService {
 
     public List<Map<String, Object>> getRunHeatmap(String range) {
         Instant since = getSinceInstant(range);
-        List<Object[]> raw = executionRepository.findRunHeatmap(since);
+        List<Object[]> raw = executionRepository.findRunHeatmap(since, projectIdOrNull());
         List<Map<String, Object>> result = new ArrayList<>();
         for (Object[] row : raw) {
             Map<String, Object> map = new HashMap<>();
@@ -469,7 +491,7 @@ public class DashboardService {
 
     public List<Map<String, Object>> getEnvDistribution(String range) {
         Instant since = getSinceInstant(range);
-        List<Object[]> raw = executionRepository.findEnvDistribution(since);
+        List<Object[]> raw = executionRepository.findEnvDistribution(since, projectIdOrNull());
         List<Map<String, Object>> result = new ArrayList<>();
         for (Object[] row : raw) {
             Map<String, Object> map = new HashMap<>();
@@ -481,8 +503,10 @@ public class DashboardService {
     }
 
     public List<Map<String, Object>> getRegressionAlerts() {
+        Long projectId = projectIdOrNull();
         List<Execution> all = executionRepository.findAll();
         Map<String, List<Execution>> grouped = all.stream()
+                .filter(e -> projectId == null || projectId.equals(e.getProjectId()))
                 .filter(e -> e.getModuleCode() != null && e.getStatus() != ExecutionStatus.QUEUED
                         && e.getStatus() != ExecutionStatus.RUNNING)
                 .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))

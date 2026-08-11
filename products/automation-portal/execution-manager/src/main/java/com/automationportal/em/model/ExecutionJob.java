@@ -65,6 +65,12 @@ public class ExecutionJob {
     @Column(name = "submitted_by", length = 255)
     private String submittedBy;
 
+    /** Set only when the Portal Backend resolved a registered Test Engine for this job's module
+     *  (docs/version2.3.md Plan 2). Non-null tells dispatchJob() to withhold EM's own static
+     *  global credential — the engine already has its own key from registration. */
+    @Column(name = "test_engine_code", length = 32)
+    private String testEngineCode;
+
     // Getters and Setters
     public String getJobId() { return jobId; }
     public void setJobId(String jobId) { this.jobId = jobId; }
@@ -119,4 +125,7 @@ public class ExecutionJob {
 
     public String getSubmittedBy() { return submittedBy; }
     public void setSubmittedBy(String submittedBy) { this.submittedBy = submittedBy; }
+
+    public String getTestEngineCode() { return testEngineCode; }
+    public void setTestEngineCode(String testEngineCode) { this.testEngineCode = testEngineCode; }
 }

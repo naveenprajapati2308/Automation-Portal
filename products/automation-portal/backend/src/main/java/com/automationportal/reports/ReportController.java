@@ -3,12 +3,15 @@ package com.automationportal.reports;
 import com.automationportal.common.ApiResponse;
 import com.automationportal.config.PortalAutomationProperties;
 import com.automationportal.executions.*;
+import com.automationportal.workspace.CurrentProjectService;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.view.RedirectView;
 
 import java.io.File;
@@ -24,15 +27,18 @@ public class ReportController {
     private final ExecutionArtifactRepository artifactRepository;
     private final ExecutionTestCaseRepository testCaseRepository;
     private final PortalAutomationProperties properties;
+    private final CurrentProjectService currentProjectService;
 
     public ReportController(ExecutionRepository executionRepository,
                             ExecutionArtifactRepository artifactRepository,
                             ExecutionTestCaseRepository testCaseRepository,
-                            PortalAutomationProperties properties) {
+                            PortalAutomationProperties properties,
+                            CurrentProjectService currentProjectService) {
         this.executionRepository = executionRepository;
         this.artifactRepository = artifactRepository;
         this.testCaseRepository = testCaseRepository;
         this.properties = properties;
+        this.currentProjectService = currentProjectService;
     }
 
     @GetMapping
@@ -46,8 +52,10 @@ public class ReportController {
 
         Instant fromInstant = (from != null && !from.trim().isEmpty()) ? Instant.parse(from) : null;
         Instant toInstant = (to != null && !to.trim().isEmpty()) ? Instant.parse(to) : null;
+        Long projectId = currentProjectService.requireProjectId();
 
         List<Execution> list = executionRepository.findAll().stream()
+                .filter(e -> projectId.equals(e.getProjectId()))
                 .filter(e -> e.getStatus() != ExecutionStatus.QUEUED && e.getStatus() != ExecutionStatus.RUNNING)
                 .filter(e -> status == null || status.trim().isEmpty() || e.getStatus().toString().equalsIgnoreCase(status))
                 .filter(e -> module == null || module.trim().isEmpty() || (e.getModuleCode() != null && e.getModuleCode().equalsIgnoreCase(module)))
@@ -63,12 +71,12 @@ public class ReportController {
 
     @GetMapping("/{executionId}")
     public ApiResponse<Execution> getReportDetails(@PathVariable Long executionId) {
-        return ApiResponse.ok(executionRepository.findById(executionId).orElseThrow());
+        return ApiResponse.ok(requireExecutionAccess(executionId));
     }
 
     @GetMapping("/{executionId}/view")
     public RedirectView viewReport(@PathVariable Long executionId) {
-        Execution e = executionRepository.findById(executionId).orElseThrow();
+        Execution e = requireExecutionAccess(executionId);
         String reportPath = e.getFinalReportPath();
         if (reportPath == null || reportPath.trim().isEmpty()) {
             throw new IllegalArgumentException("No final Extent report generated for this execution.");
@@ -78,7 +86,7 @@ public class ReportController {
 
     @GetMapping("/{executionId}/download")
     public ResponseEntity<Resource> downloadReport(@PathVariable Long executionId) {
-        Execution e = executionRepository.findById(executionId).orElseThrow();
+        Execution e = requireExecutionAccess(executionId);
         String reportPath = e.getFinalReportPath();
         if (reportPath == null || reportPath.trim().isEmpty()) {
             throw new IllegalArgumentException("No final report available for download.");
@@ -96,6 +104,7 @@ public class ReportController {
 
     @GetMapping("/{executionId}/testng-results")
     public ResponseEntity<Resource> downloadTestNgResults(@PathVariable Long executionId) {
+        requireExecutionAccess(executionId);
         List<ExecutionArtifact> list = artifactRepository.findByExecutionIdAndArtifactType(executionId, "TESTNG_RESULTS_XML");
         if (list.isEmpty()) {
             throw new IllegalArgumentException("testng-results.xml artifact not found for this execution.");
@@ -114,7 +123,17 @@ public class ReportController {
 
     @GetMapping("/{executionId}/failed-tests")
     public ApiResponse<List<ExecutionTestCase>> getFailedTests(@PathVariable Long executionId) {
+        requireExecutionAccess(executionId);
         List<ExecutionTestCase> failed = testCaseRepository.findByExecutionIdAndStatusWithTags(executionId, "FAIL");
         return ApiResponse.ok(failed);
+    }
+
+    private Execution requireExecutionAccess(Long executionId) {
+        Execution execution = executionRepository.findById(executionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + executionId));
+        if (!currentProjectService.canAccess(execution.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Execution not found: " + executionId);
+        }
+        return execution;
     }
 }

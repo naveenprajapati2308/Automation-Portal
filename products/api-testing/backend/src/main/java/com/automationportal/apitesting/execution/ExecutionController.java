@@ -4,6 +4,7 @@ import com.automationportal.apitesting.execution.dto.ExecutionRequest;
 import com.automationportal.apitesting.execution.dto.ExecutionResponse;
 import com.automationportal.apitesting.history.ExecutionHistory;
 import com.automationportal.apitesting.history.ExecutionHistoryService;
+import com.automationportal.apitesting.security.CurrentProjectService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,11 +23,12 @@ public class ExecutionController {
 
     private final ExecutionEngineService executionEngineService;
     private final ExecutionHistoryService historyService;
+    private final CurrentProjectService currentProjectService;
 
     @PostMapping
     public ExecutionResponse execute(@Valid @RequestBody ExecutionRequest request) {
         ExecutionResponse response = executionEngineService.execute(request);
-        historyService.record(ExecutionHistory.ApiType.REGULAR, null, null, null, null,
+        historyService.record(currentProjectService.requireProjectId(), ExecutionHistory.ApiType.REGULAR, null, null, null, null,
                 ExecutionHistory.TriggeredBy.MANUAL, request, response);
         return response;
     }

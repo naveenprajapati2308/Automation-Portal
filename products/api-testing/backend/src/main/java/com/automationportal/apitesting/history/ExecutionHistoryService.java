@@ -36,11 +36,11 @@ public class ExecutionHistoryService {
     @Value("${apitesting.history.inline-body-max-bytes}")
     private long inlineBodyMaxBytes;
 
-    public ExecutionHistory record(ExecutionHistory.ApiType apiType, Long apiId, String apiName,
+    public ExecutionHistory record(Long projectId, ExecutionHistory.ApiType apiType, Long apiId, String apiName,
                                    Long moduleId, Long scheduleId,
                                    ExecutionHistory.TriggeredBy triggeredBy,
                                    ExecutionRequest request, ExecutionResponse response) {
-        return record(apiType, apiId, apiName, moduleId, scheduleId, triggeredBy, request, response,
+        return record(projectId, apiType, apiId, apiName, moduleId, scheduleId, triggeredBy, request, response,
                 null, null);
     }
 
@@ -49,13 +49,14 @@ public class ExecutionHistoryService {
      * masked variables injected from Base APIs, cookies, content type and
      * wall-clock start/end derived from the response duration.
      */
-    public ExecutionHistory record(ExecutionHistory.ApiType apiType, Long apiId, String apiName,
+    public ExecutionHistory record(Long projectId, ExecutionHistory.ApiType apiType, Long apiId, String apiName,
                                    Long moduleId, Long scheduleId,
                                    ExecutionHistory.TriggeredBy triggeredBy,
                                    ExecutionRequest request, ExecutionResponse response,
                                    com.automationportal.apitesting.execution.dto.ExecutionContext context,
                                    Map<String, String> injectedVariables) {
         ExecutionHistory h = new ExecutionHistory();
+        h.setProjectId(projectId);
         h.setApiType(apiType);
         h.setApiId(apiId);
         h.setApiName(apiName);

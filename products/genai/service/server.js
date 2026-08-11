@@ -34,16 +34,20 @@ app.get('/', (req,res)=>{
 )
 
 app.post('/chat', requireAuth, async (req, res)=>{
-    const {message, userId}= req.body; // 1. Use 'userId' to match the frontend key
+    const {message} = req.body;
 
-    if(!message || !userId){ // 2. Fixed references (message and userId)
-        return res.status(400).json({message:"Message and User id required"}); // 3. Added 'return' to halt execution
+    if(!message){
+        return res.status(400).json({message:"Message is required"});
     }
 
     console.log("Message ", message);
 
-    const result= await generate(message, userId);
-    res.status(200).json({message:result})
+    // Cache key is derived from the verified JWT (username + project), never the client
+    // body — a client-supplied key would let a project switch leak stale cross-project
+    // context into the cached conversation, or let one session read/pollute another's cache.
+    const cacheKey = `${req.auth.username}:${req.auth.projectId || 'none'}`;
+    const result = await generate(message, cacheKey, req.auth.token);
+    res.status(200).json({ message: result.message, toolResults: result.toolResults });
 });
 
 

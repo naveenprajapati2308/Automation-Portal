@@ -16,4 +16,8 @@ public interface ModuleRepository extends JpaRepository<ModuleEntity, Long> {
     Optional<ModuleEntity> findByCodeAndRunnerType(String code, String runnerType);
 
     List<ModuleEntity> findByRunnerType(String runnerType);
+
+    List<ModuleEntity> findByProjectId(Long projectId);
+
+    List<ModuleEntity> findByProjectIdAndRunnerType(Long projectId, String runnerType);
 }

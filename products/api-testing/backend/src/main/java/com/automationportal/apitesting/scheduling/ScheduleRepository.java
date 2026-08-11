@@ -49,4 +49,17 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     List<Schedule> findByStatusAndLastRunStatus(Schedule.Status status, Schedule.RunStatus lastRunStatus);
 
     List<Schedule> findTop10ByStatusOrderByNextRunAtAsc(Schedule.Status status);
+
+    // ── Project-scoped variants for the user-facing ScheduleController/Dashboard. The internal
+    // poller (findDueForClaim above) intentionally stays global — it must run every project's
+    // due schedules, isolation is an API-boundary concern, not an execution-engine one. ─────────
+    List<Schedule> findByProjectId(Long projectId);
+
+    long countByProjectIdAndStatus(Long projectId, Schedule.Status status);
+
+    long countByProjectId(Long projectId);
+
+    List<Schedule> findByProjectIdAndStatusAndLastRunStatus(Long projectId, Schedule.Status status, Schedule.RunStatus lastRunStatus);
+
+    List<Schedule> findTop10ByProjectIdAndStatusOrderByNextRunAtAsc(Long projectId, Schedule.Status status);
 }

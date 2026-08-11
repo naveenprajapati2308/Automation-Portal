@@ -8,6 +8,7 @@ import com.automationportal.perftesting.loadtest.LoadTest;
 import com.automationportal.perftesting.loadtest.LoadTestRepository;
 import com.automationportal.perftesting.perftest.PerformanceTest;
 import com.automationportal.perftesting.perftest.PerformanceTestRepository;
+import com.automationportal.perftesting.security.CurrentProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,24 +31,21 @@ public class ResultService {
     private final K6ScriptGenerator scriptGenerator;
     private final K6ProcessRunner processRunner;
     private final SseEmitterManager sseEmitterManager;
+    private final CurrentProjectService currentProjectService;
 
     @Transactional(readOnly = true)
     public Page<PerfTestRun> getRuns(TestType testType, RunStatus status, RunTrigger trigger, Pageable pageable) {
-        return runRepository.findFiltered(testType, status, trigger, pageable);
+        return runRepository.findFiltered(currentProjectService.requireProjectId(), testType, status, trigger, pageable);
     }
 
     @Transactional(readOnly = true)
     public PerfTestRun getRunDetails(Long id) {
-        return runRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Performance Test Run not found with ID: " + id));
+        return findRun(id);
     }
 
     @Transactional(readOnly = true)
     public List<PerfMetricSample> getRunMetrics(Long runId) {
-        // Ensure run exists
-        if (!runRepository.existsById(runId)) {
-            throw ApiException.notFound("Performance Test Run not found with ID: " + runId);
-        }
+        findRun(runId);
         return sampleRepository.findByRunIdOrderBySampledAtAsc(runId);
     }
 
@@ -55,6 +53,9 @@ public class ResultService {
     public PerfTestRun startPerformanceTest(Long testId, RunTrigger trigger) {
         PerformanceTest test = performanceTestRepository.findById(testId)
                 .orElseThrow(() -> ApiException.notFound("Performance Test not found with ID: " + testId));
+        if (!currentProjectService.requireProjectId().equals(test.getProjectId())) {
+            throw ApiException.notFound("Performance Test not found with ID: " + testId);
+        }
 
         if (!test.getIsActive()) {
             throw ApiException.badRequest("Cannot run an inactive performance test");
@@ -68,6 +69,7 @@ public class ResultService {
                 .testType(TestType.PERF)
                 .testId(testId)
                 .testName(test.getName())
+                .projectId(test.getProjectId())
                 .runTrigger(trigger)
                 .status(RunStatus.RUNNING)
                 .startedAt(LocalDateTime.now())
@@ -96,6 +98,9 @@ public class ResultService {
     public PerfTestRun startLoadTest(Long testId, RunTrigger trigger) {
         LoadTest test = loadTestRepository.findById(testId)
                 .orElseThrow(() -> ApiException.notFound("Load Test not found with ID: " + testId));
+        if (!currentProjectService.requireProjectId().equals(test.getProjectId())) {
+            throw ApiException.notFound("Load Test not found with ID: " + testId);
+        }
 
         if (!test.getIsActive()) {
             throw ApiException.badRequest("Cannot run an inactive load test");
@@ -109,6 +114,7 @@ public class ResultService {
                 .testType(TestType.LOAD)
                 .testId(testId)
                 .testName(test.getName())
+                .projectId(test.getProjectId())
                 .runTrigger(trigger)
                 .status(RunStatus.RUNNING)
                 .startedAt(LocalDateTime.now())
@@ -130,6 +136,10 @@ public class ResultService {
 
     @Transactional
     public void abortRun(Long runId) {
+        // Called both from the controller (project context available) and from
+        // PerfJobWorker's stale-job eviction (background thread, no request context) —
+        // look the run up directly rather than through the CurrentProjectService-gated
+        // findRun() helper; the controller path gates ownership itself (see ResultController).
         PerfTestRun run = runRepository.findById(runId)
                 .orElseThrow(() -> ApiException.notFound("Performance Test Run not found with ID: " + runId));
 
@@ -147,6 +157,15 @@ public class ResultService {
         runRepository.save(run);
 
         // Notify client
-        sseEmitterManager.sendRunError(runId, "Execution aborted by user");
+        sseEmitterManager.sendRunError(runId, run.getProjectId(), "Execution aborted by user");
+    }
+
+    private PerfTestRun findRun(Long id) {
+        PerfTestRun run = runRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Performance Test Run not found with ID: " + id));
+        if (!currentProjectService.requireProjectId().equals(run.getProjectId())) {
+            throw ApiException.notFound("Performance Test Run not found with ID: " + id);
+        }
+        return run;
     }
 }

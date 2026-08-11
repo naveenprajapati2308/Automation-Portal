@@ -3,6 +3,8 @@ import { Activity, CheckCircle2, Gauge, Play, ShieldCheck, Zap } from 'lucide-re
 import { api } from '../../api.js';
 import { Field } from '../shared/Field.jsx';
 import { Loader } from '../../../../../shared/ui/Loader.jsx';
+import { RequestWorkspacePage } from './RequestWorkspacePage.jsx';
+import { SelectWorkspacePage } from './SelectWorkspacePage.jsx';
 import testrixLogo from '../../assets/testrix_logo.png';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -16,6 +18,7 @@ export function AuthPage({ onAuthenticated }) {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
+  const [pendingSession, setPendingSession] = useState(null);
 
   const update = (field, value) => {
     setForm((c) => ({ ...c, [field]: value }));
@@ -35,7 +38,6 @@ export function AuthPage({ onAuthenticated }) {
     if (mode === 'login') {
       const username = (form.username || '').trim();
       if (!username) next.username = 'Username / Email is required.';
-      else if (!EMAIL_RE.test(username)) next.username = 'Enter a valid email address.';
       const password = form.password || '';
       if (!password) next.password = 'Password is required.';
       else if (password.length < 8) next.password = 'Password must be at least 8 characters.';
@@ -64,7 +66,12 @@ export function AuthPage({ onAuthenticated }) {
     setSubmitting(true);
     try {
       if (mode === 'login') {
-        onAuthenticated(await api.login(form));
+        const session = await api.login(form);
+        if (session.needsProjectSelection) {
+          setPendingSession(session);
+        } else {
+          onAuthenticated(session);
+        }
       } else if (mode === 'forgot') {
         const data = await api.forgotPassword({ email: form.email });
         setMode('reset');
@@ -98,8 +105,15 @@ export function AuthPage({ onAuthenticated }) {
         <div className="auth-grid-overlay" />
       </div>
 
-
-
+      {pendingSession ? (
+        <SelectWorkspacePage
+          pendingSession={pendingSession}
+          onSelected={(session) => { setPendingSession(null); onAuthenticated(session); }}
+          onCancel={() => setPendingSession(null)}
+        />
+      ) : mode === 'request-workspace' ? (
+        <RequestWorkspacePage onBack={() => switchMode('login')} />
+      ) : (
       <section className="auth-panel">
         <div className="brand auth-brand">
           <div className="auth-logo-wrap">
@@ -126,6 +140,9 @@ export function AuthPage({ onAuthenticated }) {
                   Forgot Password?
                 </button>
               </div>
+              <button type="button" className="back-login-link" onClick={() => switchMode('request-workspace')}>
+                Request Workspace
+              </button>
             </>
           )}
 
@@ -186,6 +203,7 @@ export function AuthPage({ onAuthenticated }) {
 
         <p className="auth-message">{message}</p>
       </section>
+      )}
     </main>
   );
 }

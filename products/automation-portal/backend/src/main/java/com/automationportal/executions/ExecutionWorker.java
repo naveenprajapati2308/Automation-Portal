@@ -8,6 +8,9 @@ import com.automationportal.moduleenvironments.ModuleEnvironmentRepository;
 import com.automationportal.moduleenvironments.ModuleEnvironmentResolver;
 import com.automationportal.modules.ModuleEntity;
 import com.automationportal.modules.ModuleRepository;
+import com.automationportal.testengine.EngineStatus;
+import com.automationportal.testengine.TestEngine;
+import com.automationportal.testengine.TestEngineRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
@@ -47,6 +50,7 @@ public class ExecutionWorker {
     private final TestNGXmlParser testNGXmlParser;
     private final EnvironmentRepository environmentRepository;
     private final ModuleEnvironmentRepository moduleEnvironmentRepository;
+    private final TestEngineRepository testEngineRepository;
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -63,7 +67,8 @@ public class ExecutionWorker {
                            TagRepository tagRepository,
                            TestNGXmlParser testNGXmlParser,
                            EnvironmentRepository environmentRepository,
-                           ModuleEnvironmentRepository moduleEnvironmentRepository) {
+                           ModuleEnvironmentRepository moduleEnvironmentRepository,
+                           TestEngineRepository testEngineRepository) {
         this.executionRepository = executionRepository;
         this.artifactRepository = artifactRepository;
         this.logRepository = logRepository;
@@ -75,6 +80,7 @@ public class ExecutionWorker {
         this.testNGXmlParser = testNGXmlParser;
         this.environmentRepository = environmentRepository;
         this.moduleEnvironmentRepository = moduleEnvironmentRepository;
+        this.testEngineRepository = testEngineRepository;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .build();
@@ -176,7 +182,24 @@ public class ExecutionWorker {
 
         execution.setSuiteName(suiteName);
         execution.setSuiteXmlPath(xmlFileName);
-        
+
+        // docs/version2.3.md Plan 2 §10 "Check Engine Status": resolve the module's registered
+        // Test Engine (if any) before dispatch. A DISABLED engine synchronously blocks the run
+        // rather than letting it queue on Execution Manager and fail opaquely later.
+        TestEngine engine = null;
+        if (resolvedModule != null && resolvedModule.getTestEngineId() != null) {
+            engine = testEngineRepository.findById(resolvedModule.getTestEngineId()).orElse(null);
+            if (engine != null && engine.getStatus() == EngineStatus.DISABLED) {
+                execution.setStatus(ExecutionStatus.ERROR);
+                execution.setEndTime(Instant.now());
+                executionRepository.save(execution);
+                logToDb(execId, "ERROR", "Test Engine '" + engine.getName() + "' (" + engine.getBusinessId()
+                        + ") is disabled; execution rejected before dispatch.", "SYSTEM");
+                return;
+            }
+            execution.setTestEngineId(engine != null ? engine.getId() : null);
+        }
+
         // Submit to Execution Manager enqueuing
         log.info("Submitting execution {} to Execution Manager...", execution.getExecutionCode());
         try {
@@ -186,11 +209,16 @@ public class ExecutionWorker {
             String framework = execution.getFramework() != null && !execution.getFramework().isBlank()
                     ? execution.getFramework() : "MAVEN_TESTNG";
             String browser = execution.getRequestedBrowser() != null ? execution.getRequestedBrowser() : "";
+            // engine != null -> tells Execution Manager to withhold its static global credential
+            // at dispatch time (docs/test-engine-integration-architecture.md §3.5) — the engine's
+            // own environment already holds its own key from the one-time registration handoff.
+            String testEngineCode = engine != null ? engine.getBusinessId() : null;
             // Map request payload matching EM ExecutionJob entity
             String jsonPayload = String.format(
-                    "{\"jobId\":\"%s\",\"executionId\":%d,\"suiteXml\":\"%s\",\"framework\":\"%s\",\"browser\":\"%s\",\"priority\":\"MEDIUM\",\"maxRetries\":0,\"timeoutMinutes\":%d,\"submittedBy\":\"admin\",\"envConfigJson\":%s,\"tagFilter\":%s}",
+                    "{\"jobId\":\"%s\",\"executionId\":%d,\"suiteXml\":\"%s\",\"framework\":\"%s\",\"browser\":\"%s\",\"priority\":\"MEDIUM\",\"maxRetries\":0,\"timeoutMinutes\":%d,\"submittedBy\":\"admin\",\"envConfigJson\":%s,\"tagFilter\":%s,\"testEngineCode\":%s}",
                     execution.getExecutionCode(), execution.getId(), xmlFileName, framework, browser, timeoutMinutes,
-                    objectMapper.writeValueAsString(envConfigJson), objectMapper.writeValueAsString(execution.getTagFilter())
+                    objectMapper.writeValueAsString(envConfigJson), objectMapper.writeValueAsString(execution.getTagFilter()),
+                    objectMapper.writeValueAsString(testEngineCode)
             );
 
             HttpRequest request = HttpRequest.newBuilder()

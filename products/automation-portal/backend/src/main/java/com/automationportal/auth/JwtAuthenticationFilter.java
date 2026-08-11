@@ -3,6 +3,8 @@ package com.automationportal.auth;
 import com.automationportal.users.User;
 import com.automationportal.users.UserRepository;
 import com.automationportal.users.UserStatus;
+import com.automationportal.workspace.ProjectContext;
+import com.automationportal.workspace.ProjectContextHolder;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -43,7 +46,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
         if (token != null) {
             try {
-                String username = jwtService.username(token);
+                var claims = jwtService.claims(token);
+                String username = claims.getSubject();
                 User user = userRepository.findByUsername(username).orElse(null);
                 if (user != null && user.getStatus() == UserStatus.ACTIVE && user.isEmailVerified()) {
                     var auth = new UsernamePasswordAuthenticationToken(
@@ -52,11 +56,39 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
                     );
                     SecurityContextHolder.getContext().setAuthentication(auth);
+                    ProjectContextHolder.set(jwtService.projectContextFromClaims(claims));
                 }
             } catch (JwtException | IllegalArgumentException ignored) {
                 SecurityContextHolder.clearContext();
             }
         }
-        filterChain.doFilter(request, response);
+        try {
+            if (isViewerOnlyMutation(request, ProjectContextHolder.get())) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"success\":false,\"message\":\"Viewer role is read-only\",\"data\":null}");
+                return;
+            }
+            filterChain.doFilter(request, response);
+        } finally {
+            ProjectContextHolder.clear();
+        }
+    }
+
+    private static final Set<String> MUTATING_METHODS = Set.of("POST", "PUT", "PATCH", "DELETE");
+    private static final Set<String> VIEWER_EXEMPT_PREFIXES = Set.of("/api/auth", "/api/profile");
+
+    // docs/version2.2.md: Viewer is strictly read-only (no Execute/Create/Edit/Delete/Configure/
+    // Schedule/Manage users), enforced here at the one point every project-scoped request already
+    // passes through, rather than duplicated per-controller. Self-service identity endpoints
+    // (login/logout, own profile) stay reachable — those aren't project data.
+    private boolean isViewerOnlyMutation(HttpServletRequest request, ProjectContext context) {
+        if (context == null || context.projectRoles() == null || context.projectRoles().isEmpty()) return false;
+        if (!MUTATING_METHODS.contains(request.getMethod())) return false;
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        for (String prefix : VIEWER_EXEMPT_PREFIXES) {
+            if (path.startsWith(prefix)) return false;
+        }
+        return context.projectRoles().stream().allMatch("VIEWER"::equals);
     }
 }

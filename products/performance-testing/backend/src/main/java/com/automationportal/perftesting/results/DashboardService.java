@@ -4,6 +4,7 @@ import com.automationportal.perftesting.group.TestGroupRepository;
 import com.automationportal.perftesting.loadtest.LoadTestRepository;
 import com.automationportal.perftesting.perftest.PerformanceTestRepository;
 import com.automationportal.perftesting.schedule.PerfTestScheduleRepository;
+import com.automationportal.perftesting.security.CurrentProjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,7 @@ public class DashboardService {
     private final LoadTestRepository loadTestRepository;
     private final TestGroupRepository testGroupRepository;
     private final PerfTestScheduleRepository scheduleRepository;
+    private final CurrentProjectService currentProjectService;
 
     /** Global Date Range Filter token vocabulary — mirrors automation-portal's DashboardService.getSinceInstant. */
     private static LocalDateTime sinceFor(String range) {
@@ -37,7 +39,8 @@ public class DashboardService {
     }
 
     public DashboardStatsDto getStats(String range) {
-        List<PerfTestRun> allRuns = runRepository.findAll();
+        Long projectId = currentProjectService.requireProjectId();
+        List<PerfTestRun> allRuns = runRepository.findByProjectId(projectId);
         LocalDateTime since = sinceFor(range);
         List<PerfTestRun> runs = allRuns.stream()
                 .filter(r -> r.getCreatedAt() != null && !r.getCreatedAt().isBefore(since))
@@ -62,16 +65,16 @@ public class DashboardService {
                 })
                 .collect(Collectors.toList());
 
-        long scheduledCount = scheduleRepository.countByIsEnabled(true);
+        long scheduledCount = scheduleRepository.countByProjectIdAndIsEnabled(projectId, true);
 
         return DashboardStatsDto.builder()
                 .totalRuns(total)
                 .passedRuns(passed)
                 .failedRuns(failed)
                 .runningRuns(running)
-                .performanceTestCount(perfTestRepository.count())
-                .loadTestCount(loadTestRepository.count())
-                .testGroupCount(testGroupRepository.count())
+                .performanceTestCount(perfTestRepository.countByProjectId(projectId))
+                .loadTestCount(loadTestRepository.countByProjectId(projectId))
+                .testGroupCount(testGroupRepository.countByProjectId(projectId))
                 .scheduledCount(scheduledCount)
                 .dailyRuns(dailyRuns)
                 .build();
@@ -80,7 +83,7 @@ public class DashboardService {
     /** Day-by-day passed/failed counts for the Global Date Range Filter's Execution Trend chart. */
     public List<PerfTrendPoint> getTrend(String range) {
         int days = daysFor(range);
-        List<PerfTestRun> allRuns = runRepository.findAll();
+        List<PerfTestRun> allRuns = runRepository.findByProjectId(currentProjectService.requireProjectId());
         DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         LocalDate today = LocalDate.now();
 

@@ -111,8 +111,8 @@ const Container = () => {
           >
             <div
               className={`max-w-[75%] px-2 py-1 rounded-2xl shadow-md transition-all duration-200 ${msg.sender === 'user'
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-tr-none shadow-indigo-600/10'
-                  : 'bg-neutral-800/80 text-neutral-100 rounded-tl-none border border-neutral-700/50'
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-tr-none shadow-indigo-600/10'
+                : 'bg-neutral-800/80 text-neutral-100 rounded-tl-none border border-neutral-700/50'
                 }`}
             >
               <p className="leading-relaxed text-sm md:text-base whitespace-pre-wrap">{msg.text}</p>
@@ -148,8 +148,8 @@ const Container = () => {
               onClick={handleSend}
               disabled={!inputValue.trim() || loading}
               className={`px-5 py-1.5 text-sm font-semibold rounded-xl cursor-pointer transition-all duration-200 ${inputValue.trim() && !loading
-                  ? 'bg-white text-black hover:bg-neutral-200 hover:scale-105 active:scale-95'
-                  : 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
+                ? 'bg-white text-black hover:bg-neutral-200 hover:scale-105 active:scale-95'
+                : 'bg-neutral-700 text-neutral-500 cursor-not-allowed'
                 }`}
             >
               {loading ? 'Thinking...' : 'Ask'}

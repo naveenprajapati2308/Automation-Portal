@@ -163,6 +163,7 @@ export const api = {
 
   // ── Admin: User Management (SUPER_ADMIN only) ─────────────────────────────
   adminListUsers: () => request('/api/admin/users'),
+  adminListRoles: () => request('/api/admin/roles'),
   adminGetUser: (id) => request(`/api/admin/users/${id}`),
   adminCreateUser: (payload) => request('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) }),
   adminUpdateUser: (id, payload) => request(`/api/admin/users/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
@@ -171,6 +172,67 @@ export const api = {
   adminResetPassword: (id, payload) => request(`/api/admin/users/${id}/reset-password`, { method: 'PUT', body: JSON.stringify(payload) }),
   adminAssignRole: (id, role) => request(`/api/admin/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
   adminDeleteUser: (id) => request(`/api/admin/users/${id}`, { method: 'DELETE' }),
+
+  // ── Workspace Requests (public submit + SUPER_ADMIN review) ────────────────
+  sendWorkspaceRequestOtp: (payload) => request('/api/workspace-requests/send-otp', { method: 'POST', body: JSON.stringify(payload) }),
+  verifyWorkspaceRequestOtp: (payload) => request('/api/workspace-requests/verify-otp', { method: 'POST', body: JSON.stringify(payload) }),
+  submitWorkspaceRequest: (payload) => request('/api/workspace-requests', { method: 'POST', body: JSON.stringify(payload) }),
+  adminListWorkspaceRequests: (status) => request(`/api/admin/workspace-requests${status ? `?status=${status}` : ''}`),
+  adminApproveWorkspaceRequest: (id) => request(`/api/admin/workspace-requests/${id}/approve`, { method: 'POST' }),
+  adminRejectWorkspaceRequest: (id, reason) => request(`/api/admin/workspace-requests/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  adminListProjects: () => request('/api/admin/projects'),
+  adminDeleteProject: (id) => request(`/api/admin/projects/${id}`, { method: 'DELETE' }),
+  adminListAuditLogs: () => request('/api/admin/audit-logs'),
+
+  // ── Project Admin: manage users within their own project ───────────────────
+  myProjects: () => request('/api/auth/my-projects'),
+  selectProject: (projectId, refreshToken) => request('/api/auth/select-project', { method: 'POST', body: JSON.stringify({ projectId, refreshToken }) }),
+  listProjectUsers: (projectId) => request(`/api/projects/${projectId}/users`),
+  createProjectUser: (projectId, payload) => request(`/api/projects/${projectId}/users`, { method: 'POST', body: JSON.stringify(payload) }),
+  updateProjectUser: (projectId, userId, payload) => request(`/api/projects/${projectId}/users/${userId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  setProjectUserStatus: (projectId, userId, status) => request(`/api/projects/${projectId}/users/${userId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  assignProjectUserRoles: (projectId, userId, roleCodes) => request(`/api/projects/${projectId}/users/${userId}/roles`, { method: 'PUT', body: JSON.stringify({ roleCodes }) }),
+  removeProjectUser: (projectId, userId) => request(`/api/projects/${projectId}/users/${userId}`, { method: 'DELETE' }),
+  transferProjectOwnership: (projectId, userId) => request(`/api/projects/${projectId}/users/${userId}/transfer-ownership`, { method: 'POST' }),
+  projectRoles: () => request('/api/projects/roles'),
+  workspaceSettings: (projectId) => request(`/api/projects/${projectId}/settings`),
+  updateWorkspaceProfile: (projectId, payload) => request(`/api/projects/${projectId}/settings/profile`, { method: 'PUT', body: JSON.stringify(payload) }),
+  toggleWorkspaceModule: (projectId, moduleType, enabled) => request(`/api/projects/${projectId}/settings/modules/${moduleType}`, { method: 'PUT', body: JSON.stringify({ enabled }) }),
+
+  // ── Test Engines (docs/version2.3.md Plan 2) ────────────────────────────────
+  testEngines: () => request('/api/test-engines'),
+  registerTestEngine: (payload) => request('/api/test-engines', { method: 'POST', body: JSON.stringify(payload) }),
+  updateTestEngine: (id, payload) => request(`/api/test-engines/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  disableTestEngine: (id) => request(`/api/test-engines/${id}`, { method: 'DELETE' }),
+  rotateTestEngineCredential: (id) => request(`/api/test-engines/${id}/credential/rotate`, { method: 'POST' }),
+  revokeTestEngineCredential: (id) => request(`/api/test-engines/${id}/credential/revoke`, { method: 'POST' }),
+  // Raw fetch, not the JSON-envelope `request()` helper — this endpoint streams a zip file body.
+  downloadEngineStarterKit: async (id, apiKey) => {
+    const session = authStore.get();
+    const response = await fetch(`${API_BASE}/api/test-engines/${id}/starter-kit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {})
+      },
+      body: JSON.stringify({ apiKey: apiKey || null, portalUrl: `${window.location.origin}${API_BASE}` })
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(text || 'Failed to download starter kit');
+    }
+    const blob = await response.blob();
+    const match = (response.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+    const filename = match ? match[1] : 'testrix-starter-kit.zip';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 
   // ── Portal ────────────────────────────────────────────────────────────────
   dashboardSummary: () => request('/api/dashboard/summary'),
@@ -197,6 +259,18 @@ export const api = {
   configurations: () => request('/api/configurations'),
   updateConfiguration: (key, payload) => request(`/api/configurations/${key}`, { method: 'PUT', body: JSON.stringify(payload) }),
 
+  // ── Integration Guide ────────────────────────────────────────────────────
+  integrationGuide: () => request('/api/integration-guide'),
+  adminCreateGuideSection: (payload) => request('/api/admin/integration-guide', { method: 'POST', body: JSON.stringify(payload) }),
+  adminUpdateGuideSection: (id, payload) => request(`/api/admin/integration-guide/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  adminDeleteGuideSection: (id) => request(`/api/admin/integration-guide/${id}`, { method: 'DELETE' }),
+  adminUploadGuideSectionImage: (id, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request(`/api/admin/integration-guide/${id}/image`, { method: 'POST', body: form });
+  },
+  adminRemoveGuideSectionImage: (id) => request(`/api/admin/integration-guide/${id}/image`, { method: 'DELETE' }),
+
   modules: (framework) => request(`/api/modules${framework ? `?framework=${framework}` : ''}`),
   moduleEnvironments: (moduleId) => request(`/api/modules/${moduleId}/environments`),
   moduleEnvironmentOptions: (moduleId, environmentId) => request(`/api/modules/${moduleId}/environments/${environmentId}/options`),
@@ -207,6 +281,13 @@ export const api = {
   adminUpdateModule: (id, payload) => request(`/api/admin/modules/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   adminDeleteModule: (id) => request(`/api/admin/modules/${id}`, { method: 'DELETE' }),
   adminToggleModule: (id) => request(`/api/admin/modules/${id}/toggle`, { method: 'PATCH' }),
+  adminListTestEngines: () => request('/api/admin/test-engines'),
+
+  // ── Admin: Environments (SUPER_ADMIN only, cross-project) ─────────────────
+  adminListEnvironments: () => request('/api/admin/environments'),
+  adminCreateEnvironment: (payload) => request('/api/admin/environments', { method: 'POST', body: JSON.stringify(payload) }),
+  adminUpdateEnvironment: (id, payload) => request(`/api/admin/environments/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  adminDeleteEnvironment: (id) => request(`/api/admin/environments/${id}`, { method: 'DELETE' }),
 
   // ── Admin: Module <-> Environment mapping (overrides + enable/disable) ────
   adminListModuleEnvironments: (moduleId) => request(`/api/admin/module-environments${moduleId ? `?moduleId=${moduleId}` : ''}`),

@@ -7,4 +7,8 @@ import java.util.List;
 public interface ApiModuleRepository extends JpaRepository<ApiModule, Long> {
 
     List<ApiModule> findByParentModuleId(Long parentModuleId);
+
+    List<ApiModule> findByProjectId(Long projectId);
+
+    long countByProjectId(Long projectId);
 }

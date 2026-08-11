@@ -3,6 +3,7 @@ package com.automationportal.profile;
 import com.automationportal.audit.*;
 import com.automationportal.auth.*;
 import com.automationportal.common.ApiResponse;
+import com.automationportal.common.ImageSniffer;
 import com.automationportal.users.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -64,7 +65,7 @@ public class ProfileController {
         // attacker-controlled (a spoofed "image/png" header on an .html/.svg payload is a
         // stored-XSS path once served back from /uploads/profiles/). Sniff the real magic
         // bytes and derive a fixed, safe extension from what the file actually is.
-        String extension = sniffImageExtension(file);
+        String extension = ImageSniffer.sniffExtension(file);
         if (extension == null) {
             throw new IllegalArgumentException("Only PNG, JPEG, GIF, or WEBP image files are allowed");
         }
@@ -84,31 +85,6 @@ public class ProfileController {
         userRepository.save(user);
         auditService.record(user, AuditAction.PROFILE_UPDATE, "Profile image updated", servletRequest);
         return ApiResponse.ok(Map.of("profileImagePath", urlPath));
-    }
-
-    /** Returns the file extension for a real PNG/JPEG/GIF/WEBP based on magic bytes, or null. */
-    private String sniffImageExtension(MultipartFile file) throws IOException {
-        byte[] header = new byte[12];
-        int read;
-        try (var in = file.getInputStream()) {
-            read = in.readNBytes(header, 0, header.length);
-        }
-        if (read >= 8 && (header[0] & 0xFF) == 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G'
-                && header[4] == 0x0D && header[5] == 0x0A && header[6] == 0x1A && header[7] == 0x0A) {
-            return ".png";
-        }
-        if (read >= 3 && (header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8 && (header[2] & 0xFF) == 0xFF) {
-            return ".jpg";
-        }
-        if (read >= 6 && header[0] == 'G' && header[1] == 'I' && header[2] == 'F' && header[3] == '8'
-                && (header[4] == '7' || header[4] == '9') && header[5] == 'a') {
-            return ".gif";
-        }
-        if (read >= 12 && header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
-                && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P') {
-            return ".webp";
-        }
-        return null;
     }
 
     @PostMapping("/email-change/request")
