@@ -1,25 +1,7 @@
-/**
- * SearchProviderRegistry.js
- * ─────────────────────────
- * Central provider manager.
- *
- * A "provider" is a plain object with the shape:
- *   {
- *     id:       string,           — unique identifier
- *     type:     PROVIDER_TYPE.*,  — 'static' | 'dynamic' | 'ai'
- *     priority: number,           — merge order (lower = earlier); default 50
- *     getItems: () => Item[] | Promise<Item[]>
- *     cacheTtlMs?: number         — for dynamic providers; default 30_000
- *   }
- *
- * Usage:
- *   searchProviderRegistry.register(automationProvider);
- *   const items = await searchProviderRegistry.getAllItems();
- */
 
 export class SearchProviderRegistry {
-  #providers  = new Map();
-  #dynCaches  = new Map(); // dynamic provider result caches
+  #providers = new Map();
+  #dynCaches = new Map(); // dynamic provider result caches
 
   /** Register a provider. Safe to call multiple times with the same id (replaces). */
   register(provider) {
@@ -61,7 +43,7 @@ export class SearchProviderRegistry {
   async #getProviderItems(provider) {
     if (provider.type === 'dynamic') {
       const cached = this.#dynCaches.get(provider.id);
-      const ttl    = provider.cacheTtlMs ?? 30_000;
+      const ttl = provider.cacheTtlMs ?? 30_000;
       if (cached && Date.now() - cached.ts < ttl) return cached.items;
 
       const items = await Promise.resolve(provider.getItems());

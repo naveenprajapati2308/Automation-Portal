@@ -1,15 +1,5 @@
-/**
- * searchActions.js
- * ────────────────
- * Lightweight action dispatcher for ACTION entity type results.
- *
- * Usage:
- *   // Register once at app startup:
- *   registerAction('auto-run', () => setAutomationPageAndHash('execution'));
- *
- *   // Dispatch from navigateFromSearch:
- *   dispatchSearchAction('auto-run', navContext);
- */
+
+
 
 const ACTION_HANDLERS = {};
 

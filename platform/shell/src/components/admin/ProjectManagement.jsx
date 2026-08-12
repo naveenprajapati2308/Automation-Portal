@@ -1,4 +1,4 @@
-import { FolderKanban, Trash2 } from 'lucide-react';
+import { FolderKanban, PauseCircle, PlayCircle, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { Panel, DataTable, ConfirmDialog } from '../shared/index.jsx';
@@ -31,6 +31,26 @@ export function ProjectManagement({ setNotice }) {
     }
   };
 
+  const suspend = async (p) => {
+    try {
+      await api.adminSuspendProject(p.id);
+      setNotice(`Workspace "${p.name}" suspended — its users can no longer log in.`);
+      load();
+    } catch (e) {
+      setNotice(e.message);
+    }
+  };
+
+  const activate = async (p) => {
+    try {
+      await api.adminActivateProject(p.id);
+      setNotice(`Workspace "${p.name}" activated.`);
+      load();
+    } catch (e) {
+      setNotice(e.message);
+    }
+  };
+
   const columns = useMemo(() => [
     { key: 'name', label: 'Project / Workspace', render: (v, p) => (<div><strong>{v}</strong><div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{p.projectCode} · {p.workspaceCode}</div></div>) },
     { key: 'tenantName', label: 'Tenant' },
@@ -42,9 +62,20 @@ export function ProjectManagement({ setNotice }) {
       key: 'actions',
       label: 'Actions',
       render: (_, p) => (
-        <button className="action-btn delete-btn" onClick={() => setDeleteTarget(p)} title="Delete workspace" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-          <Trash2 size={12} /> Delete
-        </button>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {p.status === 'SUSPENDED' ? (
+            <button className="action-btn enable-btn" onClick={() => activate(p)} title="Activate workspace" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <PlayCircle size={12} /> Activate
+            </button>
+          ) : (
+            <button className="action-btn disable-btn" onClick={() => suspend(p)} title="Suspend workspace" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <PauseCircle size={12} /> Suspend
+            </button>
+          )}
+          <button className="action-btn delete-btn" onClick={() => setDeleteTarget(p)} title="Delete workspace" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+            <Trash2 size={12} /> Delete
+          </button>
+        </div>
       )
     }
   ], []);

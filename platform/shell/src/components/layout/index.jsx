@@ -315,11 +315,15 @@ export function Breadcrumb({ items = [], rootLabel = 'Home', mid, pageTitle, onN
   }
 
   if (!pageTitle) return null;
-  const legacyItems = [
-    { label: rootLabel, onClick: onNavigateRoot },
-    ...(mid && mid.label !== pageTitle ? [{ label: mid.label, onClick: mid.onClick }] : []),
-    { label: pageTitle }
-  ];
+  // On the root page itself, rootLabel and pageTitle are the same string — don't render
+  // it twice ("Admin Dashboard > Admin Dashboard"); just show it once, non-clickable.
+  const legacyItems = rootLabel === pageTitle
+    ? [{ label: pageTitle }]
+    : [
+        { label: rootLabel, onClick: onNavigateRoot },
+        ...(mid && mid.label !== pageTitle ? [{ label: mid.label, onClick: mid.onClick }] : []),
+        { label: pageTitle }
+      ];
 
   return <Breadcrumb items={legacyItems} />;
 }

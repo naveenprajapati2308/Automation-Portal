@@ -12,9 +12,10 @@ import org.springframework.web.server.ResponseStatusException;
  *
  * docs/version2.2.md: Super Admin must never directly access a project workspace's operational
  * data — every regular (non-"/api/admin/**") endpoint now rejects a project-less caller instead
- * of treating null as "no restriction." Platform-level cross-project administration (module/
- * environment catalog management) stays available exclusively through the dedicated
- * ModuleAdminController / EnvironmentAdminController, not through these regular endpoints.
+ * of treating null as "no restriction." Platform-level cross-project administration (the module
+ * catalog) stays available exclusively through the dedicated ModuleAdminController, not through
+ * these regular endpoints. Environments have no such cross-project admin surface — each project
+ * manages its own through Workspace Settings.
  */
 @Service
 public class CurrentProjectService {

@@ -182,6 +182,8 @@ export const api = {
   adminRejectWorkspaceRequest: (id, reason) => request(`/api/admin/workspace-requests/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
   adminListProjects: () => request('/api/admin/projects'),
   adminDeleteProject: (id) => request(`/api/admin/projects/${id}`, { method: 'DELETE' }),
+  adminSuspendProject: (id) => request(`/api/admin/projects/${id}/suspend`, { method: 'PUT' }),
+  adminActivateProject: (id) => request(`/api/admin/projects/${id}/activate`, { method: 'PUT' }),
   adminListAuditLogs: () => request('/api/admin/audit-logs'),
 
   // ── Project Admin: manage users within their own project ───────────────────
@@ -282,12 +284,6 @@ export const api = {
   adminDeleteModule: (id) => request(`/api/admin/modules/${id}`, { method: 'DELETE' }),
   adminToggleModule: (id) => request(`/api/admin/modules/${id}/toggle`, { method: 'PATCH' }),
   adminListTestEngines: () => request('/api/admin/test-engines'),
-
-  // ── Admin: Environments (SUPER_ADMIN only, cross-project) ─────────────────
-  adminListEnvironments: () => request('/api/admin/environments'),
-  adminCreateEnvironment: (payload) => request('/api/admin/environments', { method: 'POST', body: JSON.stringify(payload) }),
-  adminUpdateEnvironment: (id, payload) => request(`/api/admin/environments/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  adminDeleteEnvironment: (id) => request(`/api/admin/environments/${id}`, { method: 'DELETE' }),
 
   // ── Admin: Module <-> Environment mapping (overrides + enable/disable) ────
   adminListModuleEnvironments: (moduleId) => request(`/api/admin/module-environments${moduleId ? `?moduleId=${moduleId}` : ''}`),

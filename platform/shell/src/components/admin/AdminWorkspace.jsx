@@ -17,7 +17,6 @@ import { Breadcrumb } from '../layout/index.jsx';
 import { AdminDashboardOverview } from './AdminDashboardOverview.jsx';
 import { UserManagement } from './UserManagement.jsx';
 import { RoleManagement } from './RoleManagement.jsx';
-import { EnvironmentsAdmin } from './EnvironmentsAdmin.jsx';
 import { ModuleManagement } from './ModuleManagement.jsx';
 import { PortalConfig } from './PortalConfig.jsx';
 import { ApiCollection } from './ApiCollection.jsx';
@@ -46,8 +45,8 @@ export function AdminSidebar({ activePage, onNavigate, logout }) {
       <div className="brand">
         <img className="brand-logo sidebar-logo" src={appLogo} alt="TESTRIX" />
         <div>
-          <strong>Administration</strong>
-          <span>Admin Dashboard</span>
+          <strong>TESTRIX</strong>
+          <span>Platform Control Center</span>
         </div>
       </div>
       <nav>
@@ -113,7 +112,7 @@ export function AdminSidebar({ activePage, onNavigate, logout }) {
 }
 
 // ── Admin Topbar — same slot as the main Topbar, swapped in for admin mode ──
-export function AdminTopbar({ pageTitle, notice, onNavigateRoot }) {
+export function AdminTopbar({ pageTitle, notice, onNavigateRoot, user, onNavigateProfile }) {
   return (
     <header className="topbar admin-topbar">
       <div>
@@ -126,6 +125,17 @@ export function AdminTopbar({ pageTitle, notice, onNavigateRoot }) {
           <Shield size={14} />
           Super Admin
         </div>
+        {user && (
+          <button className="tb-user-chip" onClick={onNavigateProfile} title="View profile">
+            {user.profileImagePath
+              ? <img className="tb-user-avatar" src={user.profileImagePath.startsWith('/') || user.profileImagePath.startsWith('http') ? user.profileImagePath : `/uploads/${user.profileImagePath}`} alt="" />
+              : <span className="tb-user-avatar">{(user.displayName || user.username || '?').trim().charAt(0).toUpperCase()}</span>}
+            <span className="tb-user-text">
+              <span className="tb-user-name">{user.displayName || user.username}</span>
+              <span className="tb-user-role">Super Admin</span>
+            </span>
+          </button>
+        )}
       </div>
     </header>
   );
@@ -138,7 +148,6 @@ export function AdminContent({ activePage, setActivePage, setNotice }) {
     <>
       {activePage === 'admin-dashboard' && <AdminDashboardOverview setNotice={setNotice} setActive={setActivePage} />}
       {activePage === 'user-management' && <UserManagement setNotice={setNotice} />}
-      {activePage === 'environments-config' && <EnvironmentsAdmin setNotice={setNotice} />}
       {activePage === 'module-management' && <ModuleManagement setNotice={setNotice} />}
       {activePage === 'portal-config' && <PortalConfig setNotice={setNotice} />}
       {activePage === 'role-management' && <RoleManagement setNotice={setNotice} />}
@@ -157,4 +166,4 @@ export function AdminContent({ activePage, setActivePage, setNotice }) {
   );
 }
 
-export const adminPageTitle = (activePage) => ADMIN_WORKSPACE_NAV_FLAT.find((i) => i.key === activePage)?.label ?? 'Administration';
+export const adminPageTitle = (activePage) => ADMIN_WORKSPACE_NAV_FLAT.find((i) => i.key === activePage)?.label ?? 'TESTRIX';

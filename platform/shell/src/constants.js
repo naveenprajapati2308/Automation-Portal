@@ -30,10 +30,12 @@ export const PERFORMANCE_NAV = [
   { key: 'runs', label: 'Run History', icon: 'History', path: '/runs' }
 ];
 
-// Module & Environment administration (which Selenium/Playwright modules exist, which
-// environments they run in, per-combo overrides) lives exclusively under the Admin Workspace's
-// own nav (ADMIN_WORKSPACE_NAV below, automation-admin -> module-management / environments-config)
-// — Super Admin never works inside the regular product sidebar (docs/version2.2.md isolation).
+// Module administration (which Selenium/Playwright modules exist, which environments they run
+// in, per-combo overrides) lives exclusively under the Admin Workspace's own nav
+// (ADMIN_WORKSPACE_NAV below, automation-admin -> module-management) — Super Admin never works
+// inside the regular product sidebar (docs/version2.2.md isolation). Cross-project environment
+// oversight used to have its own separate admin page here too; removed since every project
+// already self-manages its own environments via Workspace Settings.
 export const SIDEBAR_NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
   { key: 'automation', label: 'Automation', icon: 'Play', children: AUTOMATION_NAV },
@@ -55,7 +57,6 @@ export const ADMIN_WORKSPACE_NAV = [
     label: 'Automation',
     icon: 'Play',
     children: [
-      { key: 'environments-config', label: 'Environments', icon: 'Globe2' },
       { key: 'module-management', label: 'Module Management', icon: 'Package' },
       { key: 'portal-config', label: 'System Config', icon: 'Sliders' }
     ]

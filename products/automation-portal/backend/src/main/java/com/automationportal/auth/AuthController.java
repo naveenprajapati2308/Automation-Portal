@@ -116,7 +116,9 @@ public class AuthController {
         }
         List<ProjectResolutionService.ResolvedProject> projects = projectResolutionService.activeProjects(user.getId());
         if (projects.isEmpty()) {
-            throw new IllegalArgumentException("Your account is not assigned to any workspace. Contact your administrator.");
+            throw new IllegalArgumentException(projectResolutionService.hasAnySuspendedMembership(user.getId())
+                ? "Your workspace has been suspended. Contact your administrator."
+                : "Your account is not assigned to any workspace. Contact your administrator.");
         }
         if (projects.size() == 1) {
             return withProjectResponse(user, refreshTokenValue, projects.get(0));

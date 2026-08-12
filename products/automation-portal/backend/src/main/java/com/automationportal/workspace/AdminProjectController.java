@@ -1,8 +1,12 @@
 package com.automationportal.workspace;
 
+import com.automationportal.audit.AuditAction;
+import com.automationportal.audit.AuditService;
+import com.automationportal.auth.AuthenticatedUserService;
 import com.automationportal.common.ApiResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,16 +25,45 @@ public class AdminProjectController {
     private final ProjectRepository projectRepository;
     private final ProjectModuleRepository projectModuleRepository;
     private final ProjectUserRepository projectUserRepository;
+    private final AuditService auditService;
+    private final AuthenticatedUserService authenticatedUserService;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public AdminProjectController(ProjectRepository projectRepository,
                                   ProjectModuleRepository projectModuleRepository,
-                                  ProjectUserRepository projectUserRepository) {
+                                  ProjectUserRepository projectUserRepository,
+                                  AuditService auditService,
+                                  AuthenticatedUserService authenticatedUserService) {
         this.projectRepository = projectRepository;
         this.projectModuleRepository = projectModuleRepository;
         this.projectUserRepository = projectUserRepository;
+        this.auditService = auditService;
+        this.authenticatedUserService = authenticatedUserService;
+    }
+
+    // Suspending blocks login/access for every one of this workspace's users (see
+    // ProjectResolutionService.activeProjects) — reversible via /activate at any time, so unlike
+    // /delete there's no "last remaining workspace" guard here.
+    @PutMapping("/{id}/suspend")
+    public ApiResponse<ProjectDtos.ProjectSummary> suspend(@PathVariable Long id, HttpServletRequest servletRequest) {
+        Project project = findProject(id);
+        project.setStatus(ProjectStatus.SUSPENDED);
+        projectRepository.save(project);
+        auditService.record(authenticatedUserService.currentUser(), AuditAction.WORKSPACE_SUSPENDED,
+            "Workspace \"" + project.getName() + "\" suspended", servletRequest);
+        return ApiResponse.ok(summarize(project));
+    }
+
+    @PutMapping("/{id}/activate")
+    public ApiResponse<ProjectDtos.ProjectSummary> activate(@PathVariable Long id, HttpServletRequest servletRequest) {
+        Project project = findProject(id);
+        project.setStatus(ProjectStatus.ACTIVE);
+        projectRepository.save(project);
+        auditService.record(authenticatedUserService.currentUser(), AuditAction.WORKSPACE_REACTIVATED,
+            "Workspace \"" + project.getName() + "\" reactivated", servletRequest);
+        return ApiResponse.ok(summarize(project));
     }
 
     // Every table across all three products (automation-portal, api-testing, performance-testing)

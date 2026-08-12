@@ -4356,6 +4356,20 @@ button.tb-chip:hover {
   cursor: pointer;
 }
 
+.link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
 .soon {
   font-size: 11px;
   font-weight: 600;

@@ -432,7 +432,7 @@ export default function App() {
   // corrected back to Admin right after login rather than briefly showing workspace content.
   useEffect(() => {
     if (!authed) return;
-    if (isSuperAdmin(auth.get()) && page !== 'admin') {
+    if (isSuperAdmin(auth.get()) && page !== 'admin' && page !== 'profile') {
       setPage('admin');
       window.location.hash = `#/admin/${ADMIN_PAGE_KEYS.has(adminPage) ? adminPage : 'admin-dashboard'}`;
     }
@@ -443,10 +443,10 @@ export default function App() {
   // Guards on authed so actions are only registered for a logged-in session.
   useEffect(() => {
     if (!authed) return;
-    registerAction('auto-run',            () => setAutomationPage('execution'));
-    registerAction('api-create',          () => { setApitestPage('regular-apis'); setPage('apitest'); });
-    registerAction('api-schedule-create', () => { setApitestPage('scheduler');    setPage('apitest'); });
-    registerAction('admin-create-user',   () => { setPage('admin'); setAdminPage('user-management'); });
+    registerAction('auto-run', () => setAutomationPage('execution'));
+    registerAction('api-create', () => { setApitestPage('regular-apis'); setPage('apitest'); });
+    registerAction('api-schedule-create', () => { setApitestPage('scheduler'); setPage('apitest'); });
+    registerAction('admin-create-user', () => { setPage('admin'); setAdminPage('user-management'); });
   }, [authed]);
 
   // ── Document title sync ─────────────────────────────────────────────────────
@@ -556,15 +556,15 @@ export default function App() {
     setTimeout(() => {
       setSearchNavLoading(false);
 
-      if (nav.page === 'dashboard')           goDashboard();
-      else if (nav.page === 'automation')     setAutomationPageAndHash(nav.sub);
-      else if (nav.page === 'apitest')        setApitestPageAndHash(nav.sub);
-      else if (nav.page === 'perf')           setPerfPageAndHash(nav.sub);
+      if (nav.page === 'dashboard') goDashboard();
+      else if (nav.page === 'automation') setAutomationPageAndHash(nav.sub);
+      else if (nav.page === 'apitest') setApitestPageAndHash(nav.sub);
+      else if (nav.page === 'perf') setPerfPageAndHash(nav.sub);
       else if (nav.page === 'admin' && superAdmin) {
         setPage('admin');
         setAdminPageAndHash(nav.sub);
       }
-      else if (nav.page === 'profile')        goProfile();
+      else if (nav.page === 'profile') goProfile();
 
       if (nav.anchor) {
         requestAnimationFrame(() => {
@@ -597,18 +597,11 @@ export default function App() {
     }
   };
 
-  // ── Dynamic Breadcrumbs & Page Titles ──────────────────────────────────────
-  // One entry per embedded product — each one's NAV array (constants.js) is the
-  // single source of truth for its sub-page labels, so adding a future product
-  // only means adding one entry here, not another copy-pasted if/else branch.
-  // Home + Dashboard is the platform root, and the one and only page named
-  // "Dashboard"; every product's own landing sub-page is labeled "Overview"
-  // (its `dashboard` NAV key), never "Dashboard", so the hierarchy can't be
-  // misread as if a product's landing page were a sibling of the platform root.
+
   const MODULE_CONFIG = {
     automation: { label: 'Automation', nav: AUTOMATION_NAV, activeSubPage: automationPage, goOverview: () => setAutomationPageAndHash('dashboard') },
-    apitest:    { label: 'API Testing', nav: API_TESTING_NAV, activeSubPage: apitestPage, goOverview: () => setApitestPageAndHash('dashboard') },
-    perf:       { label: 'Performance', nav: PERFORMANCE_NAV, activeSubPage: perfPage, goOverview: () => setPerfPageAndHash('dashboard') },
+    apitest: { label: 'API Testing', nav: API_TESTING_NAV, activeSubPage: apitestPage, goOverview: () => setApitestPageAndHash('dashboard') },
+    perf: { label: 'Performance', nav: PERFORMANCE_NAV, activeSubPage: perfPage, goOverview: () => setPerfPageAndHash('dashboard') },
   };
 
   let pageTitle = 'Dashboard';
@@ -669,14 +662,12 @@ export default function App() {
 
   const apiTrendPoints = toTrendChartData(apiTrend);
 
-  // Show the Testrix loader while the dashboard is fetching its first data.
-  // Once either summary arrives (or fails) the loader clears — same UX as
-  // Automation and API Testing which use FullScreenLoader on their iframes.
+  
   const dashboardLoading = authed && autoSummary === null && apiSummary === null;
 
   const dashboardContent = (
     <div className={!dashboardLoading && dashboardRefreshing ? 'dr-refreshing' : ''}>
-      <p className="dash-subtitle">One place for every testing product — automation, API and performance.</p>
+      <p className="dash-subtitle">Testrix the ultimate testing platform for better development and testing.</p>
 
       <section className="cards overview-cards">
         <OverviewCard
@@ -989,6 +980,8 @@ export default function App() {
             pageTitle={pageTitle}
             notice={adminNotice}
             onNavigateRoot={() => setAdminPageAndHash('admin-dashboard')}
+            user={user}
+            onNavigateProfile={goProfile}
           />
         ) : (
           <Topbar
@@ -1005,7 +998,9 @@ export default function App() {
           />
         )}
       >
-        {superAdmin ? (
+        {superAdmin && page === 'profile' ? (
+          <Profile setNotice={notify} onProfileSaved={updateSessionUser} />
+        ) : superAdmin ? (
           <AdminContent
             activePage={adminPage}
             setActivePage={setAdminPageAndHash}

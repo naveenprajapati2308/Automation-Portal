@@ -33,6 +33,10 @@ public class ProjectResolutionService {
     public List<ResolvedProject> activeProjects(Long userId) {
         List<ProjectUser> rows = projectUserRepository.findByUserIdAndStatus(userId, ProjectUserStatus.ACTIVE);
         Map<Long, List<ProjectUser>> byProject = rows.stream()
+            // A suspended/archived workspace must not be selectable or auto-selected — this is
+            // the one place login, /my-projects, and /select-project all resolve through, so
+            // filtering here is enough to lock every one of them out at once.
+            .filter(pu -> pu.getProject().getStatus() == ProjectStatus.ACTIVE)
             .collect(Collectors.groupingBy(pu -> pu.getProject().getId()));
         return byProject.values().stream()
             .map(group -> new ResolvedProject(
@@ -42,6 +46,15 @@ public class ProjectResolutionService {
             ))
             .sorted(Comparator.comparing(rp -> rp.project().getName()))
             .toList();
+    }
+
+    /** True if the user has at least one membership whose project is currently non-ACTIVE —
+     * lets a caller give a specific "your workspace was suspended" message instead of the
+     * generic "not assigned to any workspace" one when {@link #activeProjects} comes back empty. */
+    @Transactional(readOnly = true)
+    public boolean hasAnySuspendedMembership(Long userId) {
+        return projectUserRepository.findByUserIdAndStatus(userId, ProjectUserStatus.ACTIVE).stream()
+            .anyMatch(pu -> pu.getProject().getStatus() != ProjectStatus.ACTIVE);
     }
 
     public ProjectDtos.MyProjectSummary toSummary(ResolvedProject resolved) {

@@ -41,8 +41,8 @@ public class EnvironmentController {
     }
 
     // Project-scoped only — a project-less caller (Super Admin) is rejected (403) rather than
-    // shown every project's environments. Super Admin manages environments across projects via
-    // the dedicated EnvironmentAdminController instead (docs/version2.2.md isolation).
+    // shown every project's environments. Environments are each project's own responsibility,
+    // managed by its Project Admin via Workspace Settings (docs/version2.2.md isolation).
     @GetMapping
     public ApiResponse<List<EnvironmentSummaryDto>> list() {
         Long projectId = currentProjectService.requireProjectId();
@@ -80,7 +80,7 @@ public class EnvironmentController {
     // Write access (create/update/delete) is the caller's own project's Project Admin acting
     // only on their own project's environments — enforced in code via ProjectContextHolder
     // rather than a blanket Spring Security rule, same pattern as ProjectUserController. Super
-    // Admin (no project context) uses EnvironmentAdminController instead.
+    // Admin has no project context and is rejected here; there's no cross-project equivalent.
     @PostMapping
     public ApiResponse<EnvironmentEntity> create(@RequestBody EnvironmentEntity entity) {
         if (entity.getCode() == null || entity.getCode().trim().isEmpty()) {
