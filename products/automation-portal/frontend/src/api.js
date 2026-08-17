@@ -167,6 +167,21 @@ const request = async (path, options = {}, retryCount = 0) => {
 
 export const auth = authStore;
 
+// The access token already carries the caller's projectRoles claim (JwtService.createProjectAccessToken)
+// — decoding it client-side avoids a round trip just to answer "is this user a Project Admin?"
+// (used to gate the Automation Setup Wizard). JWTs are signed, not encrypted, so reading a claim
+// out of a token this app already holds carries no new trust — never anything this app couldn't
+// already infer from what the backend accepted.
+export const decodeProjectRoles = (token) => {
+  if (!token) return [];
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return Array.isArray(payload.projectRoles) ? payload.projectRoles : [];
+  } catch {
+    return [];
+  }
+};
+
 export const api = {
   // ── Auth ─────────────────────────────────────────────────────────────────
   login: (payload) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) }),
@@ -225,9 +240,44 @@ export const api = {
   updateConfiguration: (key, payload) => request(`/api/configurations/${key}`, { method: 'PUT', body: JSON.stringify(payload) }),
 
   modules: (framework) => request(`/api/modules${framework ? `?framework=${framework}` : ''}`),
+  createModule: (payload) => request('/api/modules', { method: 'POST', body: JSON.stringify(payload) }),
+  enableModuleForEnvironment: (moduleId, environmentId) => request(`/api/modules/${moduleId}/environments/${environmentId}/enable`, { method: 'POST' }),
   moduleEnvironments: (moduleId) => request(`/api/modules/${moduleId}/environments`),
   moduleEnvironmentOptions: (moduleId, environmentId) => request(`/api/modules/${moduleId}/environments/${environmentId}/options`),
   moduleTags: (moduleId) => request(`/api/modules/${moduleId}/tags`),
+
+  // ── Test Engines (Automation Setup Wizard) ────────────────────────────────
+  testEngines: () => request('/api/test-engines'),
+  testEngineConfig: () => request('/api/test-engines/config'),
+  registerTestEngine: (payload) => request('/api/test-engines', { method: 'POST', body: JSON.stringify(payload) }),
+  updateTestEngine: (id, payload) => request(`/api/test-engines/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  // Raw fetch, not the JSON-envelope `request()` helper — this endpoint streams a zip file body.
+  downloadEngineStarterKit: async (id, apiKey) => {
+    const session = authStore.get();
+    const response = await fetch(`${API_BASE}/api/test-engines/${id}/starter-kit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {})
+      },
+      body: JSON.stringify({ apiKey: apiKey || null, portalUrl: `${window.location.origin}${API_BASE}` })
+    });
+    if (!response.ok) {
+      const text = await response.text().catch(() => '');
+      throw new Error(text || 'Failed to download starter kit');
+    }
+    const blob = await response.blob();
+    const match = (response.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+    const filename = match ? match[1] : 'testrix-starter-kit.zip';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 
   // ── Admin: Module Management (SUPER_ADMIN only) ───────────────────────────
   adminListModules: () => request('/api/admin/modules'),

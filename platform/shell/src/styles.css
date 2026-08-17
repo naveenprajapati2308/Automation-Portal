@@ -1560,10 +1560,33 @@ tr:last-child td {
 }
 
 /* Bright Glassmorphism Card */
-.auth-panel-wide {
-  width: min(720px, 100%);
+/* Combined-class selector so this reliably beats .auth-panel's own width rule
+   regardless of source order (both are single-class selectors otherwise, and
+   .auth-panel is declared later in this file — this was silently losing). */
+.auth-panel.auth-panel-wide {
+  width: min(860px, 100%);
   max-height: 90vh;
   overflow-y: auto;
+}
+
+/* Request Workspace form: header stays pinned, only the form body scrolls */
+.auth-panel.ws-request-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ws-request-header {
+  flex-shrink: 0;
+  padding: 32px 32px 0;
+}
+
+.ws-request-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 32px 32px;
 }
 
 .ws-request-section-label {
@@ -1612,6 +1635,7 @@ tr:last-child td {
 
 /* ── Request Workspace — email OTP verification ─────────────────────────── */
 .ws-email-verify-field {
+  grid-column: 1 / -1;
   display: grid;
   gap: 6px;
   margin-bottom: 14px;
@@ -1708,6 +1732,91 @@ tr:last-child td {
   color: var(--success-text);
   border-radius: 8px;
   padding: 8px 12px;
+}
+
+/* ── Workspace request: submitted confirmation ─────────────────────────────
+   Was reusing .confirm-icon (a destructive-confirm-dialog style — pink/red,
+   built for "are you sure you want to delete this" prompts), so a successful
+   submission visually read as a warning. Dedicated success styling instead. */
+.ws-submitted {
+  text-align: center;
+}
+
+.ws-submitted-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--success-bg-soft);
+  border: 1px solid var(--success-border-soft);
+  color: var(--success-text);
+  margin-bottom: 18px;
+  animation: ws-submitted-pop 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes ws-submitted-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ws-submitted h3 {
+  margin: 0 0 10px;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text-primary, #17202a);
+}
+
+.ws-submitted-lede {
+  margin: 0 0 22px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.ws-submitted-next {
+  list-style: none;
+  margin: 0 0 26px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--bg-page);
+  border: 1px solid var(--border, rgba(15, 23, 42, 0.08));
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ws-submitted-next li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.ws-submitted-next li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.ws-submitted .primary-action {
+  width: 100%;
 }
 
 .ws-picker-card {

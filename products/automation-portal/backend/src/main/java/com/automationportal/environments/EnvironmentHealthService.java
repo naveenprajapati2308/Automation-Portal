@@ -31,11 +31,18 @@ public class EnvironmentHealthService {
         this.executionRepository = executionRepository;
     }
 
-    public List<Map<String, Object>> health() {
-        List<Execution> allExecutions = executionRepository.findAll();
+    /**
+     * Scoped to one project — this used to be a platform-wide findAll() (every project's
+     * environments AND executions, including raw configJson/credentials, all mixed together),
+     * which is why it was locked to SUPER_ADMIN-only at the security layer. That made it
+     * unreachable for the audience it's actually for: a project's own Environments page, used by
+     * its Project Admin. Scoping it here is what makes it safe to open back up to project users.
+     */
+    public List<Map<String, Object>> health(Long projectId) {
+        List<Execution> allExecutions = executionRepository.findByProjectId(projectId);
         List<Map<String, Object>> result = new ArrayList<>();
 
-        for (EnvironmentEntity env : environmentRepository.findAll()) {
+        for (EnvironmentEntity env : environmentRepository.findByProjectId(projectId)) {
             Map<String, Object> row = new HashMap<>();
             row.put("id", env.getId());
             row.put("code", env.getCode());

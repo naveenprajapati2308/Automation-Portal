@@ -32,6 +32,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -88,21 +90,56 @@ public class ExecutionWorker {
 
     @Scheduled(fixedDelay = 5000)
     public void pollQueue() {
-        // Enforce sequential execution: if there's any running execution, wait
-        List<Execution> runningList = executionRepository.findByStatus(ExecutionStatus.RUNNING);
-        if (!runningList.isEmpty()) {
-            return;
-        }
-
-        // Find the oldest queued execution
         List<Execution> queuedList = executionRepository.findByStatus(ExecutionStatus.QUEUED);
         if (queuedList.isEmpty()) {
             return;
         }
 
-        // Pick the oldest queued execution
-        Execution execution = queuedList.get(0);
-        processExecution(execution);
+        // This used to be "if ANY execution anywhere is RUNNING, submit nothing" — a
+        // platform-wide, one-execution-at-a-time gate that blocked every other project behind
+        // whichever one happened to be running, regardless of project. That's the actual root
+        // cause of "only one execution at a time" (this check runs *before* anything even
+        // reaches the Execution Manager's own, already-project-aware dispatch queue). Same fix
+        // shape as QueueProcessor's dispatchKey guard: two different projects' framework
+        // directories can't collide, so they may submit and run concurrently; two runs sharing
+        // the same directory (same project, or two legacy jobs on the same shared checkout)
+        // still can't, so they still serialize — correctly, not as a side effect of a blanket
+        // gate.
+        Set<String> busyKeys = executionRepository.findByStatus(ExecutionStatus.RUNNING).stream()
+                .map(this::resolveDispatchKey)
+                .collect(Collectors.toSet());
+
+        // Oldest-first, same as before; submit the first queued execution whose key isn't
+        // already busy — one submission per tick, same cadence as before, just no longer
+        // blocked by an unrelated project's run.
+        for (Execution execution : queuedList) {
+            if (!busyKeys.contains(resolveDispatchKey(execution))) {
+                processExecution(execution);
+                return;
+            }
+        }
+    }
+
+    /**
+     * Mirrors the resolution processExecution() does for real dispatch, kept minimal (no side
+     * effects, no disabled-engine check) since this only needs a stable identity for the
+     * pollQueue() concurrency guard above. Same key shape as QueueProcessor's own guard: the
+     * engine's frameworkPath when one is linked, else the shared checkout identity for today's
+     * legacy (no Test Engine) modules.
+     */
+    private String resolveDispatchKey(Execution execution) {
+        if (execution.getExecutionType() == ExecutionType.MODULE && execution.getModuleCode() != null) {
+            Optional<ModuleEntity> moduleOpt = moduleRepository
+                    .findByCodeAndRunnerType(execution.getModuleCode().toUpperCase(), execution.getFramework());
+            if (moduleOpt.isPresent() && moduleOpt.get().getTestEngineId() != null) {
+                TestEngine engine = testEngineRepository.findById(moduleOpt.get().getTestEngineId()).orElse(null);
+                if (engine != null && engine.getFrameworkPath() != null && !engine.getFrameworkPath().isBlank()) {
+                    return engine.getFrameworkPath();
+                }
+            }
+        }
+        String framework = execution.getFramework();
+        return "LEGACY_SHARED_" + (framework == null ? "" : framework.toUpperCase());
     }
 
     public void cancelExecution(Long id) {
@@ -213,12 +250,16 @@ public class ExecutionWorker {
             // at dispatch time (docs/test-engine-integration-architecture.md §3.5) — the engine's
             // own environment already holds its own key from the one-time registration handoff.
             String testEngineCode = engine != null ? engine.getBusinessId() : null;
+            // Threads test_engines.framework_path through so this job runs against the engine's
+            // own project-specific framework directory (under PROJECT_FRAMEWORKS_ROOT) instead of
+            // the one static, shared checkout — null/blank preserves today's legacy behavior.
+            String frameworkPath = engine != null ? engine.getFrameworkPath() : null;
             // Map request payload matching EM ExecutionJob entity
             String jsonPayload = String.format(
-                    "{\"jobId\":\"%s\",\"executionId\":%d,\"suiteXml\":\"%s\",\"framework\":\"%s\",\"browser\":\"%s\",\"priority\":\"MEDIUM\",\"maxRetries\":0,\"timeoutMinutes\":%d,\"submittedBy\":\"admin\",\"envConfigJson\":%s,\"tagFilter\":%s,\"testEngineCode\":%s}",
+                    "{\"jobId\":\"%s\",\"executionId\":%d,\"suiteXml\":\"%s\",\"framework\":\"%s\",\"browser\":\"%s\",\"priority\":\"MEDIUM\",\"maxRetries\":0,\"timeoutMinutes\":%d,\"submittedBy\":\"admin\",\"envConfigJson\":%s,\"tagFilter\":%s,\"testEngineCode\":%s,\"frameworkPath\":%s}",
                     execution.getExecutionCode(), execution.getId(), xmlFileName, framework, browser, timeoutMinutes,
                     objectMapper.writeValueAsString(envConfigJson), objectMapper.writeValueAsString(execution.getTagFilter()),
-                    objectMapper.writeValueAsString(testEngineCode)
+                    objectMapper.writeValueAsString(testEngineCode), objectMapper.writeValueAsString(frameworkPath)
             );
 
             HttpRequest request = HttpRequest.newBuilder()
@@ -387,7 +428,7 @@ public class ExecutionWorker {
      */
     public void copyPlaywrightArtifacts(Execution execution) {
         try {
-            String playwrightPath = properties.getPlaywrightPath();
+            String playwrightPath = resolvePlaywrightPath(execution);
             if (playwrightPath == null || playwrightPath.isBlank()) {
                 log.warn("portal.automation.playwright-path is not configured — skipping artifact copy for execution: {}", execution.getExecutionCode());
                 return;
@@ -436,6 +477,25 @@ public class ExecutionWorker {
         } catch (Exception e) {
             log.error("Failed to copy Playwright artifacts for execution: {}", execution.getExecutionCode(), e);
         }
+    }
+
+    /**
+     * Mirrors the dispatch-time resolution in processExecution() (engine.frameworkPath under
+     * PROJECT_FRAMEWORKS_ROOT beats the one static, shared checkout) so artifact copy reads from
+     * the same directory the run actually executed in — otherwise a project-specific run would
+     * dispatch correctly but silently pull artifacts from the wrong (shared) checkout instead.
+     */
+    private String resolvePlaywrightPath(Execution execution) {
+        if (execution.getTestEngineId() != null) {
+            TestEngine engine = testEngineRepository.findById(execution.getTestEngineId()).orElse(null);
+            if (engine != null && engine.getFrameworkPath() != null && !engine.getFrameworkPath().isBlank()) {
+                String root = properties.getProjectFrameworksRoot();
+                if (root != null && !root.isBlank()) {
+                    return Path.of(root, engine.getFrameworkPath()).toString();
+                }
+            }
+        }
+        return properties.getPlaywrightPath();
     }
 
     private void waitForFile(File file, int maxAttempts, long delayMs) {

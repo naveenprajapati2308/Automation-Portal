@@ -71,6 +71,12 @@ public class ExecutionJob {
     @Column(name = "test_engine_code", length = 32)
     private String testEngineCode;
 
+    /** The engine's project-specific framework subfolder (test_engines.framework_path), relative
+     *  to PROJECT_FRAMEWORKS_ROOT — set only when the resolved Test Engine has one configured.
+     *  Null means unchanged legacy behavior: run against the one static, shared framework path. */
+    @Column(name = "framework_path", length = 500)
+    private String frameworkPath;
+
     // Getters and Setters
     public String getJobId() { return jobId; }
     public void setJobId(String jobId) { this.jobId = jobId; }
@@ -128,4 +134,7 @@ public class ExecutionJob {
 
     public String getTestEngineCode() { return testEngineCode; }
     public void setTestEngineCode(String testEngineCode) { this.testEngineCode = testEngineCode; }
+
+    public String getFrameworkPath() { return frameworkPath; }
+    public void setFrameworkPath(String frameworkPath) { this.frameworkPath = frameworkPath; }
 }

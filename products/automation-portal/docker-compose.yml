@@ -21,6 +21,7 @@ services:
       PORTAL_AUTOMATION_ARTIFACTS_ROOT: /app/artifacts
       PORTAL_AUTOMATION_REPOSITORY_PATH: /app/framework
       PORTAL_AUTOMATION_PLAYWRIGHT_PATH: /app/playwright-framework
+      PORTAL_AUTOMATION_PROJECT_FRAMEWORKS_ROOT: /app/project-frameworks
       PORTAL_EXECUTION_MANAGER_URL: http://automation-execution-manager:8090
       PORTAL_ARTIFACT_SERVICE_URL: http://automation-report-artifacts:9091
       LOGGING_FILE_NAME: /app/logs/automation-portal.log
@@ -47,6 +48,11 @@ services:
       # of test-results/ once a run completes (see ExecutionWorker.copyPlaywrightArtifacts) —
       # same container path as automation-framework-runner so paths need no translation.
       - "${AUTOMATION_PLAYWRIGHT_PATH:-D:/playwright-js}:/app/playwright-framework:ro"
+      # One shared parent mount, one subfolder per project's own framework (test_engines
+      # .framework_path is just the subfolder name) — adding a new project's framework needs a
+      # new host subfolder, never a docker-compose edit. Read-only here for the same reason as
+      # the playwright-framework mount above (artifact copy only, never a write).
+      - "${PROJECT_FRAMEWORKS_ROOT:-D:/testrix-project-frameworks}:/app/project-frameworks:ro"
     networks:
       - testrix
 
@@ -63,19 +69,32 @@ services:
       EM_DB_URL: jdbc:mysql://testrix-mysql:3306/testrix_platform?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       EM_DB_USER: root
       EM_DB_PASS: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD must be set in .env}
-      EM_RUNNER_URL: http://automation-framework-runner:9090
+      # Two named runner instances (below) instead of one — QueueProcessor.syncRunners() upserts
+      # one RunnerRegistry row per URL here on every boot and dispatches to whichever is IDLE, so
+      # two different projects' executions can run at the same time instead of one queuing behind
+      # the other. EM_RUNNER_URL stays set (used as the single-runner fallback if this list is
+      # ever cleared) but EM_RUNNER_URLS is what's actually used while both instances exist.
+      EM_RUNNER_URL: http://automation-framework-runner-1:9090
+      EM_RUNNER_URLS: http://automation-framework-runner-1:9090,http://automation-framework-runner-2:9090
       EM_PORTAL_BACKEND_URL: http://automation-portal-backend:8080
       EM_PORTAL_API_KEY: ${PORTAL_EVENTS_API_KEY:?PORTAL_EVENTS_API_KEY must be set in .env}
-      EM_MAX_CONCURRENT: 1
+      # Matches the 2 runner instances below. QueueProcessor never dispatches two jobs for the
+      # same project/framework-path at once regardless of this number (see its dispatchKey
+      # guard) — this only bounds how many DIFFERENT projects can run truly in parallel.
+      EM_MAX_CONCURRENT: 2
       EM_TIMEOUT_MINUTES: 120
     networks:
       - testrix
 
-  automation-framework-runner:
+  # Two named instances instead of one (see EM_RUNNER_URLS above) — identical config apart from
+  # container_name/hostname, so QueueProcessor can dispatch two different projects' executions
+  # to them at the same time. Adding a third later means copying this block again and appending
+  # its URL to EM_RUNNER_URLS — no other file changes.
+  automation-framework-runner-1:
     build:
       context: ./framework-runner
       dockerfile: Dockerfile
-    container_name: automation-framework-runner
+    container_name: automation-framework-runner-1
     restart: unless-stopped
     # Playwright launches real Chrome as a child of the java process, which runs as PID 1
     # (no init system otherwise). Orphaned grandchildren (chrome_crashpad, node helpers) never
@@ -102,6 +121,7 @@ services:
       RUNNER_PORT: 9090
       EXECUTION_MANAGER_URL: http://automation-execution-manager:8090
       PLAYWRIGHT_FRAMEWORK_PATH: /app/playwright-framework
+      PROJECT_FRAMEWORKS_ROOT: /app/project-frameworks
     volumes:
       - "${AUTOMATION_FRAMEWORK_REPO_PATH:-D:/New folder/MPHIDB}:/app/framework"
       - "${AUTOMATION_PLAYWRIGHT_PATH:-D:/playwright-js}:/app/playwright-framework"
@@ -109,6 +129,40 @@ services:
       # container gets a Linux-native node_modules instead of the Windows host's (see
       # entrypoint.sh's `npm ci` step, and the Dockerfile note on why it's pre-chowned).
       - playwright_node_modules:/app/playwright-framework/node_modules
+      # One shared parent mount, one subfolder per project's own framework — see the identical
+      # mount + comment on automation-portal-backend above. Read-write here (unlike the
+      # backend's read-only copy): this container is what actually npm-installs and executes
+      # inside each project's subfolder.
+      - "${PROJECT_FRAMEWORKS_ROOT:-D:/testrix-project-frameworks}:/app/project-frameworks"
+    networks:
+      - testrix
+
+  automation-framework-runner-2:
+    build:
+      context: ./framework-runner
+      dockerfile: Dockerfile
+    container_name: automation-framework-runner-2
+    restart: unless-stopped
+    init: true
+    depends_on:
+      - automation-portal-backend
+    cap_add:
+      - SYS_ADMIN
+    shm_size: '2gb'
+    environment:
+      FRAMEWORK_PATH: /app/framework
+      MAVEN_CMD: mvn
+      RUNNER_PORT: 9090
+      EXECUTION_MANAGER_URL: http://automation-execution-manager:8090
+      PLAYWRIGHT_FRAMEWORK_PATH: /app/playwright-framework
+      PROJECT_FRAMEWORKS_ROOT: /app/project-frameworks
+    volumes:
+      - "${AUTOMATION_FRAMEWORK_REPO_PATH:-D:/New folder/MPHIDB}:/app/framework"
+      - "${AUTOMATION_PLAYWRIGHT_PATH:-D:/playwright-js}:/app/playwright-framework"
+      # Separate named volume from runner-1's — two containers must never share one
+      # node_modules mount (concurrent npm-installed native bindings/writes would corrupt it).
+      - playwright_node_modules_2:/app/playwright-framework/node_modules
+      - "${PROJECT_FRAMEWORKS_ROOT:-D:/testrix-project-frameworks}:/app/project-frameworks"
     networks:
       - testrix
 
@@ -139,3 +193,5 @@ volumes:
     name: automation_portal_artifacts
   playwright_node_modules:
     name: playwright_node_modules
+  playwright_node_modules_2:
+    name: playwright_node_modules_2

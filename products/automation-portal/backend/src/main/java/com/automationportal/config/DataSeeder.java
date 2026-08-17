@@ -4,6 +4,7 @@ import com.automationportal.environments.EnvironmentEntity;
 import com.automationportal.environments.EnvironmentRepository;
 import com.automationportal.modules.ModuleSyncService;
 import com.automationportal.users.*;
+import com.automationportal.workspace.CurrentProjectService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,17 +18,20 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final ModuleSyncService moduleSyncService;
     private final EnvironmentRepository environmentRepository;
+    private final CurrentProjectService currentProjectService;
     private final PasswordEncoder passwordEncoder;
     private final String superAdminSeedPassword;
     private final String superAdminEmail;
 
     public DataSeeder(UserRepository userRepository, ModuleSyncService moduleSyncService,
-                      EnvironmentRepository environmentRepository, PasswordEncoder passwordEncoder,
+                      EnvironmentRepository environmentRepository, CurrentProjectService currentProjectService,
+                      PasswordEncoder passwordEncoder,
                       @Value("${portal.superadmin.seed-password:password}") String superAdminSeedPassword,
                       @Value("${portal.superadmin.email}") String superAdminEmail) {
         this.userRepository = userRepository;
         this.moduleSyncService = moduleSyncService;
         this.environmentRepository = environmentRepository;
+        this.currentProjectService = currentProjectService;
         this.passwordEncoder = passwordEncoder;
         this.superAdminSeedPassword = superAdminSeedPassword;
         this.superAdminEmail = superAdminEmail;
@@ -123,9 +127,17 @@ public class DataSeeder implements CommandLineRunner {
         moduleSyncService.upsert("ARCHITECT_LLP",            "Architect Empanelment - LLP",             "tests/specs/mphidb/architect/llp-empanelment.spec.ts",            null, "PLAYWRIGHT");
     }
 
+    // Scoped to the Default Workspace specifically — these are its own baseline QA/UAT rows,
+    // not a platform-wide default. Since V32 (environments.code unique per-project, not
+    // globally), a plain findByCode would now match every project's same-named environment and
+    // throw (Optional/getSingleResult expects exactly one) the moment a second project also has
+    // a "UAT" — this crashed the app on every boot until scoped by project_id here.
     private void seedEnvironment(String code, String name) {
-        if (environmentRepository.findByCode(code).isEmpty()) {
-            environmentRepository.save(new EnvironmentEntity(code, name));
+        Long defaultProjectId = currentProjectService.defaultWorkspaceProjectId();
+        if (environmentRepository.findByProjectIdAndCode(defaultProjectId, code).isEmpty()) {
+            EnvironmentEntity env = new EnvironmentEntity(code, name);
+            env.setProjectId(defaultProjectId);
+            environmentRepository.save(env);
         }
     }
 }

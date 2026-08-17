@@ -2,6 +2,7 @@ package com.automationportal.executions;
 
 import com.automationportal.auth.AuthenticatedUserService;
 import com.automationportal.common.ApiResponse;
+import com.automationportal.modules.ModuleRepository;
 import com.automationportal.workspace.CurrentProjectService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,7 @@ public class ExecutionController {
     private final ExecutionRepository repository;
     private final AuthenticatedUserService authenticatedUserService;
     private final CurrentProjectService currentProjectService;
+    private final ModuleRepository moduleRepository;
     private final java.net.http.HttpClient httpClient;
 
     @org.springframework.beans.factory.annotation.Value("${portal.execution-manager.url:http://localhost:8090}")
@@ -33,11 +35,13 @@ public class ExecutionController {
 
     public ExecutionController(ExecutionService service, ExecutionRepository repository,
                                 AuthenticatedUserService authenticatedUserService,
-                                CurrentProjectService currentProjectService) {
+                                CurrentProjectService currentProjectService,
+                                ModuleRepository moduleRepository) {
         this.service = service;
         this.repository = repository;
         this.authenticatedUserService = authenticatedUserService;
         this.currentProjectService = currentProjectService;
+        this.moduleRepository = moduleRepository;
         this.httpClient = java.net.http.HttpClient.newBuilder()
                 .connectTimeout(java.time.Duration.ofSeconds(5))
                 .build();
@@ -141,9 +145,22 @@ public class ExecutionController {
         return org.springframework.http.ResponseEntity.ok(ApiResponse.ok(null));
     }
 
+    // The runner only ever mounts ONE shared framework checkout per engine type today (no
+    // per-project isolation yet — see docs/automation-framework-connection.md and
+    // docs/framework-lifecycle-architecture.md for the target design). Proxying this unscoped
+    // would let ANY project browse and run a suite from another project's real, unrelated
+    // codebase (e.g. a brand-new project seeing/launching MPHIDB's actual test specs) — a real
+    // cross-tenant leak, not a hypothetical one. Until per-project framework directories exist,
+    // the only project(s) with a legitimate claim on the shared checkout are ones an admin has
+    // already, deliberately wired a Module into (docs' "interim, manual" onboarding step) — so
+    // gate on that instead of proxying unconditionally.
     @GetMapping("/runner/suites")
     public ApiResponse<Object> getRunnerSuites(
             @RequestParam(defaultValue = "MAVEN_TESTNG") String framework) {
+        Long projectId = currentProjectService.requireProjectId();
+        if (moduleRepository.findByProjectIdAndRunnerType(projectId, framework).isEmpty()) {
+            return ApiResponse.ok(List.of());
+        }
         try {
             String url = executionManagerUrl + "/em/suites?framework=" + framework;
             java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()

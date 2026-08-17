@@ -33,6 +33,12 @@ public class FrameworkRunnerService {
     private static volatile Process currentProcess = null;
     private static String frameworkPath = "/app/framework";
     private static String playwrightFrameworkPath = "D:\\playwright-js";
+    // Parent directory holding one subfolder per project-specific framework — a job carrying a
+    // non-blank "frameworkPath" (its Test Engine's own test_engines.framework_path) resolves its
+    // working directory as projectFrameworksRoot/<that value> instead of the static
+    // playwrightFrameworkPath/frameworkPath above. Null/blank on the job means unchanged legacy
+    // behavior — this is additive, not a replacement.
+    private static String projectFrameworksRoot = "/app/project-frameworks";
     private static String executionManagerUrl = "http://localhost:8090";
     private static final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
@@ -92,8 +98,14 @@ public class FrameworkRunnerService {
                     + " — Playwright runs will fail until PLAYWRIGHT_FRAMEWORK_PATH is set correctly.");
         }
 
+        String pfrEnv = System.getenv("PROJECT_FRAMEWORKS_ROOT");
+        if (pfrEnv != null && !pfrEnv.isEmpty()) {
+            projectFrameworksRoot = pfrEnv;
+        }
+
         System.out.println("Starting Framework Runner Service using path: " + frameworkPath);
         System.out.println("Playwright framework path: " + playwrightFrameworkPath);
+        System.out.println("Project frameworks root: " + projectFrameworksRoot);
 
         HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
 
@@ -149,6 +161,7 @@ public class FrameworkRunnerService {
         }
         String browser = getJsonVal(body, "browser");
         String tagFilter = getJsonVal(body, "tagFilter");
+        String jobFrameworkPath = getJsonVal(body, "frameworkPath");
         Map<String, String> envConfig = parseFlatJsonObject(getJsonObjectVal(body, "envConfig"));
 
         if (executionId.isEmpty() || suiteXml.isEmpty()) {
@@ -159,13 +172,22 @@ public class FrameworkRunnerService {
         running = true;
         currentJobId = executionId;
 
+        // A job carrying its own Test Engine's framework_path resolves against
+        // projectFrameworksRoot instead of the one static, shared checkout — blank/absent means
+        // unchanged legacy behavior (see the projectFrameworksRoot field comment above).
+        String resolvedCwd = (jobFrameworkPath != null && !jobFrameworkPath.isBlank())
+                ? Paths.get(projectFrameworksRoot, jobFrameworkPath).toString()
+                : null;
+
         // Dispatch to the right engine's strategy. Adding a future framework means adding
         // one more branch here (plus its own runXyz method) — nothing else in the pipeline
         // (QueueProcessor, RunnerClient, the DB threading) needs to change.
         if ("PLAYWRIGHT".equalsIgnoreCase(framework)) {
-            new Thread(() -> runPlaywright(executionId, suiteXml, portalUrl, apiKey, envConfig, browser, tagFilter), "framework-playwright-executor").start();
+            String pwCwd = resolvedCwd != null ? resolvedCwd : playwrightFrameworkPath;
+            new Thread(() -> runPlaywright(executionId, suiteXml, portalUrl, apiKey, envConfig, browser, tagFilter, pwCwd), "framework-playwright-executor").start();
         } else {
-            new Thread(() -> runMaven(executionId, suiteXml, portalUrl, apiKey, envConfig), "framework-maven-executor").start();
+            String mvnCwd = resolvedCwd != null ? resolvedCwd : frameworkPath;
+            new Thread(() -> runMaven(executionId, suiteXml, portalUrl, apiKey, envConfig, mvnCwd), "framework-maven-executor").start();
         }
 
         send(exchange, 202, "{\"status\":\"STARTING\",\"executionId\":\"" + executionId + "\"}", "application/json");
@@ -179,16 +201,16 @@ public class FrameworkRunnerService {
             "suitexmlfile", "executionid", "portalurl", "openreport", "usedefaultlisteners", "portalapikey");
     private static final Pattern SECRET_KEY_PATTERN = Pattern.compile("pass|secret|token|captcha|captch|key", Pattern.CASE_INSENSITIVE);
 
-    private static void runMaven(String executionId, String suiteXml, String portalUrl, String apiKey, Map<String, String> envConfig) {
+    private static void runMaven(String executionId, String suiteXml, String portalUrl, String apiKey, Map<String, String> envConfig, String cwd) {
         try {
-            System.out.println("Starting Maven run for job " + executionId + ", suite: " + suiteXml);
+            System.out.println("Starting Maven run for job " + executionId + ", suite: " + suiteXml + ", cwd: " + cwd);
 
-            // TestNG writes to <frameworkPath>/test-output, which sits outside Maven's
+            // TestNG writes to <cwd>/test-output, which sits outside Maven's
             // target/
             // directory, so "mvn clean" never touches it. Wipe it explicitly so a previous
             // run's
             // testng-results.xml can't bleed into this execution's parsed data.
-            deleteStaleTestOutput();
+            deleteStaleTestOutput(cwd);
 
             List<String> command = new ArrayList<>();
             String os = System.getProperty("os.name").toLowerCase();
@@ -236,7 +258,7 @@ public class FrameworkRunnerService {
             System.out.println("Command: " + String.join(" ", maskSecrets(command)));
 
             ProcessBuilder pb = new ProcessBuilder(command);
-            pb.directory(new File(frameworkPath));
+            pb.directory(new File(cwd));
             pb.redirectErrorStream(true);
 
             currentProcess = pb.start();
@@ -269,13 +291,13 @@ public class FrameworkRunnerService {
         }
     }
 
-    private static void runPlaywright(String executionId, String suiteTarget, String portalUrl, String apiKey, Map<String, String> envConfig, String browser, String tagFilter) {
+    private static void runPlaywright(String executionId, String suiteTarget, String portalUrl, String apiKey, Map<String, String> envConfig, String browser, String tagFilter, String cwd) {
         try {
             String resolvedBrowser = (browser != null && !browser.isBlank()) ? browser : "chrome";
             System.out.println("Starting Playwright run for job " + executionId + ", target: " + suiteTarget + ", browser: " + resolvedBrowser
-                    + (tagFilter != null && !tagFilter.isBlank() ? ", tagFilter: " + tagFilter : ""));
+                    + (tagFilter != null && !tagFilter.isBlank() ? ", tagFilter: " + tagFilter : "") + ", cwd: " + cwd);
 
-            deleteStalePlaywrightTestResults();
+            deleteStalePlaywrightTestResults(cwd);
 
             List<String> command = new ArrayList<>();
             String os = System.getProperty("os.name").toLowerCase();
@@ -306,7 +328,7 @@ public class FrameworkRunnerService {
             System.out.println("Command: " + String.join(" ", command));
 
             ProcessBuilder pb = new ProcessBuilder(command);
-            pb.directory(new File(playwrightFrameworkPath));
+            pb.directory(new File(cwd));
             pb.redirectErrorStream(true);
 
             // Playwright reads process.env (see tests/utils/config.ts's dotenv usage), not
@@ -366,8 +388,8 @@ public class FrameworkRunnerService {
         }
     }
 
-    private static void deleteStaleTestOutput() {
-        Path testOutput = Paths.get(frameworkPath, "test-output");
+    private static void deleteStaleTestOutput(String cwd) {
+        Path testOutput = Paths.get(cwd, "test-output");
         if (!Files.exists(testOutput))
             return;
         try (Stream<Path> walk = Files.walk(testOutput)) {
@@ -385,8 +407,8 @@ public class FrameworkRunnerService {
     // Playwright doesn't clear its own outputDir (test-results/) between runs by default, same
     // risk deleteStaleTestOutput() exists to prevent for Maven — a previous run's screenshots/
     // videos could otherwise get copied into a totally different execution's artifact folder.
-    private static void deleteStalePlaywrightTestResults() {
-        Path testResults = Paths.get(playwrightFrameworkPath, "test-results");
+    private static void deleteStalePlaywrightTestResults(String cwd) {
+        Path testResults = Paths.get(cwd, "test-results");
         if (!Files.exists(testResults))
             return;
         try (Stream<Path> walk = Files.walk(testResults)) {

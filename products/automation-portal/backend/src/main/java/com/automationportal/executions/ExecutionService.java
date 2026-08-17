@@ -105,6 +105,19 @@ public class ExecutionService {
 
         if (request.executionType() == ExecutionType.MODULE) {
             validateModuleEnvironmentBrowser(request.moduleCode(), framework, request.environmentId(), request.requestedBrowser(), projectId);
+        } else if (request.executionType() == ExecutionType.XML_SUITE) {
+            // The "run a raw suite/spec path directly" escape hatch bypasses Module-level
+            // validation entirely, so without this a project with NO framework wired up could
+            // still submit an arbitrary path (e.g. another project's real suite file) straight
+            // to /api/executions/run and have it actually execute — the same shared-checkout
+            // cross-tenant leak the suites-listing gate in ExecutionController closes for
+            // discovery, closed here for submission. A project only "owns" a raw path once an
+            // admin has deliberately wired at least one Module in for that framework (today's
+            // documented interim onboarding step — see docs/automation-framework-connection.md).
+            if (moduleRepository.findByProjectIdAndRunnerType(projectId, framework).isEmpty()) {
+                throw new IllegalArgumentException(
+                        "No framework is connected for this project yet — an admin needs to register a Test Engine/Module before suites can be run.");
+            }
         }
 
         Execution execution = new Execution();

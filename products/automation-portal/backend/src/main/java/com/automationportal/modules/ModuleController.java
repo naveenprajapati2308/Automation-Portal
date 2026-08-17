@@ -9,6 +9,8 @@ import com.automationportal.moduleenvironments.ModuleEnvironmentEntity;
 import com.automationportal.moduleenvironments.ModuleEnvironmentRepository;
 import com.automationportal.moduleenvironments.ModuleEnvironmentResolver;
 import com.automationportal.workspace.CurrentProjectService;
+import com.automationportal.workspace.ProjectContext;
+import com.automationportal.workspace.ProjectContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -59,6 +61,76 @@ public class ModuleController {
                 .filter(ModuleEntity::isActive)
                 .filter(ModuleEntity::isVisible)
                 .toList());
+    }
+
+    // Lets a Project Admin create their own project's first Module (Automation Setup Wizard)
+    // without going through ModuleAdminController — that controller is Super-Admin-only
+    // (SecurityConfig's blanket /api/admin/** rule) and lists every project's modules
+    // unfiltered, so it's the wrong endpoint to open up for wizard traffic. projectId is always
+    // stamped server-side from the caller's own session, never trusted from the request body —
+    // same pattern as EnvironmentController.create().
+    @PostMapping
+    public ApiResponse<ModuleEntity> create(@RequestBody ModuleEntity body) {
+        if (body.getCode() == null || body.getCode().trim().isEmpty()) {
+            throw new IllegalArgumentException("Code is required");
+        }
+        if (body.getName() == null || body.getName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Name is required");
+        }
+        Long callerProjectId = currentProjectService.requireProjectId();
+        requireProjectAdmin();
+        String runnerType = body.getRunnerType() != null && !body.getRunnerType().isBlank()
+                ? body.getRunnerType() : "MAVEN_TESTNG";
+        if (repository.findByCodeAndRunnerType(body.getCode(), runnerType).isPresent()) {
+            throw new IllegalArgumentException(
+                    "A " + runnerType + " module with code '" + body.getCode() + "' already exists.");
+        }
+        ModuleEntity m = new ModuleEntity(body.getCode(), body.getName());
+        m.setProjectId(callerProjectId);
+        m.setDescription(body.getDescription());
+        m.setXmlFile(body.getXmlFile());
+        m.setReportPath(body.getReportPath());
+        m.setRunnerType(runnerType);
+        m.setTestEngineId(body.getTestEngineId());
+        return ApiResponse.ok(repository.save(m));
+    }
+
+    private void requireProjectAdmin() {
+        ProjectContext context = ProjectContextHolder.get();
+        if (context == null || !context.hasRole("PROJECT_ADMIN")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only a Project Admin can create modules");
+        }
+    }
+
+    // A Module can't actually be run against an Environment until this mapping exists and is
+    // enabled — normally an admin-only step (ModuleEnvironmentAdminController, /api/admin/**),
+    // which would otherwise leave the Automation Setup Wizard's own Module (step 3) and
+    // Environment (step 4) unable to run anything together. Same ownership pattern as create()
+    // above: both the module and the environment must belong to the caller's own project.
+    @PostMapping("/{id}/environments/{environmentId}/enable")
+    public ApiResponse<Void> enableForEnvironment(@PathVariable Long id, @PathVariable Long environmentId) {
+        Long callerProjectId = currentProjectService.requireProjectId();
+        requireProjectAdmin();
+        ModuleEntity module = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found: " + id));
+        if (!callerProjectId.equals(module.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Module not found: " + id);
+        }
+        EnvironmentEntity environment = environmentRepository.findById(environmentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Environment not found: " + environmentId));
+        if (!callerProjectId.equals(environment.getProjectId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Environment not found: " + environmentId);
+        }
+        ModuleEnvironmentEntity mapping = moduleEnvironmentRepository.findByModuleIdAndEnvironmentId(id, environmentId)
+                .orElseGet(() -> {
+                    ModuleEnvironmentEntity m = new ModuleEnvironmentEntity();
+                    m.setModuleId(id);
+                    m.setEnvironmentId(environmentId);
+                    return m;
+                });
+        mapping.setEnabled(true);
+        moduleEnvironmentRepository.save(mapping);
+        return ApiResponse.ok(null);
     }
 
     // "Load Supported Environments" step: only environments explicitly enabled for this module.

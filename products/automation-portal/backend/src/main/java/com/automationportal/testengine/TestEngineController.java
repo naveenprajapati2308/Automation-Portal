@@ -3,6 +3,7 @@ package com.automationportal.testengine;
 import com.automationportal.auth.AuthenticatedUserService;
 import com.automationportal.common.ApiResponse;
 import com.automationportal.common.EntityIdGeneratorService;
+import com.automationportal.config.PortalAutomationProperties;
 import com.automationportal.workspace.CurrentProjectService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -30,19 +31,22 @@ public class TestEngineController {
     private final AuthenticatedUserService authenticatedUserService;
     private final EntityIdGeneratorService entityIdGeneratorService;
     private final StarterKitService starterKitService;
+    private final PortalAutomationProperties automationProperties;
 
     public TestEngineController(TestEngineRepository repository,
                                 TestEngineCredentialService credentialService,
                                 CurrentProjectService currentProjectService,
                                 AuthenticatedUserService authenticatedUserService,
                                 EntityIdGeneratorService entityIdGeneratorService,
-                                StarterKitService starterKitService) {
+                                StarterKitService starterKitService,
+                                PortalAutomationProperties automationProperties) {
         this.repository = repository;
         this.credentialService = credentialService;
         this.currentProjectService = currentProjectService;
         this.authenticatedUserService = authenticatedUserService;
         this.entityIdGeneratorService = entityIdGeneratorService;
         this.starterKitService = starterKitService;
+        this.automationProperties = automationProperties;
     }
 
     @GetMapping
@@ -51,6 +55,18 @@ public class TestEngineController {
         return ApiResponse.ok(repository.findByProjectId(projectId).stream()
                 .map(e -> TestEngineDtos.Summary.from(e, credentialService.activeKeyPrefix(e.getId()).orElse(null)))
                 .toList());
+    }
+
+    /**
+     * Non-secret, operational path — lets the Automation Setup Wizard tell the admin exactly
+     * where to extract their downloaded starter kit ("<projectFrameworksRoot>\<a-name-you-choose>",
+     * then register that name as this engine's frameworkPath).
+     */
+    @GetMapping("/config")
+    public ApiResponse<Map<String, Object>> config() {
+        currentProjectService.requireProjectId();
+        return ApiResponse.ok(Map.of("projectFrameworksRoot",
+                automationProperties.getProjectFrameworksRoot() != null ? automationProperties.getProjectFrameworksRoot() : ""));
     }
 
     @GetMapping("/{id}")
@@ -73,7 +89,7 @@ public class TestEngineController {
         engine.setDescription(body.description());
         engine.setDeploymentType(body.deploymentType() != null ? body.deploymentType() : DeploymentType.LOCAL);
         engine.setEndpoint(body.endpoint());
-        engine.setFrameworkPath(body.frameworkPath());
+        engine.setFrameworkPath(validateFrameworkPath(body.frameworkPath()));
         engine.setReportPath(body.reportPath());
         engine.setCreatedByUserId(authenticatedUserService.currentUser().getId());
         repository.save(engine);
@@ -93,10 +109,27 @@ public class TestEngineController {
         engine.setDescription(body.description());
         if (body.deploymentType() != null) engine.setDeploymentType(body.deploymentType());
         engine.setEndpoint(body.endpoint());
-        engine.setFrameworkPath(body.frameworkPath());
+        engine.setFrameworkPath(validateFrameworkPath(body.frameworkPath()));
         engine.setReportPath(body.reportPath());
         repository.save(engine);
         return ApiResponse.ok(TestEngineDtos.Summary.from(engine, credentialService.activeKeyPrefix(engine.getId()).orElse(null)));
+    }
+
+    /**
+     * frameworkPath is later joined server/container-side into
+     * Paths.get(projectFrameworksRoot, frameworkPath) by the Framework Runner — a Project Admin
+     * fully controls this value once the Setup Wizard exists, so it must only ever be able to
+     * resolve to a direct subfolder of that root, never escape it.
+     */
+    private String validateFrameworkPath(String frameworkPath) {
+        if (frameworkPath == null || frameworkPath.isBlank()) return frameworkPath;
+        String trimmed = frameworkPath.trim();
+        if (trimmed.contains("..") || trimmed.startsWith("/") || trimmed.startsWith("\\")
+                || trimmed.matches("^[a-zA-Z]:.*")) {
+            throw new IllegalArgumentException(
+                    "Framework path must be a plain subfolder name under the project frameworks root — not an absolute path or '..'");
+        }
+        return trimmed;
     }
 
     /** Soft-disable, not delete — preserves the audit trail and any executions that reference it. */

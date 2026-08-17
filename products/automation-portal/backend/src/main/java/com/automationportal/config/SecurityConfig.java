@@ -5,7 +5,6 @@ import com.automationportal.auth.JwtAuthenticationFilter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -81,7 +80,16 @@ public class SecurityConfig {
                 // /api/environments (GET, plain list) stays open to any authenticated user —
                 // it's a configJson-stripped DTO now (EnvironmentSummaryDto), used broadly for
                 // dropdown/selector data.
-                .requestMatchers(HttpMethod.GET, "/api/environments/health").hasRole("SUPER_ADMIN")
+                //
+                // /api/environments/health used to be a blanket SUPER_ADMIN-only rule here, back
+                // when EnvironmentHealthService did an unscoped findAll() across every project —
+                // genuinely unsafe to open to project users as-is, so locking it down was correct
+                // at the time. It's now scoped to the caller's own project inside
+                // EnvironmentController/EnvironmentHealthService (same pattern as the POST/PUT/
+                // DELETE methods below), which is what makes it safe to fall through to
+                // .anyRequest().authenticated() — a Project Admin's own Environments page was
+                // 403ing on this before that scoping existed.
+                //
                 // POST/PUT/DELETE /api/environments/** used to be a blanket SUPER_ADMIN-only rule
                 // here; Phase 4 (Workspace Settings) lets a project's own Project Admin manage
                 // their own project's environments too, so authorization moved into

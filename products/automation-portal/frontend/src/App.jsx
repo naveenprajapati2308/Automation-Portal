@@ -16,12 +16,14 @@ import {
   ChevronDown,
   Copy,
   Check,
+  Wrench,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { initThemeSync, getStoredThemePref, resolveEffectiveTheme } from '../../../../shared/ui/theme-sync.js';
 import { reportHeightToParent } from '../../../../shared/ui/iframe-resize.js';
-import { api, auth } from './api.js';
+import { api, auth, decodeProjectRoles } from './api.js';
 import { Dashboard } from './components/dashboard/Dashboard.jsx';
+import { AutomationSetupWizard, AutomationSetupPending } from './components/setup/AutomationSetupWizard.jsx';
 import { EnvironmentView } from './components/environments/EnvironmentView.jsx';
 import { ExecutionCenter } from './components/execution/ExecutionCenter.jsx';
 import { ComparePage } from './components/execution/ComparePage.jsx';
@@ -38,7 +40,7 @@ import { fallbackSummary, USER_NAV } from './constants.js';
 // Attach resolved icon components to nav items (done once at module level)
 const ICON_MAP = {
   Gauge, Play, FileText, TerminalSquare, Camera, Globe2,
-  LayoutDashboard, KeyRound, GitCompare
+  LayoutDashboard, KeyRound, GitCompare, Wrench
 };
 USER_NAV.forEach((item) => { item._icon = ICON_MAP[item.icon]; });
 
@@ -164,6 +166,14 @@ export function App() {
   const [environments, setEnvironments] = useState([]);
   const [modules, setModules] = useState([]);
   const [executions, setExecutions] = useState([]);
+  // 'checking' | 'needed' | 'done' — whether this project has at least one active Test Engine
+  // with its own framework path set. Determined in refresh() below, alongside everything else
+  // it already loads on boot.
+  const [automationSetup, setAutomationSetup] = useState('checking');
+  const isProjectAdmin = useMemo(
+    () => decodeProjectRoles(session?.accessToken).includes('PROJECT_ADMIN'),
+    [session?.accessToken]
+  );
   const [selectedEnv, setSelectedEnv] = useState(1);
   const [selectedModule, setSelectedModule] = useState('LAND');
   const [suiteXmlPath, setSuiteXmlPath] = useState('');
@@ -260,6 +270,12 @@ export function App() {
       setEnvironments(envData);
       setModules(moduleData);
       setExecutions(executionData);
+      // A project counts as "set up" once it has at least one Module — true for every legacy
+      // project (MPHIDB's real modules all predate Test Engines and still have no
+      // testEngineId at all, running on the original shared-checkout path) just as much as for
+      // a project onboarded through the wizard. Checking test_engines instead would have wrongly
+      // sent MPHIDB's Project Admin back into the wizard despite 31 real, working modules.
+      setAutomationSetup((moduleData || []).length > 0 ? 'done' : 'needed');
 
       if (isInitialLoad) {
         if (envData[0]) setSelectedEnv(envData[0].id);
@@ -368,7 +384,18 @@ export function App() {
   const pages = (
     <>
       {/* User pages */}
-      {active === 'dashboard' && <Dashboard onSelectExecution={setSelectedExecutionId} onNavigate={setActive} />}
+      {active === 'dashboard' && automationSetup === 'needed' && isProjectAdmin && (
+        <AutomationSetupWizard onFinish={() => refresh()} />
+      )}
+      {active === 'dashboard' && automationSetup === 'needed' && !isProjectAdmin && (
+        <AutomationSetupPending />
+      )}
+      {active === 'dashboard' && automationSetup !== 'needed' && (
+        <Dashboard onSelectExecution={setSelectedExecutionId} onNavigate={setActive} />
+      )}
+      {active === 'automation-setup' && isProjectAdmin && (
+        <AutomationSetupWizard onFinish={() => { refresh(); setActive('dashboard'); }} />
+      )}
       {active === 'execution' && (
         <ExecutionCenter
           environments={environments}
@@ -420,6 +447,7 @@ export function App() {
           logout={logout}
           isCollapsed={isSidebarCollapsed}
           onToggle={toggleSidebar}
+          isProjectAdmin={isProjectAdmin}
         />
       )}
       topbar={(

@@ -59,7 +59,19 @@ function timeAgo(raw) {
 }
 
 // ── Profile Page ───────────────────────────────────────────────────────────────
-export function Profile({ setNotice, onProfileSaved }) {
+// Project role beats the vestigial platform UserRole (almost always VIEWER — see
+// WorkspaceProvisioningService.approve()) for display: it's the role that actually governs
+// what this user can do inside their project.
+const PROJECT_ROLE_PRIORITY = ['PROJECT_ADMIN', 'QA_LEAD', 'TECH_LEAD', 'AUTOMATION_ENGINEER', 'VIEWER'];
+
+function displayRole(profile, project) {
+  const projectRole = project?.roles?.length
+    ? PROJECT_ROLE_PRIORITY.find((r) => project.roles.includes(r)) || project.roles[0]
+    : null;
+  return projectRole || profile?.role || '';
+}
+
+export function Profile({ setNotice, onProfileSaved, project }) {
   const [profile, setProfile] = useState(null);
   const [logs, setLogs] = useState([]);
   const [form, setForm] = useState({});
@@ -179,6 +191,7 @@ export function Profile({ setNotice, onProfileSaved }) {
   if (!profile) return <div style={{ padding: '48px', display: 'grid', placeItems: 'center' }}><Loader size={32} label="Loading account information…" /></div>;
 
   const isActive = profile.status === 'ACTIVE';
+  const roleLabel = displayRole(profile, project);
 
   const infoRows = [
     { icon: UserRound, label: 'Full Name', value: profile.displayName || '—' },
@@ -186,7 +199,7 @@ export function Profile({ setNotice, onProfileSaved }) {
     { icon: Phone, label: 'Mobile Number', value: profile.mobileNumber || '—' },
     { icon: Briefcase, label: 'Designation', value: profile.designation || '—' },
     { icon: Building2, label: 'Organization', value: profile.organization || '—' },
-    { icon: Shield, label: 'Role', value: <span className="pf-badge pf-badge-role">{profile.role}</span> },
+    { icon: Shield, label: 'Role', value: <span className="pf-badge pf-badge-role">{roleLabel}</span> },
     { icon: Activity, label: 'Status', value: <span className="pf-badge pf-badge-status">{profile.status}</span> },
     { icon: Calendar, label: 'Member Since', value: formatDateTime(profile.createdAt) },
     { icon: Clock, label: 'Last Login', value: formatDateTime(profile.lastLogin) }
@@ -224,7 +237,7 @@ export function Profile({ setNotice, onProfileSaved }) {
               <span>Organization</span>
             </div>
             <div className="pf-chip pf-chip-role">
-              <strong>{profile.role}</strong>
+              <strong>{roleLabel}</strong>
               <span>Role</span>
             </div>
           </div>

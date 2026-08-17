@@ -1030,7 +1030,181 @@ flipping the shell's theme toggle live-updates an already-open API Testing tab.
 
 ---
 
-## 13. How to Use This Document
+## 13. Session Update — 2026-08-14: Automation Setup Wizard, Cross-Project Concurrency, Real Per-Project Isolation
+
+The ask: when a Project Admin opens Automation for a project with no framework set up yet, it
+should not show an empty-looking Dashboard — it should walk them through getting their framework
+code, telling Testrix where they put it, and creating a first Module and Environment, themselves,
+with no platform-admin involvement. Separately, the user had noticed executions across different
+projects seemed to queue behind each other and asked for that solved too. Both turned out to
+share one root cause and one fix shape; solving them together also surfaced (and fixed) four real,
+independent bugs that live verification caught and code-reading alone would not have.
+
+**Important context this session found:** the backend/infra half of true per-project framework
+isolation was *already built*, uncommitted, in the working tree before this session started
+(`test_engines.framework_path` → `execution_jobs.framework_path` → `QueueProcessor` →
+`RunnerClient` → `FrameworkRunnerService`, resolving `PROJECT_FRAMEWORKS_ROOT/<framework_path>` as
+a run's working directory instead of the one static shared checkout MPHIDB still uses). It just had
+no UI path to reach it and had never been live-verified end-to-end. This session finished wiring
+it to a real UI, found it was missing one more layer entirely (see 13.2), and proved the whole
+chain works with real executions against real projects — not a demo environment.
+
+### 13.1 Automation Setup Wizard
+
+New component tree: `products/automation-portal/frontend/src/components/setup/
+AutomationSetupWizard.jsx` (+ `setup.css`). Gated in `App.jsx`: on load, `refresh()` now also
+checks `modules.length` for the current project — zero modules means "not set up." A
+`PROJECT_ADMIN` session sees the wizard in place of `Dashboard`; any other role sees a short
+"ask your Project Admin" message instead (`AutomationSetupPending`), since only a Project Admin
+can complete it (Module/Environment creation is Project-Admin-gated). Once a project has at least
+one Module, the normal `Dashboard` always renders — this is deliberately keyed off "has a Module,"
+not off Test Engine existence, because MPHIDB's own 31 real modules all predate Test Engines and
+have `test_engine_id = NULL` (see 13.4, finding this out live prevented a real regression).
+
+Five steps: (1) pick Selenium/Playwright, register a Test Engine, download the personalized
+starter kit in one action (`StarterKitService`/`POST /api/test-engines/{id}/starter-kit`, reused
+as-is); (2) tell Testrix the subfolder name the kit was extracted into
+(`PUT /api/test-engines/{id}` with `frameworkPath`) — the wizard shows the configured
+`PROJECT_FRAMEWORKS_ROOT` via a new `GET /api/test-engines/config` endpoint; (3) create the first
+Module via a new project-scoped `POST /api/modules` (`ModuleController.java` — deliberately *not*
+`ModuleAdminController`, which is Super-Admin-only and lists every project's modules unfiltered,
+gated instead the same way `EnvironmentController.create()` already does, role-checked via
+`ProjectContextHolder`, `projectId` always stamped server-side); (4) create an Environment,
+reusing `EnvironmentView.jsx`'s existing create logic; (5) done, with links to Execution Center,
+Team Management, and the Integration Guide. A sidebar re-entry point ("Add Framework",
+`Wrench` icon, Project-Admin-only) lets a project connect a second framework later without
+redoing the first.
+
+`TestEngineController.register()`/`update()` also gained path-traversal validation on
+`frameworkPath` (reject `..`, a leading `/`/`\`, or a drive letter) — a Project Admin fully
+controls this value now, and it later feeds `Paths.get(projectFrameworksRoot, frameworkPath)`
+server/container-side in `FrameworkRunnerService`.
+
+### 13.2 A Module couldn't actually run against an Environment — found live
+
+The wizard's steps 3 and 4 create a Module and an Environment, but nothing linked them —
+`ModuleEnvironmentAdminController` (`/api/admin/module-environments`) is the only place that
+enable-link existed, and it's Super-Admin-only. A project finishing all four wizard steps hit
+`"Module 'X' is not enabled for the selected environment"` on its very first run. Fixed with a
+new `POST /api/modules/{id}/environments/{environmentId}/enable` in `ModuleController.java`
+(same ownership/role pattern as the rest of that controller), called automatically by the wizard
+right after step 4's environment is created.
+
+### 13.3 The real concurrency bottleneck — two gates, not one
+
+`execution-manager/`'s `QueueProcessor` already had a real multi-runner registry
+(`RunnerRegistry`, IDLE/BUSY tracking, `POST /runners/register`, idle-on-completion/timeout) sitting
+almost entirely unused behind `EM_MAX_CONCURRENT: 1` and exactly one `automation-framework-runner`
+container. Finished that: two named runner instances in `docker-compose.yml`
+(`automation-framework-runner-1`/`-2`, separate `playwright_node_modules` volumes),
+`QueueProcessor.syncRunners()` generalized from one hardcoded `default-runner` row to reading
+`em.runner-urls` (comma-separated) and upserting/pruning one `RunnerRegistry` row per URL on every
+boot, `EM_MAX_CONCURRENT: 2`. Also fixed a real correctness gap in `selectRunner()`: when no
+capable runner was IDLE it used to fall back to returning `defaultRunnerUrl` anyway — harmless at
+maxConcurrent=1 (unreachable), a real double-dispatch bug at maxConcurrent>1 (could fire a second
+job at an already-BUSY, single-job-capacity runner). Now returns `null` and the tick is skipped.
+Added a dispatch-key guard so two jobs sharing a working directory can never run at once:
+key = `job.getFrameworkPath()` if set, else `"LEGACY_SHARED_" + framework` for today's
+no-Test-Engine modules (so MPHIDB's existing behavior is unchanged — still serialized against
+itself, exactly as before); different keys dispatch freely up to `maxConcurrent`.
+
+**This alone did not fix the user's actual complaint.** Live testing found a second, more
+restrictive gate one layer up, in the Portal Backend itself:
+`ExecutionWorker.pollQueue()` (`products/automation-portal/backend/.../executions/
+ExecutionWorker.java`) used to do `if (!executionRepository.findByStatus(RUNNING).isEmpty())
+return;` — block submission of *any* new execution while *any* execution anywhere was RUNNING,
+platform-wide, regardless of project, checked *before* anything even reached the Execution
+Manager's now-fixed queue. This — not the EM layer — was the actual root cause of "one project's
+run blocks every other project's." Fixed with the same dispatch-key shape: a new
+`resolveDispatchKey(Execution)` helper (mirrors the module→engine→frameworkPath resolution
+`processExecution()` already does, minimal/no side effects) computes each queued execution's key,
+and `pollQueue()` now submits the first QUEUED execution whose key isn't already busy among
+RUNNING ones, instead of refusing to submit anything at all.
+
+### 13.4 environments.code was globally unique, not per-project — found live, then crashed the app
+
+Testing the wizard's Environment step against a second real project (`environments` table had
+`UNIQUE KEY code (code)`, no `project_id` in the constraint) failed with `Duplicate entry 'UAT'
+for key 'environments.code'` — MPHIDB already had a "UAT" environment, and "UAT"/"QA" are the two
+names almost every project reaches for first. Fixed via `V32__environment_code_scope_per_project.sql`:
+dropped the global unique index, added `UNIQUE KEY uk_environments_project_code (project_id, code)`.
+
+That fix then **crash-looped the backend on every boot** (`RestartCount` climbing, confirmed via
+`docker inspect`): `DataSeeder.seedEnvironment()` calls `environmentRepository.findByCode(code)`
+expecting exactly one result (`Optional<EnvironmentEntity>`, backed by a single-result JPA query)
+to decide whether to seed MPHIDB's baseline QA/UAT rows on startup. The instant a second project
+also had a "UAT," that query matched two rows and threw
+`IncorrectResultSizeDataAccessException`/`NonUniqueResultException` on every single boot. Fixed by
+changing `EnvironmentRepository.findByCode` to return `List<EnvironmentEntity>` (its one caller was
+this method; grepped the whole backend to confirm), adding `findByProjectIdAndCode(projectId,
+code)`, and scoping `DataSeeder.seedEnvironment()` to `currentProjectService
+.defaultWorkspaceProjectId()` specifically — these are the Default Workspace's own baseline rows,
+not a platform-wide default, and were never meant to be looked up globally in the first place.
+
+### 13.5 "Add Framework" nav item was unreachable — found by screenshot QA, not by API tests
+
+`products/automation-portal/frontend/src/constants.js`'s `USER_NAV` got the new
+`automation-setup` entry, but the shell keeps its *own*, separate mirror of that list
+(`platform/shell/src/constants.js`'s `AUTOMATION_NAV`) for when Automation is embedded in-shell
+(the real, normal path for every actual user — see §12.3's iframe-embed pattern) — and that
+second copy was never updated. A live browser check (not just curl/API checks) is what caught
+this; every backend/API-level test passed while the feature was completely unreachable in the
+real UI. Fixed: added the same entry to `AUTOMATION_NAV` with a new `projectAdminOnly: true` flag,
+and `platform/shell/src/components/layout/index.jsx`'s sub-nav renderer now filters children on
+that flag (`!child.projectAdminOnly || project?.roles?.includes('PROJECT_ADMIN')`) — mirrors the
+existing top-level Team Management/Workspace Settings gate, just applied one level down for the
+first time.
+
+### 13.6 Live verification (real projects, real executions, not a demo environment)
+
+Used the existing MPHIDB pilot project (PRJ-000001, 31 real modules, all legacy/no Test Engine)
+and the MP Online Exam project (PRJ-000008, previously provisioned with a real Playwright starter
+kit already sitting in `PROJECT_FRAMEWORKS_ROOT/mp-online-exam-playwright/` from an earlier
+session but never run end-to-end — see the 2026-08-13 MP Online Exam entry). Real findings, not
+simulated:
+
+- A real starter-kit zip downloaded and inspected (package.json, playwright.config.ts, reporter,
+  .env, tests/example.spec.ts) — genuinely valid.
+- A real Module created, auto-linked to its Environment, executed, and reached `PASSED` with a
+  100% pass rate — `framework-runner` logs confirmed it ran inside
+  `/app/project-frameworks/mp-online-exam-playwright`, not the shared checkout.
+- **Cross-project concurrency, proven with real timestamps**: an MPHIDB execution and an MP Online
+  Exam execution both reached `RUNNING` at the same instant, dispatched to
+  `automation-framework-runner-1` and `-2` respectively (`runner_registry` showed both `BUSY`
+  simultaneously) — not one queued behind the other.
+- **Same-project safety, proven with a true concurrent fire**: two MP Online Exam executions fired
+  in parallel via backgrounded requests; polled every second — the first went `RUNNING`
+  immediately, the second stayed `QUEUED` for the entire ~5s duration of the first and only started
+  once the first reached `PASSED`. The dispatch-key guard works in both directions.
+- MPHIDB re-confirmed unaffected: real Automation Dashboard (KPI cards, 31-module table, execution
+  history) renders normally for its Project Admin, no wizard shown — the regression this session
+  was most worried about (13.4's fix could plausibly have broken it) did not happen.
+- A Viewer-role test account (created via the existing, already-fully-built Team Management
+  self-service flow — no code changes needed there) sees the normal dashboard with no admin
+  controls and no "Add Framework" link.
+- One unrelated, pre-existing issue noted but not fixed this session: a recurring 401 on
+  `GET /automation/api/events/dashboard/stream` (SSE live-update auth) — identical for Project
+  Admin and Viewer sessions, so general, not role-specific; dashboards load fully via normal REST
+  calls regardless.
+
+### 13.7 Explicitly left for next time
+
+- Adding a *second* Module to an already-set-up project still needs a platform admin —
+  `ModuleAdminController`'s Manage Modules screen still has no project picker in its UI (the
+  backend accepts an explicit `projectId` in the create body already, per an earlier session; the
+  picker itself was never built). The wizard only self-serves the *first* Module.
+- `docs/framework-lifecycle-architecture.md`'s full Plan 3 (per-instance Git repos, CI-built
+  images, ephemeral per-job containers, a Kubernetes-scale worker pool) remains the right
+  long-term direction and nothing this session conflicts with it — two statically-defined runner
+  replicas is this session's deliberately-scoped version of the same idea, sized for today's real
+  project count, not a rebuild of that document's larger design.
+- The SSE dashboard-stream 401 noted in 13.6.
+- Everything in this update is uncommitted in the working tree, per the standing project
+  convention — commits are left to the project owner's call.
+
+---
+
+## 14. How to Use This Document
 
 - Treat this as the **baseline mental model**. When you give new instructions, they add to or
   override specific sections here — they don't replace the whole architecture.

@@ -12,6 +12,10 @@ public class PortalAutomationProperties {
     private String mavenCommand;
     private String playwrightPath;
     private String artifactsRoot = "artifacts";
+    /** Parent directory holding one subfolder per project-specific framework (test_engines
+     *  .framework_path is a subfolder name under this root) — see docker-compose's
+     *  PROJECT_FRAMEWORKS_ROOT bind mount, shared with the Framework Runner container. */
+    private String projectFrameworksRoot;
     private Map<String, SuiteInfo> suites = new HashMap<>();
     private Map<String, String> resultFiles = new HashMap<>();
 
@@ -26,6 +30,9 @@ public class PortalAutomationProperties {
 
     public String getArtifactsRoot() { return artifactsRoot; }
     public void setArtifactsRoot(String artifactsRoot) { this.artifactsRoot = artifactsRoot; }
+
+    public String getProjectFrameworksRoot() { return projectFrameworksRoot; }
+    public void setProjectFrameworksRoot(String projectFrameworksRoot) { this.projectFrameworksRoot = projectFrameworksRoot; }
 
     public Map<String, SuiteInfo> getSuites() { return suites; }
     public void setSuites(Map<String, SuiteInfo> suites) { this.suites = suites; }

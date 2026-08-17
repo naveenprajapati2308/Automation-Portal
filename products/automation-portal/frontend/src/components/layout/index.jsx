@@ -16,7 +16,8 @@ export function Sidebar({
   setActive,
   logout,
   isCollapsed,
-  onToggle
+  onToggle,
+  isProjectAdmin
 }) {
   return (
     <aside
@@ -50,8 +51,12 @@ export function Sidebar({
         </div>
         {/* Environments holds every environment's raw credentials (baseUrl config,
             captcha keys) — the backend now enforces SUPER_ADMIN there too, this just
-            keeps a non-admin from landing on a tab that will only 403 on them. */}
-        {USER_NAV.filter((item) => item.key !== 'environments' || auth.get()?.user?.role === 'SUPER_ADMIN').map((item) => {
+            keeps a non-admin from landing on a tab that will only 403 on them.
+            Add Framework re-enters the Automation Setup Wizard, which only a Project Admin
+            can actually complete (Module/Environment creation is Project-Admin-gated). */}
+        {USER_NAV.filter((item) => item.key !== 'environments' || auth.get()?.user?.role === 'SUPER_ADMIN')
+          .filter((item) => item.key !== 'automation-setup' || isProjectAdmin)
+          .map((item) => {
           const Icon = item._icon;
           return (
             <button

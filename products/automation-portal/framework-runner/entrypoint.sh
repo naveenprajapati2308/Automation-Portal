@@ -22,4 +22,20 @@ if [ -d "$PLAYWRIGHT_FRAMEWORK_PATH" ] && [ ! -x "$PLAYWRIGHT_FRAMEWORK_PATH/nod
     (cd "$PLAYWRIGHT_FRAMEWORK_PATH" && npm ci)
 fi
 
+# Each project-specific framework under PROJECT_FRAMEWORKS_ROOT (one subfolder per registered
+# Test Engine's framework_path — see FrameworkRunnerService's projectFrameworksRoot) is a brand
+# new starter-kit checkout with no pre-existing Windows-native node_modules to worry about, so —
+# unlike PLAYWRIGHT_FRAMEWORK_PATH above — it installs directly into the bind-mounted directory,
+# no separate shadow volume needed. Runs once per subfolder, on first boot only.
+if [ -d "$PROJECT_FRAMEWORKS_ROOT" ]; then
+    for pkg in "$PROJECT_FRAMEWORKS_ROOT"/*/package.json; do
+        [ -f "$pkg" ] || continue
+        dir=$(dirname "$pkg")
+        if [ ! -d "$dir/node_modules" ]; then
+            echo "Installing npm dependencies for project framework: $dir"
+            (cd "$dir" && npm install)
+        fi
+    done
+fi
+
 exec java -cp /app/framework-runner.jar runner.FrameworkRunnerService

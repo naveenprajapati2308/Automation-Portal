@@ -71,15 +71,9 @@ public class ExecutionEventService {
 
         Execution execution = list.get(0);
 
-        // A dispatch timeout / stale-RUNNING sweep can already have moved this execution to a
-        // terminal status while its runner process (started fire-and-forget, orphaned from this
-        // execution's own tracking) keeps sending real lifecycle events. Without this guard a
-        // late event resurrects a terminal execution back to RUNNING with no way back - the
-        // orphaned process was never going to send a matching SUITE_COMPLETED (it may already be
-        // killed), so the execution gets stuck RUNNING forever and blocks the single-concurrency
-        // queue behind it indefinitely.
         if (isTerminal(execution.getStatus())) {
-            log.warn("Ignoring {} event for execution {} - already in terminal status {} (likely a late event from an orphaned/already-finished run)",
+            log.warn(
+                    "Ignoring {} event for execution {} - already in terminal status {} (likely a late event from an orphaned/already-finished run)",
                     payload.getEventType(), payload.getExecutionId(), execution.getStatus());
             return;
         }
@@ -93,16 +87,7 @@ public class ExecutionEventService {
                 if (data != null) {
                     if (data.containsKey("suiteName")) {
                         String incomingSuiteName = (String) data.get("suiteName");
-                        // Playwright's reporter has no equivalent of TestNG's <suite name="...">
-                        // — it just echoes something derived from its own project checkout (seen in
-                        // practice: literally "Playwright", or "playwright-js" from the folder name),
-                        // which never varies per module/run and would permanently clobber the
-                        // meaningful name ExecutionWorker already derived from the module before
-                        // submission (e.g. "Architect Empanelment - Individual Suite") with the same
-                        // static label every time. So for Playwright this field is never trusted at
-                        // all, regardless of its value. Selenium/TestNG's PortalApiClient, by
-                        // contrast, sends the real <suite name="..."> from testng.xml, which
-                        // genuinely does vary suite to suite, so that case is still accepted as-is.
+
                         boolean trustworthy = incomingSuiteName != null && !incomingSuiteName.isBlank()
                                 && !"PLAYWRIGHT".equalsIgnoreCase(execution.getFramework());
                         if (trustworthy) {
@@ -322,17 +307,6 @@ public class ExecutionEventService {
                 "Test Case " + status + ": " + testName + " in class " + className, "SYSTEM");
     }
 
-    /**
-     * Playwright's counterpart to TestNGXmlParser's reporter-output step extraction: the
-     * live TEST_PASSED/TEST_FAILED/TEST_SKIPPED event optionally carries a "steps" array
-     * (testrix-reporter.ts's onStepBegin/onStepEnd bookkeeping of each test.step() call), so
-     * a Playwright test case gets the same per-step breakdown in the Test Steps panel that
-     * Maven/TestNG test cases already get from testng-results.xml - without which a
-     * Playwright module always looks like exactly one flat test case no matter how many
-     * logical steps (register, login, fill form, submit, ...) it actually walked through.
-     * Guarded the same way the XML-merge path is: skip if this test case already has steps
-     * (e.g. a duplicate/retry event for the same test), never duplicate rows.
-     */
     @SuppressWarnings("unchecked")
     private void saveStepsIfPresent(Long testCaseId, Map<String, Object> data) {
         Object rawSteps = data.get("steps");
@@ -370,9 +344,12 @@ public class ExecutionEventService {
         recomputeExecutionTotals(execution, data);
         logToDb(execution.getId(), "INFO", "Suite execution completed. Status: " + execution.getStatus(), "SYSTEM");
 
-        // Copy artifacts — Maven/TestNG's copy also re-parses testng-results.xml, correcting
-        // test cases the live stream left in a stale state (e.g. a SKIPPED test whose terminal
-        // event never arrived); Playwright has no equivalent XML to re-parse, just files to copy.
+        // Copy artifacts — Maven/TestNG's copy also re-parses testng-results.xml,
+        // correcting
+        // test cases the live stream left in a stale state (e.g. a SKIPPED test whose
+        // terminal
+        // event never arrived); Playwright has no equivalent XML to re-parse, just
+        // files to copy.
         if ("PLAYWRIGHT".equalsIgnoreCase(execution.getFramework())) {
             executionWorker.copyPlaywrightArtifacts(execution);
         } else {
@@ -384,10 +361,6 @@ public class ExecutionEventService {
         // summary (dashboard, reports) matches what's actually in execution_test_cases.
         recomputeExecutionTotals(execution, data);
 
-        // Sync the permanent test case catalog from this execution's now-final results. Wrapped
-        // so a catalog-sync failure can never block completion/concurrency-release below - the
-        // catalog is a read-model derived from execution history, not part of the execution
-        // pipeline itself.
         try {
             testCaseCatalogService.syncTestCasesForExecution(execution);
         } catch (Exception e) {
@@ -425,13 +398,6 @@ public class ExecutionEventService {
         return new Counts(total, passed, failed, skipped, totalDurationMs);
     }
 
-    // Called after every individual TEST_PASSED/FAILED/SKIPPED event so the execution's
-    // counts (and therefore the dashboard/execution list) reflect live progress instead of
-    // sitting at 0/0/0 for the whole run — a 149-test suite can legitimately take 10+ minutes,
-    // and with no live counts that looked indistinguishable from being stuck. Deliberately
-    // does NOT touch status/endTime/durationSeconds/rates — those stay exclusively owned by
-    // recomputeExecutionTotals() at SUITE_COMPLETED, so this can never mark a still-running
-    // execution as terminal or interfere with the single-concurrency queue gate.
     private void updateLiveCounts(Execution execution) {
         Counts c = computeCounts(execution.getId());
         execution.setTotalTests(c.total());

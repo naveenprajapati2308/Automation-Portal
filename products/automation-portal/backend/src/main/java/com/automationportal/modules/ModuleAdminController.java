@@ -33,10 +33,12 @@ public class ModuleAdminController {
                     "A " + runnerType + " module with code '" + body.getCode() + "' already exists.");
         }
         ModuleEntity m = new ModuleEntity(body.getCode(), body.getName());
-        // Super Admin has no project context of its own (excluded from project_users by
-        // design) — every admin-created module is stamped into the Default Workspace, same as
-        // every pre-Phase-3 module already backfilled there.
-        m.setProjectId(currentProjectService.defaultWorkspaceProjectId());
+        // Super Admin has no project context of its own (excluded from project_users by design),
+        // so an explicit target project must be named in the request — this is the only way any
+        // project other than the Default Workspace (MPHIDB) can ever get a module registered.
+        // Falls back to the Default Workspace when omitted so every pre-multi-project caller
+        // (today's Manage Modules UI has no project picker yet) keeps working unchanged.
+        m.setProjectId(body.getProjectId() != null ? body.getProjectId() : currentProjectService.defaultWorkspaceProjectId());
         m.setDescription(body.getDescription());
         m.setXmlFile(body.getXmlFile());
         m.setReportPath(body.getReportPath());

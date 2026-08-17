@@ -146,26 +146,30 @@ export function RequestWorkspacePage({ onBack }) {
 
   if (submitted) {
     return (
-      <section className="auth-panel auth-panel-wide">
-        <div className="confirm-icon"><CheckCircle2 size={30} /></div>
-        <h3 style={{ textAlign: 'center' }}>Request Submitted</h3>
-        <p style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
-          A Super Admin will review your workspace request and get back to you at <strong>{form.email}</strong>.
+      <section className="auth-panel auth-panel-wide ws-submitted">
+        <div className="ws-submitted-icon"><CheckCircle2 size={30} /></div>
+        <h3>Request submitted</h3>
+        <p className="ws-submitted-lede">
+          A Super Admin will review <strong>{form.workspaceName || form.projectName}</strong> and get back to you at <strong>{form.email}</strong>.
         </p>
-        <div className="modal-form-actions" style={{ justifyContent: 'center' }}>
-          <button type="button" className="primary-action" onClick={onBack}>Back to Login</button>
-        </div>
+        <ul className="ws-submitted-next">
+          <li>You'll get an email once it's approved</li>
+          <li>Login access is sent to the same address</li>
+        </ul>
+        <button type="button" className="primary-action" onClick={onBack}>Back to Login</button>
       </section>
     );
   }
 
   return (
-    <section className="auth-panel auth-panel-wide">
-      <h3 style={{ marginTop: 0 }}>Request a Workspace</h3>
-      <p style={{ color: 'var(--text-muted)', marginTop: -8, marginBottom: 20 }}>
-        Tell us about your project — a Super Admin will review and approve your workspace.
-      </p>
-      <form onSubmit={submit} className="auth-form" noValidate>
+    <section className="auth-panel auth-panel-wide ws-request-panel">
+      <div className="ws-request-header">
+        <h3 style={{ marginTop: 0 }}>Request a Workspace</h3>
+        <p style={{ color: 'var(--text-muted)', marginTop: -8, marginBottom: 20 }}>
+          Tell us about your project — a Super Admin will review and approve your workspace.
+        </p>
+      </div>
+      <form onSubmit={submit} className="auth-form ws-request-scroll" noValidate>
         <div className="ws-request-section-label">Project Information</div>
         <Field label="Project Name" required value={form.projectName} onChange={(v) => update('projectName', v)} error={errors.projectName} />
         <Field label="Organization Name" required value={form.organizationName} onChange={(v) => update('organizationName', v)} error={errors.organizationName} />

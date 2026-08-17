@@ -72,9 +72,15 @@ public class EnvironmentController {
         return ApiResponse.ok(modules);
     }
 
+    // Was SUPER_ADMIN-only at the security layer (see SecurityConfig) because the service behind
+    // this used to return every project's environments/executions unfiltered — genuinely unsafe
+    // to open to project users as-is. Now scoped to the caller's own project (same pattern as
+    // list() above), which is what makes it safe for a Project Admin to actually reach their own
+    // Environments page instead of 403ing on it.
     @GetMapping("/health")
     public ApiResponse<List<Map<String, Object>>> health() {
-        return ApiResponse.ok(healthService.health());
+        Long projectId = currentProjectService.requireProjectId();
+        return ApiResponse.ok(healthService.health(projectId));
     }
 
     // Write access (create/update/delete) is the caller's own project's Project Admin acting

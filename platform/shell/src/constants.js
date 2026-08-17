@@ -7,7 +7,11 @@ export const AUTOMATION_NAV = [
   { key: 'logs', label: 'Test Logs', icon: 'TerminalSquare' },
   { key: 'screenshots', label: 'Screenshots', icon: 'Camera' },
   { key: 'compare', label: 'Historical Compare', icon: 'GitCompare' },
-  { key: 'environments', label: 'Environments', icon: 'Globe2' }
+  { key: 'environments', label: 'Environments', icon: 'Globe2' },
+  // Re-enters the Automation Setup Wizard (registering an additional framework, e.g. Selenium
+  // then Playwright later) — only a Project Admin can complete it, so only they see it here
+  // (Sidebar filters on projectAdminOnly, same gate as automation-portal's own copy of this item).
+  { key: 'automation-setup', label: 'Add Framework', icon: 'Wrench', projectAdminOnly: true }
 ];
 
 export const API_TESTING_NAV = [

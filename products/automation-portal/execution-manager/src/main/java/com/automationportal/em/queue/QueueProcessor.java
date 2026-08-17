@@ -15,7 +15,10 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class QueueProcessor {
@@ -35,6 +38,13 @@ public class QueueProcessor {
     @Value("${em.runner-url:http://localhost:9090}")
     private String defaultRunnerUrl;
 
+    // Comma-separated list of runner base URLs — a small, statically-defined pool
+    // (docker-compose runs a few named automation-framework-runner-N instances) instead of the
+    // one hardcoded default. Blank/unset keeps today's single-runner behavior exactly as before
+    // (native/local dev without the multi-runner compose group).
+    @Value("${em.runner-urls:}")
+    private String runnerUrlsCsv;
+
     @Value("${em.portal-backend-url:http://localhost:8080}")
     private String portalBackendUrl;
 
@@ -52,14 +62,44 @@ public class QueueProcessor {
     }
 
     /**
-     * The registry row persists in MySQL across environments, but the correct runner URL
-     * differs per environment (docker-compose sets EM_RUNNER_URL to the Docker network
-     * hostname; native runs default to localhost). Sync the default runner's row to this
-     * instance's configured URL on every boot so a stale row from the other environment
-     * can never black-hole dispatches.
+     * The registry persists in MySQL across environments, but the correct runner URL(s) differ
+     * per environment (docker-compose sets Docker network hostnames; native runs default to
+     * localhost). Sync every configured runner's row to this instance's configuration on every
+     * boot — including deleting rows for URLs no longer configured — so a stale row from a
+     * previous environment or a since-removed runner can never black-hole or double-dispatch.
      */
     @PostConstruct
-    void syncDefaultRunner() {
+    void syncRunners() {
+        List<String> urls = parseRunnerUrls();
+        if (urls.isEmpty()) {
+            syncSingleDefaultRunner();
+            return;
+        }
+        Set<String> keepIds = new HashSet<>();
+        for (int i = 0; i < urls.size(); i++) {
+            String id = "runner-" + (i + 1);
+            String url = urls.get(i);
+            keepIds.add(id);
+            RunnerRegistry runner = runnerRepository.findById(id).orElseGet(() -> {
+                RunnerRegistry r = new RunnerRegistry();
+                r.setRunnerId(id);
+                return r;
+            });
+            runner.setRunnerName("Runner " + (i + 1));
+            runner.setRunnerUrl(url);
+            runner.setStatus("IDLE");
+            runner.setLastHeartbeat(Instant.now());
+            runnerRepository.save(runner);
+        }
+        for (RunnerRegistry existing : runnerRepository.findAll()) {
+            if (!keepIds.contains(existing.getRunnerId())) {
+                log.info("Removing stale runner registry entry no longer in em.runner-urls: {}", existing.getRunnerId());
+                runnerRepository.deleteById(existing.getRunnerId());
+            }
+        }
+    }
+
+    private void syncSingleDefaultRunner() {
         RunnerRegistry runner = runnerRepository.findById("default-runner").orElseGet(() -> {
             RunnerRegistry r = new RunnerRegistry();
             r.setRunnerId("default-runner");
@@ -74,6 +114,14 @@ public class QueueProcessor {
         runner.setStatus("IDLE");
         runner.setLastHeartbeat(Instant.now());
         runnerRepository.save(runner);
+    }
+
+    private List<String> parseRunnerUrls() {
+        if (runnerUrlsCsv == null || runnerUrlsCsv.isBlank()) return List.of();
+        return Arrays.stream(runnerUrlsCsv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 
     @Scheduled(fixedDelay = 5000)
@@ -98,27 +146,54 @@ public class QueueProcessor {
                 return;
             }
 
-            log.info("Found {} queued jobs. Running: {}/{}. Available slots: {}", 
+            log.info("Found {} queued jobs. Running: {}/{}. Available slots: {}",
                      queuedJobs.size(), runningCount, maxConcurrent, availableSlots);
 
-            // 4. Dispatch jobs
-            for (int i = 0; i < Math.min(availableSlots, queuedJobs.size()); i++) {
-                ExecutionJob job = queuedJobs.get(i);
-                dispatchJob(job);
+            // 4. Dispatch jobs — but never two at once for the same project's framework
+            // directory (or, for legacy null-framework-path jobs, the one shared checkout):
+            // concurrent runs sharing a working directory would corrupt each other's
+            // test-output/test-results cleanup and shared node_modules/target. Jobs with
+            // different keys are fully independent and may run in parallel, up to
+            // maxConcurrent/available runners — this is what turns one global queue into one
+            // queue per project, parallel across projects.
+            Set<String> busyKeys = new HashSet<>();
+            for (ExecutionJob running : runningJobs) {
+                busyKeys.add(dispatchKey(running));
+            }
+            int dispatched = 0;
+            for (ExecutionJob job : queuedJobs) {
+                if (dispatched >= availableSlots) break;
+                String key = dispatchKey(job);
+                if (busyKeys.contains(key)) {
+                    continue;
+                }
+                if (dispatchJob(job)) {
+                    busyKeys.add(key);
+                    dispatched++;
+                }
             }
         } catch (Exception e) {
             log.error("Error in queue processor loop", e);
         }
     }
 
-    private void dispatchJob(ExecutionJob job) {
+    private String dispatchKey(ExecutionJob job) {
+        String fp = job.getFrameworkPath();
+        if (fp != null && !fp.isBlank()) {
+            return fp;
+        }
+        String framework = job.getFramework();
+        return "LEGACY_SHARED_" + (framework == null ? "" : framework.toUpperCase());
+    }
+
+    private boolean dispatchJob(ExecutionJob job) {
         log.info("Attempting to dispatch job: {} for execution: {}", job.getJobId(), job.getExecutionId());
 
         // Find an IDLE runner or register the default one if registry is empty
         String runnerUrl = selectRunner(job.getFramework());
         if (runnerUrl == null) {
-            log.warn("No active/idle runners found for job: {}", job.getJobId());
-            return;
+            log.warn("No idle/capable runner available right now for job: {}", job.getJobId());
+            return false;
         }
 
         // docs/version2.3.md Plan 2 / docs/test-engine-integration-architecture.md §3.5: a job
@@ -139,7 +214,8 @@ public class QueueProcessor {
                 job.getEnvConfigJson(),
                 job.getFramework(),
                 job.getBrowser(),
-                job.getTagFilter()
+                job.getTagFilter(),
+                job.getFrameworkPath()
         );
 
         if (success) {
@@ -154,10 +230,12 @@ public class QueueProcessor {
             // Notify Portal Backend that execution state is RUNNING
             callbackClient.notifyStateChange(job.getExecutionId(), "RUNNING");
             log.info("Job {} successfully dispatched to runner {}", job.getJobId(), runnerUrl);
+            return true;
         } else {
             log.error("Failed to trigger job {} on runner {}", job.getJobId(), runnerUrl);
             // Handle dispatch failures - check retry or mark as ERROR
             handleDispatchFailure(job);
+            return false;
         }
     }
 
@@ -185,16 +263,20 @@ public class QueueProcessor {
             capable = runners;
         }
 
-        // Find first runner which is IDLE or whose status is active
+        // Find first runner which is IDLE
         for (RunnerRegistry r : capable) {
             if ("IDLE".equalsIgnoreCase(r.getStatus())) {
                 return r.getRunnerUrl();
             }
         }
 
-        // Fallback: If all are BUSY or none are IDLE but we have default, return it
-        // Or if we run sequential (maxConcurrent = 1), just return default-runner's URL
-        return defaultRunnerUrl;
+        // No capable runner is IDLE — with only one static runner and maxConcurrent=1 this branch
+        // was previously unreachable (the outer concurrency guard already blocked before we got
+        // here), so blindly returning defaultRunnerUrl was harmless. With a multi-runner pool and
+        // maxConcurrent > 1 it is NOT harmless: it would fire a second job at an already-BUSY,
+        // single-job-capacity runner instance and corrupt that runner's in-flight job tracking.
+        // Returning null lets the caller skip dispatch this tick and retry on the next 5s poll.
+        return null;
     }
 
     // null/empty supportedFrameworks = this runner handles everything (today's default, and

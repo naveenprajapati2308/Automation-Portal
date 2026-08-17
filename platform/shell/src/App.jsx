@@ -999,7 +999,7 @@ export default function App() {
         )}
       >
         {superAdmin && page === 'profile' ? (
-          <Profile setNotice={notify} onProfileSaved={updateSessionUser} />
+          <Profile setNotice={notify} onProfileSaved={updateSessionUser} project={session?.project} />
         ) : superAdmin ? (
           <AdminContent
             activePage={adminPage}
@@ -1013,7 +1013,7 @@ export default function App() {
         ) : page === 'perf' ? (
           <PerformanceWorkspace activePage={perfPage} />
         ) : page === 'profile' ? (
-          <Profile setNotice={notify} onProfileSaved={updateSessionUser} />
+          <Profile setNotice={notify} onProfileSaved={updateSessionUser} project={session?.project} />
         ) : page === 'team' ? (
           <ProjectUserManagement setNotice={notify} />
         ) : page === 'workspace-settings' ? (

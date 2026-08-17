@@ -141,15 +141,17 @@ export function Sidebar({
                 </button>
                 {isExpanded && (
                   <div className="nav-submenu">
-                    {children.map((child) => (
-                      <button
-                        key={child.key}
-                        className={activeChildKey === child.key ? 'active' : ''}
-                        onClick={() => onNavigateChild(item.key, child.key)}
-                      >
-                        {child.label}
-                      </button>
-                    ))}
+                    {children
+                      .filter((child) => !child.projectAdminOnly || project?.roles?.includes('PROJECT_ADMIN'))
+                      .map((child) => (
+                        <button
+                          key={child.key}
+                          className={activeChildKey === child.key ? 'active' : ''}
+                          onClick={() => onNavigateChild(item.key, child.key)}
+                        >
+                          {child.label}
+                        </button>
+                      ))}
                   </div>
                 )}
               </div>
@@ -400,6 +402,19 @@ function WorkspaceBadge({ project }) {
   );
 }
 
+// Project role beats the vestigial platform UserRole (almost always VIEWER — see
+// WorkspaceProvisioningService.approve()) for display: it's the role that actually governs
+// what this user can do inside their project. Falls back to user.role for Super Admin, who
+// has no project context.
+const PROJECT_ROLE_PRIORITY = ['PROJECT_ADMIN', 'QA_LEAD', 'TECH_LEAD', 'AUTOMATION_ENGINEER', 'VIEWER'];
+
+function displayRole(user, project) {
+  const projectRole = project?.roles?.length
+    ? PROJECT_ROLE_PRIORITY.find((r) => project.roles.includes(r)) || project.roles[0]
+    : null;
+  return projectRole || user?.role || '';
+}
+
 // ── Layout: Topbar ───────────────────────────────────────────────────────────
 export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, onNavigateHome, notifications, user, project, onNavigateProfile, onNavigate, topbarExtra }) {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -519,7 +534,7 @@ export function Topbar({ pageTitle, breadcrumbItems, breadcrumbMid, superAdmin, 
               : <span className="tb-user-avatar">{(user.displayName || user.username || '?').trim().charAt(0).toUpperCase()}</span>}
             <span className="tb-user-text">
               <span className="tb-user-name">{user.displayName || user.username}</span>
-              <span className="tb-user-role">{superAdmin && <Crown size={9} style={{ marginRight: 3, verticalAlign: '-1px' }} />}{(user.role || '').replace(/_/g, ' ').toLowerCase()}</span>
+              <span className="tb-user-role">{superAdmin && <Crown size={9} style={{ marginRight: 3, verticalAlign: '-1px' }} />}{displayRole(user, project).replace(/_/g, ' ').toLowerCase()}</span>
             </span>
             <ChevronDown size={13} style={{ color: 'var(--text-muted)' }} />
           </button>
