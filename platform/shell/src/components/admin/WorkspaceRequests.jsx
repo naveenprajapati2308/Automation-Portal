@@ -105,14 +105,25 @@ export function WorkspaceRequests({ setNotice }) {
         <Modal title="Workspace Provisioned" onClose={() => setApprovalResult(null)} closeOnBackdrop={false}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <p><strong>{approvalResult.projectName}</strong> ({approvalResult.projectCode} / {approvalResult.workspaceCode}) is live.</p>
-            <div className="otp-reveal">
-              <span className="otp-label"><KeyRound size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />Project Admin Credentials</span>
-              <span className="otp-code" style={{ fontSize: 15 }}>{approvalResult.projectAdminUsername}</span>
-              <span className="otp-code" style={{ fontSize: 15 }}>{approvalResult.projectAdminTempPassword}</span>
-              <span className="otp-hint">
-                {approvalResult.emailSent ? 'Also emailed to the project manager.' : 'Email delivery failed — please share these credentials manually.'}
-              </span>
-            </div>
+            {approvalResult.projectAdminTempPassword ? (
+              <div className="otp-reveal">
+                <span className="otp-label"><KeyRound size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />Project Admin Credentials</span>
+                <span className="otp-code" style={{ fontSize: 15 }}>{approvalResult.projectAdminUsername}</span>
+                <span className="otp-code" style={{ fontSize: 15 }}>{approvalResult.projectAdminTempPassword}</span>
+                <span className="otp-hint">
+                  {approvalResult.emailSent ? 'Also emailed to the project manager.' : 'Email delivery failed — please share these credentials manually.'}
+                </span>
+              </div>
+            ) : (
+              <div className="otp-reveal">
+                <span className="otp-label"><KeyRound size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />Linked Existing Account</span>
+                <span className="otp-code" style={{ fontSize: 15 }}>Username: {approvalResult.projectAdminUsername}</span>
+                <span className="otp-hint">
+                  This user already has a Testrix account. The new workspace has been linked to their existing credentials.
+                  {approvalResult.emailSent ? ' Access details have been emailed.' : ''}
+                </span>
+              </div>
+            )}
             <div className="modal-form-actions">
               <button className="primary-action" onClick={() => setApprovalResult(null)}>Done</button>
             </div>

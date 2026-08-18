@@ -2,13 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api.js';
 import { Panel } from '../shared/index.jsx';
 
-// ── Role Management — the platform's real role catalog (docs/version2.2.md "ROLE MANAGEMENT":
-// only Super Admin defines Roles/Permission Sets; a Project Admin only assigns these predefined
-// roles within their own workspace, never creates new ones). This used to reassign each user's
-// legacy single platform-tier role (SUPER_ADMIN/ADMIN/QA_LEAD/...), which doesn't reflect how
-// roles actually work post-multi-workspace: a user's real roles are per-project grants made in
-// each workspace's own Team Management page. This page is the catalog those grants are drawn
-// from — read-only for v1, since the catalog is fixed/seeded, not authored here. ───────────────
+
 export function RoleManagement({ setNotice }) {
   const [roles, setRoles] = useState([]);
 

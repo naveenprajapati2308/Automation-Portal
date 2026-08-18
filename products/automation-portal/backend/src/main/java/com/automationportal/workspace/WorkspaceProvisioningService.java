@@ -78,9 +78,7 @@ public class WorkspaceProvisioningService {
                 java.util.List.of(WorkspaceRequestStatus.APPROVED))) {
             throw new IllegalArgumentException("Workspace name '" + request.getWorkspaceName() + "' is already in use");
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("An account with email '" + request.getEmail() + "' already exists");
-        }
+        // Removed check to allow reusing an existing user account for multiple workspaces
 
         Tenant tenant = tenantRepository.findByTenantCode(DEFAULT_TENANT_CODE)
             .orElseThrow(() -> new IllegalStateException("Default tenant is missing — data migration V21 did not run"));
@@ -105,20 +103,30 @@ public class WorkspaceProvisioningService {
             projectModuleRepository.save(new ProjectModule(project, ProjectModuleType.valueOf(moduleType.trim()), true));
         }
 
-        String username = uniqueUsername(request.getEmail());
-        String tempPassword = TempPasswordGenerator.generate();
-        User projectAdmin = new User();
-        projectAdmin.setUsername(username);
-        projectAdmin.setEmail(request.getEmail());
-        projectAdmin.setPasswordHash(passwordEncoder.encode(tempPassword));
-        projectAdmin.setDisplayName(request.getProjectManagerName());
-        projectAdmin.setMobileNumber(request.getPhone());
-        projectAdmin.setRole(UserRole.VIEWER); // platform-level flag only; real authority is the PROJECT_ADMIN project_users grant below
-        projectAdmin.setStatus(UserStatus.ACTIVE);
-        projectAdmin.setEmailVerified(true);
-        projectAdmin.setAuthProvider("LOCAL");
-        projectAdmin.setBusinessId(entityIdGeneratorService.next("USR"));
-        userRepository.save(projectAdmin);
+        boolean userExists = userRepository.existsByEmail(request.getEmail());
+        User projectAdmin;
+        String username;
+        String tempPassword = null;
+        if (userExists) {
+            projectAdmin = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalStateException("User not found for email: " + request.getEmail()));
+            username = projectAdmin.getUsername();
+        } else {
+            username = uniqueUsername(request.getEmail());
+            tempPassword = TempPasswordGenerator.generate();
+            projectAdmin = new User();
+            projectAdmin.setUsername(username);
+            projectAdmin.setEmail(request.getEmail());
+            projectAdmin.setPasswordHash(passwordEncoder.encode(tempPassword));
+            projectAdmin.setDisplayName(request.getProjectManagerName());
+            projectAdmin.setMobileNumber(request.getPhone());
+            projectAdmin.setRole(UserRole.VIEWER); // platform-level flag only; real authority is the PROJECT_ADMIN project_users grant below
+            projectAdmin.setStatus(UserStatus.ACTIVE);
+            projectAdmin.setEmailVerified(true);
+            projectAdmin.setAuthProvider("LOCAL");
+            projectAdmin.setBusinessId(entityIdGeneratorService.next("USR"));
+            userRepository.save(projectAdmin);
+        }
 
         Role projectAdminRole = roleRepository.findByCode("PROJECT_ADMIN")
             .orElseThrow(() -> new IllegalStateException("PROJECT_ADMIN role is missing — data migration V21 did not run"));
@@ -132,14 +140,25 @@ public class WorkspaceProvisioningService {
 
         boolean emailSent = true;
         try {
-            mailService.sendWorkspaceApproved(
-                projectAdmin.getEmail(),
-                project.getName(),
-                project.getWorkspaceCode(),
-                username,
-                tempPassword,
-                frontendUrl
-            );
+            if (userExists) {
+                mailService.sendProjectUserAttached(
+                    projectAdmin.getEmail(),
+                    username,
+                    project.getName(),
+                    project.getWorkspaceCode(),
+                    projectAdminRole.getName(),
+                    frontendUrl
+                );
+            } else {
+                mailService.sendWorkspaceApproved(
+                    projectAdmin.getEmail(),
+                    project.getName(),
+                    project.getWorkspaceCode(),
+                    username,
+                    tempPassword,
+                    frontendUrl
+                );
+            }
         } catch (RuntimeException ex) {
             emailSent = false;
         }

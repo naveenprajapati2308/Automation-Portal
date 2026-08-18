@@ -8,7 +8,7 @@ import { Loader } from '../../../../../shared/ui/Loader.jsx';
 const CLASS_STATUS_COLOR = (statusClass) =>
   statusClass === '2xx' || statusClass === '3xx' ? 'text-[var(--success-text)]' : 'text-[var(--danger-text)]';
 
-export default function RequestHistoryPanel({ requestId }) {
+export default function RequestHistoryPanel({ requestId, pausePolling = false }) {
   const [collapsed, setCollapsed] = useState(false);
   const [detailId, setDetailId] = useState(null);
 
@@ -18,7 +18,10 @@ export default function RequestHistoryPanel({ requestId }) {
       params: { apiType: 'COLLECTION', apiId: requestId, size: 25 },
     })).data,
     enabled: !!requestId,
-    refetchInterval: 5000,
+    // Pause the 5-second polling while a /execute request is in-flight.
+    // A React Query refetch fires a re-render which would cause the shared
+    // apiClient's AbortController to cancel the long-running execute call.
+    refetchInterval: pausePolling ? false : 5000,
   });
 
   const { data: detail } = useQuery({

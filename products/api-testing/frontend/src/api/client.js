@@ -2,7 +2,7 @@ import axios from 'axios';
 
 export const apiClient = axios.create({
   baseURL: `${import.meta.env.BASE_URL.replace(/\/$/, '')}/api`,
-  timeout: 15000,
+  timeout: 130000,
 });
 
 

@@ -19,7 +19,7 @@ function validate(form) {
   if (!form.fullName?.trim()) errors.fullName = 'Full name is required';
   if (!form.mobileNumber?.trim()) errors.mobileNumber = 'Mobile number is required';
   else if (!MOBILE_REGEX.test(form.mobileNumber.trim()))
-    errors.mobileNumber = 'Enter a valid mobile number (10–15 digits)';
+    errors.mobileNumber = 'Enter a valid mobile number';
   if (!form.designation?.trim()) errors.designation = 'Designation is required';
   if (!form.role) errors.role = 'Role is required';
   return errors;
@@ -55,17 +55,17 @@ export function UserManagement({ setNotice }) {
   useEffect(() => { loadUsers(); }, []);
 
   const disable = async (id) => {
-    try { await api.adminDisableUser(id); setNotice('User disabled.'); await loadUsers(); }
+    try { await api.adminDisableUser(id); setNotice('User disabled successfully.'); await loadUsers(); }
     catch (e) { setNotice(e.message); }
   };
 
   const enable = async (id) => {
-    try { await api.adminEnableUser(id); setNotice('User enabled.'); await loadUsers(); }
+    try { await api.adminEnableUser(id); setNotice('User enabled successfully.'); await loadUsers(); }
     catch (e) { setNotice(e.message); }
   };
 
   const changeRole = async (id, role) => {
-    try { await api.adminAssignRole(id, role); setNotice('Role updated.'); await loadUsers(); }
+    try { await api.adminAssignRole(id, role); setNotice('Role updated successfully.'); await loadUsers(); }
     catch (e) { setNotice(e.message); }
   };
 
@@ -73,7 +73,7 @@ export function UserManagement({ setNotice }) {
     if (!deleteTarget) return;
     try {
       await api.adminDeleteUser(deleteTarget.id);
-      setNotice(`User "${deleteTarget.username}" deleted.`);
+      setNotice(`User "${deleteTarget.username}" deleted successfully.`);
       setDeleteTarget(null);
       await loadUsers();
     } catch (e) {
@@ -164,7 +164,7 @@ export function UserManagement({ setNotice }) {
             className="action-btn delete-btn"
             onClick={() => setDeleteTarget(u)}
             disabled={u.role === 'SUPER_ADMIN'}
-            title={u.role === 'SUPER_ADMIN' ? 'Cannot delete Super Admin' : 'Delete user'}
+            title={u.role === 'SUPER_ADMIN' ? 'Super admin Can not be deleted' : 'Delete user'}
           >
             <Trash2 size={13} /> Delete
           </button>
@@ -210,9 +210,9 @@ export function UserManagement({ setNotice }) {
           )}
         </div>
 
-        <DataTable 
-          columns={columns} 
-          data={usersWithIndices} 
+        <DataTable
+          columns={columns}
+          data={usersWithIndices}
           searchPlaceholder="Filter users..."
           exportFilename="users_list.csv"
         />
@@ -257,7 +257,7 @@ export function UserManagement({ setNotice }) {
           <div className="confirm-icon"><Trash2 size={30} /></div>
           <h3>Delete User?</h3>
           <p>Are you sure you want to delete <strong>{deleteTarget.username}</strong>?</p>
-          <p className="confirm-warning">This action can't be reverted.</p>
+          <p className="confirm-warning">This action cannot be reverted.</p>
           <div className="confirm-actions">
             <button className="secondary-action" onClick={() => setDeleteTarget(null)}>Cancel</button>
             <button className="danger-action" onClick={confirmDelete}>Delete</button>
@@ -352,7 +352,7 @@ function EditUserForm({ user, setNotice, onSaved, onCancel }) {
   return (
     <form onSubmit={submit} className="auth-form">
       <Field label="Full Name" required value={form.fullName} onChange={(v) => update('fullName', v)} error={errors.fullName} />
-      <Field label="Mobile Number" required value={form.mobileNumber} onChange={(v) => update('mobileNumber', v.replace(/\D/g, '').slice(0, 15))} error={errors.mobileNumber} inputMode="numeric" />
+      <Field label="Mobile Number" required value={form.mobileNumber} onChange={(v) => update('mobileNumber', v.replace(/\D/g, '').slice(0, 10))} error={errors.mobileNumber} inputMode="numeric" />
       <Field label="Designation" required value={form.designation} onChange={(v) => update('designation', v)} error={errors.designation} />
       <Field label="Organization" value={form.organization} onChange={(v) => update('organization', v)} />
       <div className="modal-form-actions">
@@ -387,7 +387,7 @@ function ResetPasswordForm({ userId, setNotice, onDone, onCancel }) {
   return (
     <form onSubmit={submit} className="auth-form">
       <Field label="New Password" required type="password" value={newPassword} onChange={setNewPassword} error={errors.newPassword} />
-      <Field label="Confirm Password" required type="password" value={confirmPassword} onChange={setConfirmPassword} error={errors.confirmPassword} />
+      <Field label="Confirm New Password" required type="password" value={confirmPassword} onChange={setConfirmPassword} error={errors.confirmPassword} />
       <div className="modal-form-actions">
         <button type="button" className="secondary-action" onClick={onCancel}>Cancel</button>
         <button className="primary-action modal-submit-btn" type="submit">

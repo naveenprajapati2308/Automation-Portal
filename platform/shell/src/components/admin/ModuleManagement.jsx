@@ -5,11 +5,7 @@ import { Plus, Edit2, Trash2, ToggleLeft, ToggleRight, Globe2, ChevronRight, Che
 import { Field } from '../shared/Field.jsx';
 import { ModuleEnvironmentMappingPanel } from './ModuleEnvironmentMappingPanel.jsx';
 
-// Matches against EITHER the caller's legacy platform role (pre-multi-workspace accounts) OR
-// any of their current project roles (see ExecutionService.validateModuleEnvironmentBrowser) —
-// so both sets are offered here. SUPER_ADMIN/ADMIN are platform-only; the rest are project role
-// catalog codes (PROJECT_ADMIN, QA_LEAD, TECH_LEAD, AUTOMATION_ENGINEER, VIEWER — see
-// ProjectUserController.ASSIGNABLE_ROLE_CODES).
+
 const ALL_ROLES = [
   'SUPER_ADMIN', 'ADMIN', 'PROJECT_ADMIN', 'QA_LEAD', 'TECH_LEAD', 'AUTOMATION_ENGINEER', 'VIEWER'
 ];
@@ -23,19 +19,13 @@ export function ModuleManagement({ setNotice }) {
   const [envTarget, setEnvTarget] = useState(null);
   const [expandedIds, setExpandedIds] = useState(new Set());
 
-  // Frameworks — drives the Framework select in the form and the friendly label shown in the
-  // table below. Fetched once here (from the backend's FrameworkRegistry, never hardcoded) and
-  // shared with ModuleForm, so a newly registered framework (beyond Selenium/Playwright) shows
-  // up in both places automatically.
   const [frameworks, setFrameworks] = useState([]);
   useEffect(() => {
     api.frameworks().then((list) => setFrameworks(list || [])).catch(() => setFrameworks([]));
   }, []);
   const frameworkLabel = (code) => frameworks.find((fw) => fw.code === code)?.displayName || code || 'Unknown';
 
-  // Registered Test Engines (docs/version2.3.md Plan 2) — a module can optionally dispatch
-  // through one, so its runs use that engine's own per-workspace credential instead of the
-  // legacy platform-wide shared key. Fetched once, same pattern as frameworks above.
+
   const [testEngines, setTestEngines] = useState([]);
   useEffect(() => {
     api.adminListTestEngines().then((list) => setTestEngines(list || [])).catch(() => setTestEngines([]));
@@ -284,15 +274,15 @@ export function ModuleManagement({ setNotice }) {
 
 function ModuleForm({ mod, allModules = [], frameworks = [], testEngines = [], setNotice, onSaved, onCancel }) {
   const [form, setForm] = useState({
-    name:         mod?.name         || '',
-    code:         mod?.code         || '',
-    description:  mod?.description  || '',
-    xmlFile:      mod?.xmlFile      || '',
-    reportPath:   mod?.reportPath   || '',
-    runnerType:   mod?.runnerType   || 'MAVEN_TESTNG',
-    visible:      mod ? mod.visible !== false : true,
+    name: mod?.name || '',
+    code: mod?.code || '',
+    description: mod?.description || '',
+    xmlFile: mod?.xmlFile || '',
+    reportPath: mod?.reportPath || '',
+    runnerType: mod?.runnerType || 'MAVEN_TESTNG',
+    visible: mod ? mod.visible !== false : true,
     allowedRoles: mod?.allowedRoles || '',
-    active:       mod ? mod.active : true,
+    active: mod ? mod.active : true,
     parentModuleId: mod?.parentModuleId || '',
     testEngineId: mod?.testEngineId || ''
   });
@@ -328,8 +318,8 @@ function ModuleForm({ mod, allModules = [], frameworks = [], testEngines = [], s
 
   const validate = () => {
     const errs = {};
-    if (!form.name.trim())    errs.name    = 'Name is required';
-    if (!form.code.trim())    errs.code    = 'Code is required (e.g. LAND, EMP_ARCH)';
+    if (!form.name.trim()) errs.name = 'Name is required';
+    if (!form.code.trim()) errs.code = 'Code is required (e.g. LAND, EMP_ARCH)';
     if (!form.xmlFile.trim()) errs.xmlFile = 'Suite/spec file is required (e.g. land.xml or land.spec.ts)';
     return errs;
   };

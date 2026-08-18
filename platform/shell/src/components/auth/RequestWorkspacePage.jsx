@@ -33,7 +33,7 @@ function validate(form) {
   if (!form.organizationName.trim()) errors.organizationName = 'Organization name is required';
   if (form.requestedModules.length === 0) errors.requestedModules = 'Select at least one testing module';
   if (!form.workspaceName.trim()) errors.workspaceName = 'Workspace name is required';
-  if (!form.preferredWorkspaceSlug.trim()) errors.preferredWorkspaceSlug = 'Preferred workspace code is required';
+  if (!form.preferredWorkspaceSlug.trim()) errors.preferredWorkspaceSlug = 'Preferred workspace code is required this is random code that will be used to identify your workspace';
   else if (!SLUG_RE.test(form.preferredWorkspaceSlug.trim())) errors.preferredWorkspaceSlug = 'Lowercase letters, numbers and hyphens only';
   if (!form.projectManagerName.trim()) errors.projectManagerName = 'Project manager name is required';
   if (!form.email.trim()) errors.email = 'Email is required';
@@ -104,7 +104,7 @@ export function RequestWorkspacePage({ onBack }) {
       await api.verifyWorkspaceRequestOtp({ email, otp: otpValue.trim() });
       setOtpStatus(OTP_VERIFIED);
       setVerifiedEmail(email);
-      setOtpMessage('Email verified.');
+      setOtpMessage('Email verified successfully.');
     } catch (error) {
       setOtpStatus(OTP_SENT);
       setOtpError(error.detail || error.message);

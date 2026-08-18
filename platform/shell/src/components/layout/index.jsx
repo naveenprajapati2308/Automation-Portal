@@ -1,33 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Bell,
-  BookOpen,
-  Building2,
-  Camera,
+  Bell, BookOpen, Building2, Camera,
   CalendarClock,
   Check,
   ChevronDown,
   ChevronLeft,
-  ChevronRight,
-  Crown,
-  Database,
+  ChevronRight, Crown, Database,
   FileText,
   FolderTree,
-  Gauge,
-  GitCompare,
-  Globe2,
-  History,
-  LayoutDashboard,
-  LogOut,
-  Monitor,
-  Moon,
-  Package,
-  Play,
-  Settings,
-  Sparkles,
-  Sun,
-  TerminalSquare,
-  UserCircle,
+  Gauge, GitCompare, Globe2, History, LayoutDashboard, LogOut, Monitor, Moon, Package, Play, Settings, Sparkles, Sun, TerminalSquare, UserCircle,
   Users,
   Workflow
 } from 'lucide-react';
@@ -67,9 +48,9 @@ export function Sidebar({
   // hides the rest entirely.
   const visibleNav = project
     ? SIDEBAR_NAV.filter((item) => {
-        const required = NAV_MODULE_REQUIREMENT[item.key];
-        return !required || required.some((m) => project.enabledModules?.includes(m));
-      })
+      const required = NAV_MODULE_REQUIREMENT[item.key];
+      return !required || required.some((m) => project.enabledModules?.includes(m));
+    })
     : SIDEBAR_NAV;
 
   // "Team Management" + "Workspace Settings" are Project-Admin-only, inserted just before Profile.
@@ -322,17 +303,15 @@ export function Breadcrumb({ items = [], rootLabel = 'Home', mid, pageTitle, onN
   const legacyItems = rootLabel === pageTitle
     ? [{ label: pageTitle }]
     : [
-        { label: rootLabel, onClick: onNavigateRoot },
-        ...(mid && mid.label !== pageTitle ? [{ label: mid.label, onClick: mid.onClick }] : []),
-        { label: pageTitle }
-      ];
+      { label: rootLabel, onClick: onNavigateRoot },
+      ...(mid && mid.label !== pageTitle ? [{ label: mid.label, onClick: mid.onClick }] : []),
+      { label: pageTitle }
+    ];
 
   return <Breadcrumb items={legacyItems} />;
 }
 
-// ── Workspace badge — shows the current session's Project (Super Admin never has one). Clicking
-// lazily fetches the user's full project list; if they belong to more than one, a dropdown lets
-// them switch. Invisible/no-op interaction for the common single-project case. ────────────────────
+//request for the workspace switcher dropdown in the topbar, which is only shown if the user belongs to more than one workspace/project.
 function WorkspaceBadge({ project }) {
   const [open, setOpen] = useState(false);
   const [projects, setProjects] = useState(null);

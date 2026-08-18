@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Send, Save, ChevronLeft, Plus, Folder } from 'lucide-react';
 import { Loader } from '../../../../../shared/ui/Loader.jsx';
 import { apiClient } from '../api/client.js';
+import axios from 'axios';
 import KeyValueEditor from '../components/KeyValueEditor.jsx';
 import ResponseViewer from '../components/ResponseViewer.jsx';
 import RequestHistoryPanel from '../components/RequestHistoryPanel.jsx';
@@ -42,9 +43,11 @@ export default function RequestWorkspace() {
   const [builderSubTab, setBuilderSubTab] = useState('Parameters');
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
   const [requestName, setRequestName] = useState('');
   const [folderId, setFolderId] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
+  const executeAbortRef = useRef(null);
 
   const { data: existing } = useQuery({
     queryKey: ['collection-request', collectionId, requestId],
@@ -109,36 +112,48 @@ export default function RequestWorkspace() {
   const run = async () => {
     if (!url.trim()) return;
     setLoading(true);
+    setIsExecuting(true);
     setResponse(null);
+ 
+    const abortCtrl = new AbortController();
+    executeAbortRef.current = abortCtrl;
     try {
       let activeRequestId = requestId;
       const name = requestName.trim() || existing?.name || `${method} ${url}`.slice(0, 80);
       const payload = { name, config: buildConfig(), folderId: folderId ? Number(folderId) : null };
       if (isNew) {
-        // Auto-save into this collection before executing — otherwise an
-        // unsaved "new" request has no id to tie history to, and it would
-        // never show up in the collection's list even after running it.
+     
         const { data: created } = await apiClient.post(`/v1/collections/${collectionId}/requests`, payload);
         activeRequestId = created.id;
         setRequestName(name);
       } else {
-        // The tied /execute endpoint re-reads the config from the DB, not
-        // from this form — so unsaved edits (e.g. switching GET to POST)
-        // would silently execute the last-SAVED config instead of what's on
-        // screen. Sync current form state first, every time, so Send always
-        // runs exactly what's visible in the builder.
+       
         await apiClient.put(`/v1/collections/${collectionId}/requests/${requestId}`, payload);
       }
-      const { data } = await apiClient.post(`/v1/collections/${collectionId}/requests/${activeRequestId}/execute`);
+     
+      const baseUrl = apiClient.defaults.baseURL;
+      const token = JSON.parse(localStorage.getItem('automationPortalAuth') || 'null')?.accessToken;
+      const { data } = await axios.post(
+        `${baseUrl}/v1/collections/${collectionId}/requests/${activeRequestId}/execute`,
+        undefined,
+        {
+          signal: abortCtrl.signal,
+          timeout: 130000,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
       setResponse(data);
       qc.invalidateQueries({ queryKey: ['collection-requests', collectionId] });
       qc.invalidateQueries({ queryKey: ['collection-request-history', Number(activeRequestId)] });
       qc.invalidateQueries({ queryKey: ['collection-request', collectionId, requestId] });
       if (isNew) navigate(`/tester/${collectionId}/${activeRequestId}`, { replace: true });
     } catch (err) {
+      if (axios.isCancel(err)) return; // user navigated away — don't show error
       setResponse({ success: false, errorMessage: err.response?.data?.message || err.message, durationMs: 0 });
     } finally {
       setLoading(false);
+      setIsExecuting(false);
+      executeAbortRef.current = null;
     }
   };
 
@@ -192,14 +207,8 @@ export default function RequestWorkspace() {
         </button>
       </div>
 
-      {/* Request builder (top) + Response (below) — each pane gets a fixed,
-          self-contained height (not a % of an ambient container) so Monaco
-          always has a real size to render into, whether this page is at full
-          browser height or embedded in the shell's auto-sized iframe; a %/
-          flex-1 split silently collapses to near-zero when the ambient
-          container's own height isn't definite (embedded mode's h-full). */}
       <div className="flex flex-col">
-        <div className="h-[360px] shrink-0 flex flex-col border-b border-[var(--border)] min-h-0">
+        <div className="h-[150px] shrink-0 flex flex-col border-b border-[var(--border)] min-h-0">
           <div className="flex gap-1 px-4 pt-2 border-b border-[var(--border)]">
             {BUILDER_SUBTABS.map((t) => (
               <button key={t} onClick={() => setBuilderSubTab(t)}
@@ -239,7 +248,7 @@ export default function RequestWorkspace() {
 
         {/* History for this specific API — pinned at the bottom, collapsible.
             Unrelated to the sidebar's global History page. */}
-        <RequestHistoryPanel requestId={isNew ? null : Number(requestId)} />
+        <RequestHistoryPanel requestId={isNew ? null : Number(requestId)} pausePolling={isExecuting} />
       </div>
     </div>
   );
