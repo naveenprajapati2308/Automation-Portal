@@ -44,6 +44,9 @@ public class CollectionController {
     private final CollectionFolderRepository folderRepository;
     private final ObjectMapper objectMapper;
     private final CurrentProjectService currentProjectService;
+    private final com.automationportal.apitesting.validation.BusinessValidationService businessValidationService;
+    private final com.automationportal.apitesting.security.CurrentUserService currentUserService;
+    private final com.automationportal.apitesting.execution.DynamicValueResolver dynamicValueResolver;
 
     @Data
     public static class CollectionPayload {
@@ -249,6 +252,9 @@ public class CollectionController {
                     null, null, ExecutionHistory.TriggeredBy.MANUAL, config, blocked);
             return blocked;
         }
+        // {{$randomMobile}}, {{$randomEmail}}, {{$randomInt}}, {{$timestamp}}, {{$guid}} — a fresh
+        // value every run, so re-running the same saved request never resends a stale duplicate.
+        dynamicValueResolver.resolve(config, new java.util.HashMap<>());
 
         ExecutionResponse response = executionEngineService.execute(config);
         executionHistoryService.record(collection.getProjectId(), ExecutionHistory.ApiType.COLLECTION, r.getId(), r.getName(),
@@ -256,12 +262,61 @@ public class CollectionController {
         return response;
     }
 
+    /**
+     * On-demand only — never scheduled. Resolves this request's {{variables}} into a
+     * real, otherwise-valid config, strips every field flagged Required, runs that
+     * variant once, and records which of those fields the backend actually complained
+     * about being missing.
+     */
+    @PostMapping("/{id}/requests/{requestId}/validation-check")
+    @SneakyThrows
+    public com.automationportal.apitesting.validation.ValidationCheckResult runValidationCheck(
+            @PathVariable Long id, @PathVariable Long requestId) {
+        ApiCollection collection = findCollection(id);
+        CollectionRequest r = requestRepository.findById(requestId)
+                .filter(x -> x.getCollectionId().equals(id))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found in collection"));
+        ExecutionRequest config = objectMapper.readValue(r.getConfigJson(), ExecutionRequest.class);
+
+        List<com.automationportal.apitesting.execution.dto.KeyValueItem> vars =
+                variableResolver.parseVariables(collection.getVariables());
+        if (collection.getActiveEnvironmentId() != null) {
+            CollectionEnvironment env = environmentRepository.findById(collection.getActiveEnvironmentId()).orElse(null);
+            if (env != null) {
+                vars = variableResolver.merge(vars, variableResolver.parseVariables(env.getVariables()));
+            }
+        }
+        variableResolver.resolve(config, vars);
+        String unresolved = variableResolver.firstUnresolvedPlaceholder(config);
+        if (unresolved != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Unresolved variable {{" + unresolved + "}} — add it under this collection's Variables and try again.");
+        }
+        dynamicValueResolver.resolve(config, new java.util.HashMap<>());
+
+        try {
+            return businessValidationService.check(config, collection.getProjectId(),
+                    com.automationportal.apitesting.validation.BusinessValidationRun.ApiType.COLLECTION, requestId,
+                    currentUserService.currentEmail());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/requests/{requestId}/validation-checks")
+    public List<com.automationportal.apitesting.validation.ValidationCheckResult> validationCheckHistory(
+            @PathVariable Long id, @PathVariable Long requestId) {
+        ApiCollection collection = findCollection(id);
+        return businessValidationService.history(collection.getProjectId(),
+                com.automationportal.apitesting.validation.BusinessValidationRun.ApiType.COLLECTION, requestId);
+    }
+
     // ---- import ----
 
     @PostMapping("/import/postman")
     public PostmanImportService.ImportResult importPostman(@Valid @RequestBody ImportPayload payload) {
         try {
-            return postmanImportService.importPostman(payload.getPostmanJson());
+            return postmanImportService.importPostman(payload.getPostmanJson(), currentProjectService.requireProjectId());
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
@@ -275,7 +330,7 @@ public class CollectionController {
     @PostMapping("/import/openapi")
     public PostmanImportService.ImportResult importOpenApi(@Valid @RequestBody OpenApiImportPayload payload) {
         try {
-            return openApiImportService.importSpec(payload.getSpecText());
+            return openApiImportService.importSpec(payload.getSpecText(), currentProjectService.requireProjectId());
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }

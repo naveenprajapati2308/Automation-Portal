@@ -39,16 +39,11 @@ export function ExecutionCenter({
   onSelectExecution,
   onRefresh
 }) {
-  // Active modules, narrowed to the selected framework. A module's code is only unique per
-  // framework (e.g. "LAND" exists once under MAVEN_TESTNG and once under PLAYWRIGHT), so the
-  // framework filter isn't optional here. Environment support is no longer a client-side CSV
-  // check — it's loaded per-module from the backend below (Framework -> Module -> Environment).
+ 
   const activeModules = (modules || []).filter(m => m.active !== false)
     .filter(m => m.runnerType === selectedFramework);
 
-  // The Module picker only ever shows top-level workflow modules — a module with sub-type
-  // variants (e.g. Architect Empanelment's org types) exposes them as a second, dependent
-  // "Type" picker below instead of flattening every combination into this list.
+
   const topLevelModules = activeModules.filter(m => !m.parentModuleId);
 
   // If the framework switch made the current module unavailable, fall back to the first
@@ -79,9 +74,7 @@ export function ExecutionCenter({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [activeExec, setActiveExec] = useState(null);
 
-  // "Load Supported Environments" step: only environments explicitly enabled for the selected
-  // module ever appear here — unsupported environments must never be selectable. In Advanced
-  // mode there's no module in play, so the full environment list is shown instead.
+ 
   const [supportedEnvironments, setSupportedEnvironments] = useState([]);
   useEffect(() => {
     if (showAdvanced || !selectedModule) {
@@ -128,10 +121,7 @@ export function ExecutionCenter({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedModule, selectedSubType, selectedEnv, showAdvanced]);
 
-  // Run-scope tags (e.g. "@smoke", "@regression") discovered live from the selected Playwright
-  // module's own test titles — purely additive: an empty result just hides the dropdown below,
-  // it never blocks launching a run. Only Playwright modules can have any (Selenium has no
-  // grep-style filter here), and Advanced mode has no module in play.
+  
   const [moduleTags, setModuleTags] = useState([]);
   useEffect(() => {
     const mod = effectiveModule;
@@ -164,15 +154,7 @@ export function ExecutionCenter({
   const sseRef = useRef(null);
   const terminalBodyRef = useRef(null);
 
-  // This page is normally viewed embedded in the Testrix shell's auto-height iframe (matches
-  // its own content height exactly, no internal scroll — the OUTER page scrolls instead). So
-  // `100vh`/`window.innerHeight` measured from in here would reflect the iframe's own
-  // (potentially huge, content-driven) box, not the physical screen — useless for sizing
-  // something to "roughly a laptop screen's height". `window.top.innerHeight` is the actual
-  // outermost browsing context's real viewport height and isn't affected by how tall this
-  // iframe has grown; same-origin (everything under one gateway), so it's readable without a
-  // cross-origin error. Falls back to this window's own height if `window.top` is ever
-  // inaccessible (e.g. genuinely standalone, not embedded).
+  
   const getPhysicalWindowHeight = () => {
     try {
       return window.top.innerHeight || window.innerHeight;
@@ -196,14 +178,10 @@ export function ExecutionCenter({
       }
     };
   }, []);
-  // Requested: the live log panel should be sized to roughly a normal laptop window's height
-  // (minus 20px), not an arbitrary fixed value — so it reads as a proper terminal-sized view
-  // regardless of the viewer's actual screen size, while still never growing the page.
+
   const logPanelHeight = Math.max(320, windowHeight - 20);
 
-  // The registry of frameworks the portal can dispatch to — drives the Framework dropdown,
-  // and (later) which capabilities/browsers apply. Fetched once; adding a framework later
-  // means the backend registers a new descriptor, never a frontend code change.
+ 
   const [frameworks, setFrameworks] = useState([]);
   useEffect(() => {
     api.frameworks()
@@ -230,9 +208,7 @@ export function ExecutionCenter({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFramework, frameworks, moduleEnvOptions, showAdvanced]);
 
-  // Fetch dynamic runner suites for the currently chosen framework — Selenium suites are
-  // TestNG XML files, Playwright's are .spec.ts targets, but both come back in the same
-  // {key, name, xml} shape so this needs no framework-specific handling itself.
+
   const fetchSuites = async () => {
     try {
       const suites = await api.runnerSuites(selectedFramework);
@@ -244,29 +220,16 @@ export function ExecutionCenter({
     }
   };
 
-  // Re-fetch whenever the framework changes — Playwright now has real DB-registered modules
-  // (see ModuleSyncService/DataSeeder) just like Selenium, so both the Module dropdown and
-  // the Advanced/raw-suite picker work for either framework; only the suite list's contents
-  // (XML files vs. .spec.ts targets) differ per framework.
   useEffect(() => {
     fetchSuites();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFramework]);
 
-  // Prefer an actually-RUNNING execution over a QUEUED one — the backend only ever runs one at
-  // a time, but the list can contain both (a newly queued run sorts before an older
-  // still-running one), and .find() would otherwise latch onto the queued-but-not-started one.
   const trackedExecution = executions.find(e => e.status === 'RUNNING')
     || executions.find(e => e.status === 'QUEUED')
     || null;
 
-  // Listen for the tracked execution actually changing to attach/detach the SSE stream.
-  // Deliberately keyed on just its executionCode (a stable primitive), NOT the `executions`
-  // array itself — `executions` gets a brand-new array reference on every periodic poll (App.jsx
-  // refreshes it every 10s), and an object-reference dependency would re-run this effect's
-  // cleanup (closing the live connection) on every single poll tick even though nothing
-  // meaningful changed, permanently killing the stream a few seconds after every connection
-  // (the "same execution, don't reconnect" guard below then blocks it from ever reopening).
+
   useEffect(() => {
     if (trackedExecution) {
       if (!activeExec || activeExec.executionCode !== trackedExecution.executionCode) {
@@ -300,16 +263,7 @@ export function ExecutionCenter({
     }
   };
 
-  // Browsers throttle/drop long-lived connections (SSE included) on backgrounded tabs, so
-  // switching tabs mid-run can silently kill the stream — the UI then just sits frozen on
-  // whatever it last received (e.g. still "QUEUED") even though the execution keeps
-  // progressing server-side. Pulls the authoritative current state via a plain REST call and
-  // re-establishes the stream if the execution is still active, so returning to the tab
-  // always self-heals instead of staying stuck. Takes an explicit id rather than reading
-  // `activeExec` from closure — this is called from inside setupSseConnection's `onerror`,
-  // which closes over whatever `activeExec` was at the time that specific SSE connection was
-  // opened (often null, for the very first connection) and never sees later updates; the
-  // `execution` parameter of the enclosing call is always the correct, current one.
+ 
   const resyncActiveExec = async (execId) => {
     if (!execId) return;
     try {
@@ -578,9 +532,7 @@ export function ExecutionCenter({
 
       {/* Controls Card */}
         <div className="xc-card xc-controls-card">
-          {/* Decorative illustration (top-right) — served from frontend/public/.
-              Two variants stacked in place; CSS opacity swaps them by theme so
-              the toggle updates instantly without re-mounting. */}
+        
           <img
             src="/execution-art-bright.png"
             alt=""
@@ -596,11 +548,6 @@ export function ExecutionCenter({
 
           <h3 className="xc-card-title"><Rocket size={17} /> Execution Controls</h3>
 
-          {/* Framework selector — chooses which engine actually runs the suite. Options come
-              from the backend's FrameworkRegistry, never hardcoded here: adding a framework
-              later means the backend registers a descriptor, not a frontend code change.
-              Everything below (Module list, suite list, browser step) reloads for whichever
-              framework is selected. */}
           <label className="xc-label">Framework</label>
           <select
             className="xc-select xc-select-primary"

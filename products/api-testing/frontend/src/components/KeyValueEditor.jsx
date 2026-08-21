@@ -1,13 +1,13 @@
 import { Trash2, Plus } from 'lucide-react';
 
-export default function KeyValueEditor({ items, onChange, keyPlaceholder = 'Key', valuePlaceholder = 'Value' }) {
+export default function KeyValueEditor({ items, onChange, keyPlaceholder = 'Key', valuePlaceholder = 'Value', showRequired = false }) {
   const update = (idx, field, value) => {
     const next = items.map((it, i) => (i === idx ? { ...it, [field]: value } : it));
     onChange(next);
   };
 
   const remove = (idx) => onChange(items.filter((_, i) => i !== idx));
-  const add = () => onChange([...items, { key: '', value: '', enabled: true }]);
+  const add = () => onChange([...items, showRequired ? { key: '', value: '', enabled: true, required: false } : { key: '', value: '', enabled: true }]);
 
   return (
     <div className="flex flex-col divide-y divide-[var(--border)] border border-[var(--border)] rounded-md overflow-hidden">
@@ -18,6 +18,7 @@ export default function KeyValueEditor({ items, onChange, keyPlaceholder = 'Key'
             checked={item.enabled}
             onChange={(e) => update(idx, 'enabled', e.target.checked)}
             className="mx-3 accent-[var(--accent)]"
+            title="Enabled — included when this request runs"
           />
           <input
             value={item.key}
@@ -31,6 +32,17 @@ export default function KeyValueEditor({ items, onChange, keyPlaceholder = 'Key'
             placeholder={valuePlaceholder}
             className="flex-1 bg-transparent px-2 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none border-l border-[var(--border)]"
           />
+          {showRequired && (
+            <label className="flex items-center gap-1 px-2 border-l border-[var(--border)] text-[10px] text-[var(--text-muted)] cursor-pointer" title="Required by business logic — used by Validation Check">
+              <input
+                type="checkbox"
+                checked={!!item.required}
+                onChange={(e) => update(idx, 'required', e.target.checked)}
+                className="accent-[var(--warning-text)]"
+              />
+              Req
+            </label>
+          )}
           <button onClick={() => remove(idx)} className="px-3 text-[var(--text-muted)] hover:text-[var(--danger-text)]" title="Remove">
             <Trash2 size={14} />
           </button>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, XCircle, X, ChevronUp, ChevronDown, History as HistoryIcon } from 'lucide-react';
+import { CheckCircle2, XCircle, X, ChevronUp, ChevronDown, History as HistoryIcon, RefreshCw } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 import { ModalOverlay } from './ModalOverlay.jsx';
 import { Loader } from '../../../../../shared/ui/Loader.jsx';
@@ -8,20 +8,16 @@ import { Loader } from '../../../../../shared/ui/Loader.jsx';
 const CLASS_STATUS_COLOR = (statusClass) =>
   statusClass === '2xx' || statusClass === '3xx' ? 'text-[var(--success-text)]' : 'text-[var(--danger-text)]';
 
-export default function RequestHistoryPanel({ requestId, pausePolling = false }) {
+export default function RequestHistoryPanel({ requestId }) {
   const [collapsed, setCollapsed] = useState(false);
   const [detailId, setDetailId] = useState(null);
 
-  const { data } = useQuery({
+  const { data, isFetching, refetch } = useQuery({
     queryKey: ['collection-request-history', requestId],
     queryFn: async () => (await apiClient.get('/v1/history', {
       params: { apiType: 'COLLECTION', apiId: requestId, size: 25 },
     })).data,
     enabled: !!requestId,
-    // Pause the 5-second polling while a /execute request is in-flight.
-    // A React Query refetch fires a re-render which would cause the shared
-    // apiClient's AbortController to cancel the long-running execute call.
-    refetchInterval: pausePolling ? false : 5000,
   });
 
   const { data: detail } = useQuery({
@@ -42,12 +38,21 @@ export default function RequestHistoryPanel({ requestId, pausePolling = false })
 
   return (
     <div className="shrink-0 border-t border-[var(--border)] bg-[var(--bg-surface)] flex flex-col" style={{ maxHeight: collapsed ? 'auto' : 240 }}>
-      <button onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider hover:text-[var(--text-primary)]">
-        <HistoryIcon size={13} />
-        History for this API ({records.length})
-        {collapsed ? <ChevronUp size={13} className="ml-auto" /> : <ChevronDown size={13} className="ml-auto" />}
-      </button>
+      <div className="flex items-center gap-2">
+        <button onClick={() => setCollapsed(!collapsed)}
+          className="flex-1 flex items-center gap-2 px-4 py-2 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider hover:text-[var(--text-primary)]">
+          <HistoryIcon size={13} />
+          History for this API ({records.length})
+          {collapsed ? <ChevronUp size={13} className="ml-auto" /> : <ChevronDown size={13} className="ml-auto" />}
+        </button>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          title="Refresh history"
+          className="mr-3 text-[var(--text-muted)] hover:text-[var(--text-secondary)] disabled:opacity-50">
+          <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
+        </button>
+      </div>
 
       {!collapsed && (
         <div className="overflow-auto border-t border-[var(--border-soft)]">
@@ -89,31 +94,33 @@ export default function RequestHistoryPanel({ requestId, pausePolling = false })
 
       {detailId && (
         <ModalOverlay onClose={() => setDetailId(null)} align="end">
-          <div className="w-[520px] h-full bg-[var(--bg-surface)] border-l border-[var(--border)] overflow-auto p-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+          <div className="w-[520px] h-full bg-[var(--bg-surface)] border-l border-[var(--border)] flex flex-col">
+            <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
               <h2 className="text-sm font-semibold">Run #{detailId}</h2>
               <button onClick={() => setDetailId(null)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} /></button>
             </div>
-            {detail ? (
-              <>
-                <Section title="Request">
-                  <Row k="Method / URL" v={`${detail.execution.requestMethod} ${detail.execution.requestUrl}`} mono />
-                  <Row k="Headers (secrets masked)" v={prettyJson(detail.execution.requestHeaders)} mono pre />
-                  {detail.execution.requestBody && <Row k="Body" v={detail.execution.requestBody} mono pre />}
-                </Section>
-                <Section title="Response">
-                  <Row k="Status" v={`${detail.execution.responseStatusCode ?? '—'} (${detail.execution.responseStatusClass})`} />
-                  {detail.execution.errorMessage && <Row k="Error" v={detail.execution.errorMessage} />}
-                  {detail.responseBody && <Row k="Body" v={prettyJson(detail.responseBody)} mono pre maxH />}
-                </Section>
-                <Section title="Timing">
-                  <div className="flex gap-4 text-xs">
-                    <TimingCell label="TTFB" value={detail.execution.ttfbMs} />
-                    <TimingCell label="Total" value={detail.execution.totalTimeMs} strong />
-                  </div>
-                </Section>
-              </>
-            ) : <div className="py-6 flex justify-center"><Loader size={28} label="Loading…" /></div>}
+            <div className="flex-1 min-h-0 overflow-auto p-5 flex flex-col gap-4">
+              {detail ? (
+                <>
+                  <Section title="Request">
+                    <Row k="Method / URL" v={`${detail.execution.requestMethod} ${detail.execution.requestUrl}`} mono />
+                    <Row k="Headers (secrets masked)" v={prettyJson(detail.execution.requestHeaders)} mono pre />
+                    {detail.execution.requestBody && <Row k="Body" v={detail.execution.requestBody} mono pre />}
+                  </Section>
+                  <Section title="Response">
+                    <Row k="Status" v={`${detail.execution.responseStatusCode ?? '—'} (${detail.execution.responseStatusClass})`} />
+                    {detail.execution.errorMessage && <Row k="Error" v={detail.execution.errorMessage} />}
+                    {detail.responseBody && <Row k="Body" v={prettyJson(detail.responseBody)} mono pre maxH />}
+                  </Section>
+                  <Section title="Timing">
+                    <div className="flex gap-4 text-xs">
+                      <TimingCell label="TTFB" value={detail.execution.ttfbMs} />
+                      <TimingCell label="Total" value={detail.execution.totalTimeMs} strong />
+                    </div>
+                  </Section>
+                </>
+              ) : <div className="py-6 flex justify-center"><Loader size={28} label="Loading…" /></div>}
+            </div>
           </div>
         </ModalOverlay>
       )}

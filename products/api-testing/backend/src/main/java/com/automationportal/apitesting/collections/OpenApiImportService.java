@@ -34,7 +34,7 @@ public class OpenApiImportService {
     private final ObjectMapper objectMapper;
     private final YAMLMapper yamlMapper = new YAMLMapper();
 
-    public PostmanImportService.ImportResult importSpec(String specText) {
+    public PostmanImportService.ImportResult importSpec(String specText, Long projectId) {
         JsonNode root = parse(specText);
         if (root.path("paths").isMissingNode()) {
             throw new IllegalArgumentException("Not an OpenAPI/Swagger spec (missing 'paths') — export as OpenAPI 3.x or Swagger 2.0 JSON/YAML");
@@ -44,6 +44,7 @@ public class OpenApiImportService {
         String baseUrl = resolveBaseUrl(root);
 
         ApiCollection collection = new ApiCollection();
+        collection.setProjectId(projectId);
         collection.setName(title);
         collection.setDescription("Imported from OpenAPI/Swagger spec");
         collection = collectionRepository.save(collection);
@@ -130,9 +131,9 @@ public class OpenApiImportService {
                     p.path("schema").path("default").asText(""));
             boolean required = p.path("required").asBoolean(false);
             if ("query".equals(in)) {
-                queryParams.add(new KeyValueItem(key, example, required));
+                queryParams.add(new KeyValueItem(key, example, required, required));
             } else if ("header".equals(in)) {
-                headers.add(new KeyValueItem(key, example, required));
+                headers.add(new KeyValueItem(key, example, required, required));
             }
             // "path" params stay as {param} in the URL; "cookie" params are rare enough to skip.
         }

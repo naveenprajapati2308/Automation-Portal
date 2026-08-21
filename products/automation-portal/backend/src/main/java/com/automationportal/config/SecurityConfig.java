@@ -74,6 +74,10 @@ public class SecurityConfig {
                     // JWT) — self-validated inside TestEngineController, same pattern as
                     // /api/events/execution above.
                     "/api/test-engines/*/heartbeat",
+                    // Called by api-testing-backend (execution reports), not a user JWT —
+                    // self-validated with X-API-Key inside InternalMailController, same pattern
+                    // as /api/events/execution above.
+                    "/api/internal/reports/mail",
                     "/error"
                 ).permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")

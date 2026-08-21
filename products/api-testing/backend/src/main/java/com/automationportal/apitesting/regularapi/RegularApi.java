@@ -46,6 +46,12 @@ public class RegularApi {
     @Column(name = "body_template", columnDefinition = "TEXT")
     private String bodyTemplate;
 
+    /** JSON array of FormDataItem — only used when bodyType=FORM_DATA. File rows carry a
+     * fileId reference (FormDataFileStore), never raw bytes. */
+    @Lob
+    @Column(name = "form_data_template", columnDefinition = "LONGTEXT")
+    private String formDataTemplate;
+
     @Column(name = "auth_type", length = 20)
     private String authType;
 
@@ -55,6 +61,13 @@ public class RegularApi {
 
     @Column(name = "is_dynamic", nullable = false)
     private boolean isDynamic;
+
+    /** Names a dedicated server-side resolver (e.g. "KHASRA_PICKER") that runs
+     * alongside normal variable bindings to supply values plain bindings can't
+     * express (multi-step lookups, retry-until-valid logic). Null for every
+     * ordinary API. */
+    @Column(name = "special_resolver", length = 30)
+    private String specialResolver;
 
     @Column(name = "timeout_ms", nullable = false)
     private int timeoutMs = 15000;

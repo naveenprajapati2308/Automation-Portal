@@ -1,6 +1,7 @@
 package com.automationportal.apitesting.execution;
 
 import com.automationportal.apitesting.execution.dto.ExecutionRequest;
+import com.automationportal.apitesting.execution.dto.FormDataItem;
 import com.automationportal.apitesting.execution.dto.KeyValueItem;
 import org.springframework.stereotype.Component;
 
@@ -36,6 +37,12 @@ public class DynamicValueResolver {
         for (KeyValueItem q : request.getQueryParams()) {
             q.setKey(substitute(q.getKey(), cache));
             q.setValue(substitute(q.getValue(), cache));
+        }
+        for (FormDataItem f : request.getFormData()) {
+            f.setKey(substitute(f.getKey(), cache));
+            if (f.getType() == FormDataItem.Type.TEXT) {
+                f.setValue(substitute(f.getValue(), cache));
+            }
         }
         var auth = request.getAuth();
         if (auth != null) {

@@ -129,6 +129,7 @@ public class BaseApiExecutionService {
         req.setHeaders(configMapper.keyValues(api.getHeaders()));
         req.setBodyType(parseBodyType(api.getBodyType()));
         req.setBody(api.getBody());
+        req.setFormData(configMapper.formDataItems(api.getFormData()));
         req.setAuth(configMapper.auth(api.getAuthConfig()));
         req.setTimeoutMs(api.getTimeoutMs());
         return req;

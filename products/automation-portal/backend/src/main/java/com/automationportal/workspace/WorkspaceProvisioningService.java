@@ -147,6 +147,7 @@ public class WorkspaceProvisioningService {
                     project.getName(),
                     project.getWorkspaceCode(),
                     projectAdminRole.getName(),
+                    reviewer.getDisplayName(),
                     frontendUrl
                 );
             } else {

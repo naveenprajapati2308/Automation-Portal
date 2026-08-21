@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ProjectUserRepository extends JpaRepository<ProjectUser, Long> {
+    List<ProjectUser> findByUserId(Long userId);
     List<ProjectUser> findByUserIdAndStatus(Long userId, ProjectUserStatus status);
     List<ProjectUser> findByProjectId(Long projectId);
     List<ProjectUser> findByProjectIdAndStatus(Long projectId, ProjectUserStatus status);

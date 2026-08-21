@@ -5,12 +5,19 @@ import com.automationportal.audit.AuditAction;
 import com.automationportal.audit.AuditService;
 import com.automationportal.common.ApiResponse;
 import com.automationportal.common.EntityIdGeneratorService;
+import com.automationportal.workspace.Project;
+import com.automationportal.workspace.ProjectUser;
+import com.automationportal.workspace.ProjectUserRepository;
+import com.automationportal.workspace.ProjectUserStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,17 +35,20 @@ public class UserManagementController {
     private final AuditService auditService;
     private final JdbcTemplate jdbcTemplate;
     private final EntityIdGeneratorService entityIdGeneratorService;
+    private final ProjectUserRepository projectUserRepository;
 
     public UserManagementController(UserRepository userRepository,
                                     PasswordEncoder passwordEncoder,
                                     AuditService auditService,
                                     JdbcTemplate jdbcTemplate,
-                                    EntityIdGeneratorService entityIdGeneratorService) {
+                                    EntityIdGeneratorService entityIdGeneratorService,
+                                    ProjectUserRepository projectUserRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.auditService = auditService;
         this.jdbcTemplate = jdbcTemplate;
         this.entityIdGeneratorService = entityIdGeneratorService;
+        this.projectUserRepository = projectUserRepository;
     }
 
     /** List all users (paginated result kept simple for now). */
@@ -56,6 +66,32 @@ public class UserManagementController {
     public ApiResponse<UserProfileDto> getUser(@PathVariable Long id) {
         User user = findUser(id);
         return ApiResponse.ok(UserProfileDto.from(user));
+    }
+
+    /**
+     * Every workspace this user belongs to and their role(s) in each — a user can be a member of
+     * several projects (e.g. Project Admin in one, Viewer in another), which the platform-level
+     * {@code users.role} field alone can't express. Backs the "View" action on Manage Users.
+     */
+    @GetMapping("/{id}/workspaces")
+    @Transactional(readOnly = true)
+    public ApiResponse<List<UserManagementDtos.UserWorkspaceMembership>> getUserWorkspaces(@PathVariable Long id) {
+        findUser(id);
+        Map<Long, List<ProjectUser>> byProject = projectUserRepository.findByUserId(id).stream()
+            .collect(Collectors.groupingBy(pu -> pu.getProject().getId()));
+        List<UserManagementDtos.UserWorkspaceMembership> memberships = byProject.values().stream()
+            .map(rows -> {
+                Project project = rows.get(0).getProject();
+                List<String> roles = rows.stream().map(pu -> pu.getRole().getCode()).distinct().toList();
+                boolean anyActive = rows.stream().anyMatch(pu -> pu.getStatus() == ProjectUserStatus.ACTIVE);
+                return new UserManagementDtos.UserWorkspaceMembership(
+                    project.getId(), project.getProjectCode(), project.getWorkspaceCode(), project.getName(),
+                    project.getStatus().name(), roles, anyActive ? "ACTIVE" : "DISABLED"
+                );
+            })
+            .sorted(Comparator.comparing(UserManagementDtos.UserWorkspaceMembership::projectName))
+            .toList();
+        return ApiResponse.ok(memberships);
     }
 
     /** Create a new user — only admins can do this; no self-registration exists. */

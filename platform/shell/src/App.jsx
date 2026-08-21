@@ -209,7 +209,7 @@ export default function App() {
   const [apitestPage, setApitestPage] = useState(initialRoute.apitestPage);
   const [perfPage, setPerfPage] = useState(initialRoute.perfPage);
   const [notice, setNoticeState] = useState(null);
-  const notify = (text) => setNoticeState(text ? { text } : null);
+  const notify = (text, tone = 'success') => setNoticeState(text ? { text, tone } : null);
   const [adminNotice, setAdminNotice] = useState('Administration workspace — Super Admin only.');
 
   const [chatMessages, setChatMessages] = useState([
@@ -267,19 +267,30 @@ export default function App() {
     fetch('/health/genai').then((r) => setHealth((h) => ({ ...h, genai: r.ok ? 'up' : 'down' }))).catch(() => setHealth((h) => ({ ...h, genai: 'down' })));
     fetch('/health/perf').then((r) => setHealth((h) => ({ ...h, perf: r.ok ? 'up' : 'down' }))).catch(() => setHealth((h) => ({ ...h, perf: 'down' })));
 
+    // Returns a failure reason string (server-provided message if there is one) instead of
+    // throwing, so callers can collect "what actually went wrong" across a whole batch of
+    // parallel fetches rather than failing silently — this whole effect used to swallow every
+    // error, which is exactly why a real backend bug (Performance dashboard mis-reporting a
+    // plain "no active workspace" 403 as a 500) went unnoticed until someone checked DevTools.
     const loadSummary = async (url, setter) => {
       try {
         const res = await fetch(url, { headers: authHeader() });
-        if (res.status === 401) return forceLogout();
-        if (!res.ok) throw new Error(String(res.status));
+        if (res.status === 401) { forceLogout(); return null; }
+        if (!res.ok) {
+          let reason = `HTTP ${res.status}`;
+          try { const body = await res.json(); reason = body.message || reason; } catch { /* non-JSON error body */ }
+          throw new Error(reason);
+        }
         const body = await res.json();
         // Both dashboard summary endpoints wrap their payload as { success, message, data } —
         // unwrap here rather than storing the envelope, which silently rendered every stat as
         // its `?? 0` fallback (only ever caught now because the DB has real execution data;
         // it read as "correct" for months while every execution count was genuinely 0).
         setter(body.data ?? body);
-      } catch {
+        return null;
+      } catch (err) {
         setter(null);
+        return err.message;
       }
     };
 
@@ -292,15 +303,25 @@ export default function App() {
     (async () => {
       setDashboardRefreshing(true);
       try {
-        await Promise.allSettled([
+        const results = await Promise.allSettled([
           loadSummary(`/automation/api/dashboard/summary?range=${range}`, setAutoSummary),
           loadSummary(`/automation/api/dashboard/trends?range=${range}`, setAutoTrends),
           loadSummary(`/apitest/api/v1/dashboard/summary?days=${days}`, setApiSummary),
           loadSummary(`/apitest/api/v1/dashboard/trend?days=${days}`, setApiTrend),
           loadSummary(`/perf/api/v1/dashboard/stats?range=${range}`, setPerfSummary),
           loadSummary(`/perf/api/v1/dashboard/trend?range=${range}`, setPerfTrend),
+          // Goes through api.js — its own failure already surfaces via the global
+          // api.setErrorCallback handler, so it doesn't need to feed `reasons` below.
           api.dashboardRecentActivity().then((rows) => setRecentActivity(rows.slice(0, 5))).catch(() => setRecentActivity(null)),
         ]);
+        if (!cancelled) {
+          // Only loadSummary's raw fetch() results land here — those bypass api.js entirely,
+          // so they're the one path the global error callback above can't already cover.
+          const reasons = [...new Set(results.slice(0, 6).map((r) => (r.status === 'fulfilled' ? r.value : r.reason?.message)).filter(Boolean))];
+          if (reasons.length === 1) notify(`Dashboard: ${reasons[0]}`, 'error');
+          else if (reasons.length > 1) notify(`Dashboard: some data couldn't load (${reasons.length} issues) — see console for details`, 'error');
+          if (reasons.length > 1) console.warn('Dashboard load issues:', reasons);
+        }
       } finally {
         if (!cancelled) setDashboardRefreshing(false);
       }
@@ -313,6 +334,9 @@ export default function App() {
   // fetched once on login rather than every range change, since they rarely change.
   useEffect(() => {
     if (!authed) return;
+    // Failures here already surface via the global api.setErrorCallback handler above (these
+    // all go through api.js's request()/unwrap(), unlike the raw fetch() calls further up) —
+    // just fall back to an empty list so the analytics table renders empty, not broken.
     api.modules().then((list) => setAutoModules(Array.isArray(list) ? list : [])).catch(() => setAutoModules([]));
     api.frameworks().then((list) => setAutoFrameworks(Array.isArray(list) ? list : [])).catch(() => setAutoFrameworks([]));
     api.environments().then((list) => setAutoEnvironments(Array.isArray(list) ? list : [])).catch(() => setAutoEnvironments([]));
@@ -323,6 +347,7 @@ export default function App() {
   // own Environment filter changes, without re-firing every other dashboard widget's fetch.
   const refreshAutoModuleHealth = () => {
     if (!authed) return;
+    // Failure already surfaces via the global api.setErrorCallback handler above.
     api.dashboardModuleHealth(range, autoSelectedEnvId || undefined)
       .then((data) => setAutoModuleHealth(Array.isArray(data) ? data : []))
       .catch(() => setAutoModuleHealth(null));
@@ -389,8 +414,14 @@ export default function App() {
   // up here so every api.xxx() call in the shell (not just the dashboard's own
   // fetches above) redirects to login instead of leaving a stale, broken page up.
   useEffect(() => {
-    api.setErrorCallback(({ status }) => {
-      if (status === 401) forceLogout();
+    api.setErrorCallback(({ status, title, message }) => {
+      if (status === 401) { forceLogout(); return; }
+      // Every api.xxx() call in the shell already computes a real title+message for
+      // 403/404/500+ here (unwrap() in api.js) — this callback existed but only ever
+      // acted on 401, so every other failure got silently swallowed with nothing shown
+      // on screen (visible only in DevTools' Network tab). Reuses the existing toast
+      // for now; a proper unified error-surface component is future work.
+      notify(`${title}: ${message}`, 'error');
     });
   }, []);
 
@@ -1052,7 +1083,7 @@ export default function App() {
           role="status"
           style={{
             position: 'fixed', top: '20px', right: '20px', zIndex: 1000,
-            background: '#16a34a', color: '#fff', padding: '12px 18px',
+            background: notice.tone === 'error' ? '#dc2626' : '#16a34a', color: '#fff', padding: '12px 18px',
             borderRadius: '10px', fontSize: '13px', fontWeight: 600,
             boxShadow: '0 10px 30px rgba(0,0,0,0.35)'
           }}

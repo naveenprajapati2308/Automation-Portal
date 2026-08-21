@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Play, Plus, Trash2, Save, Database, X, FolderPlus } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 import KeyValueEditor from '../components/KeyValueEditor.jsx';
+import FormDataEditor from '../components/FormDataEditor.jsx';
+import ValidationCheckPanel from '../components/ValidationCheckPanel.jsx';
 import AuthEditor, { EMPTY_AUTH } from '../components/AuthEditor.jsx';
 import JsonTree from '../components/JsonTree.jsx';
 import { ThemedEditor } from '../components/ThemedEditor.jsx';
@@ -12,12 +14,12 @@ import { ModalOverlay } from '../components/ModalOverlay.jsx';
 import { INPUT_CLASS as inputCls } from '../lib/statusColors.js';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
-const BODY_TYPES = ['NONE', 'JSON', 'XML', 'TEXT', 'FORM_URLENCODED'];
+const BODY_TYPES = ['NONE', 'JSON', 'XML', 'TEXT', 'FORM_DATA', 'FORM_URLENCODED'];
 const OPERATORS = ['EQUALS', 'NOT_EQUALS', 'CONTAINS', 'REGEX', 'EXISTS', 'TYPE_IS', 'RANGE'];
 
 const emptyForm = {
   name: '', method: 'GET', url: '', moduleId: '', headers: [],
-  bodyType: 'NONE', body: '', auth: { ...EMPTY_AUTH },
+  bodyType: 'NONE', body: '', formData: [], auth: { ...EMPTY_AUTH },
   timeoutMs: 15000, cacheStrategy: 'PER_CALL', cacheTtlSeconds: 3600,
 };
 
@@ -65,6 +67,7 @@ export default function BaseApis() {
     moduleId: form.moduleId ? Number(form.moduleId) : null,
     headers: JSON.stringify(form.headers),
     bodyType: form.bodyType, body: form.body || null,
+    formData: JSON.stringify(form.formData || []),
     authType: form.auth.type,
     authConfig: JSON.stringify(form.auth),
     timeoutMs: Number(form.timeoutMs) || 15000,
@@ -131,6 +134,7 @@ export default function BaseApis() {
       moduleId: api.moduleId ?? '',
       headers: safeParse(api.headers, []),
       bodyType: api.bodyType || 'NONE', body: api.body || '',
+      formData: safeParse(api.formData, []),
       auth: { ...EMPTY_AUTH, ...safeParse(api.authConfig, {}) },
       timeoutMs: api.timeoutMs, cacheStrategy: api.cacheStrategy,
       cacheTtlSeconds: api.cacheTtlSeconds ?? 3600,
@@ -262,7 +266,7 @@ export default function BaseApis() {
 
         <div>
           <div className="text-xs text-[var(--text-muted)] mb-1.5">Headers</div>
-          <KeyValueEditor items={form.headers} onChange={(headers) => setForm({ ...form, headers })} keyPlaceholder="Header" />
+          <KeyValueEditor items={form.headers} onChange={(headers) => setForm({ ...form, headers })} keyPlaceholder="Header" showRequired />
         </div>
 
         <div>
@@ -274,7 +278,10 @@ export default function BaseApis() {
               </button>
             ))}
           </div>
-          {form.bodyType !== 'NONE' && (
+          {form.bodyType === 'FORM_DATA' && (
+            <FormDataEditor items={form.formData} onChange={(formData) => setForm({ ...form, formData })} />
+          )}
+          {form.bodyType !== 'NONE' && form.bodyType !== 'FORM_DATA' && (
             <div className="h-32 border border-[var(--border)] rounded overflow-hidden">
               <ThemedEditor height="100%"
                 language={form.bodyType === 'JSON' ? 'json' : 'plaintext'}
@@ -288,6 +295,8 @@ export default function BaseApis() {
           <div className="text-xs text-[var(--text-muted)] mb-1.5">Authorization</div>
           <AuthEditor auth={form.auth} onChange={(auth) => setForm({ ...form, auth })} />
         </div>
+
+        {selectedId && <ValidationCheckPanel baseUrl={`/v1/base-apis/${selectedId}`} />}
 
         {selectedId && (
           <div>

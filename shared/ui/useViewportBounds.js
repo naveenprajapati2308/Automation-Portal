@@ -17,7 +17,14 @@ export function useViewportBounds() {
     const compute = () => {
       try {
         const iframeTop = window.frameElement.getBoundingClientRect().top;
-        setBounds({ top: -iframeTop, height: topWin.innerHeight });
+        // An iframe can't render anything above its own top edge — if iframeTop > 0 (page
+        // scrolled above the iframe, e.g. the shell topbar still showing), the naive -iframeTop
+        // shift pushes the overlay's top past what the iframe can actually paint, clipping it.
+        // Clamp to 0 and shrink height by the same amount so the overlay covers exactly the
+        // outer viewport's overlap with the iframe instead of running off its top edge.
+        const top = Math.max(0, -iframeTop);
+        const height = topWin.innerHeight - Math.max(0, iframeTop);
+        setBounds({ top, height });
       } catch {
         setBounds(null);
       }

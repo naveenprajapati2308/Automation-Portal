@@ -4,8 +4,21 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
+
 public final class UserManagementDtos {
     private UserManagementDtos() {}
+
+    /** One row of the Super Admin's per-user "which workspaces, which role(s) in each" view. */
+    public record UserWorkspaceMembership(
+        Long projectId,
+        String projectCode,
+        String workspaceCode,
+        String projectName,
+        String projectStatus,
+        List<String> roles,
+        String membershipStatus
+    ) {}
 
     /**
      * Fields: username (required), email (required, valid format),

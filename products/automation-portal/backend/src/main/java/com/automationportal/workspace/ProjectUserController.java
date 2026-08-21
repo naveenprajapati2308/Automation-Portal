@@ -29,15 +29,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Project Admin's self-service user management for their own project — create/onboard, edit,
- * activate/deactivate, assign one or more roles, remove. Never writes to the platform Role
- * catalog itself (only project_users grants), and never lets the last active Project Admin be
- * removed/demoted (docs/version2.1.md "Project Administration Protection"). Super Admin may also
- * use these endpoints for any project (support/override); the primary audience is the project's
- * own Project Admin, authorized in code via {@link ProjectContextHolder} rather than a blanket
- * Spring Security path rule (same pattern as modules.allowed_roles elsewhere in this codebase).
- */
 @RestController
 @RequestMapping("/api/projects/{projectId}/users")
 public class ProjectUserController {
@@ -81,6 +72,39 @@ public class ProjectUserController {
     public ApiResponse<List<ProjectUserDtos.ProjectUserSummary>> list(@PathVariable Long projectId) {
         requireProjectAccess(projectId);
         return ApiResponse.ok(summarize(projectUserRepository.findByProjectId(projectId)));
+    }
+
+  
+    @GetMapping("/{userId}/shared-workspaces")
+    @Transactional(readOnly = true)
+    public ApiResponse<List<ProjectUserDtos.SharedWorkspaceMembership>> sharedWorkspaces(
+            @PathVariable Long projectId, @PathVariable Long userId) {
+        requireProjectAccess(projectId);
+        requireMembership(projectId, userId);
+
+        User current = authenticatedUserService.currentUser();
+        Set<Long> adminProjectIds = current.getRole() == UserRole.SUPER_ADMIN ? null
+            : projectUserRepository.findByUserId(current.getId()).stream()
+                .filter(pu -> pu.getStatus() == ProjectUserStatus.ACTIVE && pu.getRole().getCode().equals("PROJECT_ADMIN"))
+                .map(pu -> pu.getProject().getId())
+                .collect(Collectors.toSet());
+
+        Map<Long, List<ProjectUser>> byProject = projectUserRepository.findByUserId(userId).stream()
+            .filter(pu -> adminProjectIds == null || adminProjectIds.contains(pu.getProject().getId()))
+            .collect(Collectors.groupingBy(pu -> pu.getProject().getId()));
+
+        List<ProjectUserDtos.SharedWorkspaceMembership> memberships = byProject.values().stream()
+            .map(rows -> {
+                Project p = rows.get(0).getProject();
+                List<String> roles = rows.stream().map(pu -> pu.getRole().getCode()).distinct().toList();
+                boolean anyActive = rows.stream().anyMatch(pu -> pu.getStatus() == ProjectUserStatus.ACTIVE);
+                return new ProjectUserDtos.SharedWorkspaceMembership(
+                    p.getId(), p.getName(), roles, anyActive ? "ACTIVE" : "DISABLED"
+                );
+            })
+            .sorted(Comparator.comparing(ProjectUserDtos.SharedWorkspaceMembership::projectName))
+            .toList();
+        return ApiResponse.ok(memberships);
     }
 
     /** Onboards a user by email — attaches an existing platform identity, or creates a new one. */
@@ -146,22 +170,22 @@ public class ProjectUserController {
             }
         }
 
-        notifyUserAdded(user, project, roles, isNewUser, tempPassword);
+        notifyUserAdded(user, project, roles, isNewUser, tempPassword, authenticatedUserService.currentUser().getDisplayName());
 
         return ApiResponse.created("User added to project",
             summarizeOne(user, projectUserRepository.findByProjectIdAndUserId(projectId, user.getId())));
     }
 
     /** Best-effort — a mail outage shouldn't roll back the membership grant that already succeeded. */
-    private void notifyUserAdded(User user, Project project, List<Role> roles, boolean isNewUser, String tempPassword) {
+    private void notifyUserAdded(User user, Project project, List<Role> roles, boolean isNewUser, String tempPassword, String invitedByName) {
         String roleNames = roles.stream().map(Role::getName).collect(Collectors.joining(", "));
         try {
             if (isNewUser) {
                 mailService.sendProjectUserAdded(user.getEmail(), user.getUsername(), tempPassword,
-                    project.getName(), project.getWorkspaceCode(), roleNames, frontendUrl);
+                    project.getName(), project.getWorkspaceCode(), roleNames, invitedByName, frontendUrl);
             } else {
                 mailService.sendProjectUserAttached(user.getEmail(), user.getUsername(),
-                    project.getName(), project.getWorkspaceCode(), roleNames, frontendUrl);
+                    project.getName(), project.getWorkspaceCode(), roleNames, invitedByName, frontendUrl);
             }
         } catch (RuntimeException ex) {
             log.warn("Failed to send project-onboarding email to {}", user.getEmail(), ex);
@@ -298,6 +322,12 @@ public class ProjectUserController {
     public ApiResponse<Void> remove(@PathVariable Long projectId, @PathVariable Long userId) {
         requireProjectAccess(projectId);
         List<ProjectUser> rows = requireMembership(projectId, userId);
+        User current = authenticatedUserService.currentUser();
+        boolean isActiveAdmin = rows.stream()
+            .anyMatch(pu -> pu.getRole().getCode().equals("PROJECT_ADMIN") && pu.getStatus() == ProjectUserStatus.ACTIVE);
+        if (current.getId().equals(userId) && isActiveAdmin) {
+            throw new IllegalArgumentException("You can't remove yourself while you're this project's Project Admin — transfer ownership to another member first");
+        }
         guardLastProjectAdmin(projectId, rows);
         projectUserRepository.deleteAll(rows);
         return ApiResponse.ok(null);
@@ -305,11 +335,13 @@ public class ProjectUserController {
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
+
     private void requireProjectAccess(Long projectId) {
         User current = authenticatedUserService.currentUser();
         if (current.getRole() == UserRole.SUPER_ADMIN) return;
-        ProjectContext context = ProjectContextHolder.get();
-        if (context == null || !context.projectId().equals(projectId) || !context.hasRole("PROJECT_ADMIN")) {
+        boolean isActiveAdminHere = projectUserRepository.findByProjectIdAndUserId(projectId, current.getId()).stream()
+            .anyMatch(pu -> pu.getStatus() == ProjectUserStatus.ACTIVE && pu.getRole().getCode().equals("PROJECT_ADMIN"));
+        if (!isActiveAdminHere) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only this project's Project Admin can manage its users");
         }
     }

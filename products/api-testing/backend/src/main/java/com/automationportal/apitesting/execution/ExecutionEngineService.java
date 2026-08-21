@@ -3,9 +3,12 @@ package com.automationportal.apitesting.execution;
 import com.automationportal.apitesting.execution.dto.AuthConfig;
 import com.automationportal.apitesting.execution.dto.ExecutionRequest;
 import com.automationportal.apitesting.execution.dto.ExecutionResponse;
+import com.automationportal.apitesting.execution.dto.FormDataItem;
 import com.automationportal.apitesting.execution.dto.KeyValueItem;
+import com.automationportal.apitesting.formdata.FormDataFileStore;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -16,6 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
 import javax.net.ssl.SSLException;
 import java.nio.charset.StandardCharsets;
@@ -24,6 +28,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Executes user-built HTTP requests server-side, exactly like curl or Python
@@ -32,11 +37,17 @@ import java.util.Map;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ExecutionEngineService {
 
     /** Hard ceiling so one request can never pin a worker thread indefinitely. */
     private static final long MAX_TIMEOUT_MS = 120_000;
     private static final long MIN_TIMEOUT_MS = 100;
+
+    private final FormDataFileStore formDataFileStore;
+
+    /** How many times a single connect-level failure gets retried before giving up. */
+    private static final int MAX_CONNECT_RETRIES = 3;
 
     public ExecutionResponse execute(ExecutionRequest request) {
         request.setTimeoutMs(Math.max(MIN_TIMEOUT_MS, Math.min(request.getTimeoutMs(), MAX_TIMEOUT_MS)));
@@ -51,6 +62,57 @@ public class ExecutionEngineService {
                     .success(false).errorMessage(schemeError).durationMs(0).build();
         }
 
+        // Some remote hosts intermittently fail a fresh TCP/TLS connection
+        // attempt outright (reactor-netty reports it as "finishConnect(..)
+        // failed: Connection refused", indistinguishable from the target
+        // being down) even though the target is demonstrably reachable and
+        // fast a moment later — confirmed live against godavari.mp.gov.in
+        // 2026-08-21: plain curl to the identical URL at the identical moment
+        // consistently succeeds in under 3s. Root cause not fully isolated;
+        // retrying a genuinely fresh connection a few times is a pragmatic,
+        // low-risk mitigation until it is.
+        ExecutionResponse response = null;
+        for (int attempt = 1; attempt <= MAX_CONNECT_RETRIES; attempt++) {
+            response = attemptOnce(request);
+            if (response.isSuccess() || !isTransientConnectFailure(response)) {
+                return response;
+            }
+            log.warn("Transient connect failure on attempt {}/{} for {} {}: {} — retrying",
+                    attempt, MAX_CONNECT_RETRIES, request.getMethod(), request.getUrl(), response.getErrorMessage());
+        }
+        return response;
+    }
+
+    private boolean isTransientConnectFailure(ExecutionResponse response) {
+        String msg = response.getErrorMessage();
+        return msg != null && (msg.contains("finishConnect") || msg.contains("Connection refused"));
+    }
+
+    private ExecutionResponse attemptOnce(ExecutionRequest request) {
+        // Every request goes through the system curl binary, not our own
+        // WebClient/Netty stack. Confirmed live 2026-08-21 against
+        // godavari.mp.gov.in: WebClient's plain JSON POST calls (Base API
+        // logins — no file, no manual multipart body) got rate-limited (429)
+        // from the exact same container, at the exact same moment a plain
+        // curl call to the identical URL succeeded — i.e. the remote side is
+        // bucketing by client fingerprint (User-Agent/TLS), not just source
+        // IP, and only the curl-shaped bucket was clear. The earlier,
+        // narrower finding (multipart+file hangs on WebClient until our own
+        // timeout, reported misleadingly as "finishConnect(..) failed:
+        // Connection refused") already forced curl for that case; this
+        // widens it to every request, since curl has been the only
+        // consistently reliable client against this host all session.
+        // attemptOnceViaWebClient() is kept for now as an documented,
+        // available fallback, not because anything currently calls it.
+        return attemptOnceViaCurl(request);
+    }
+
+    private boolean hasFileField(ExecutionRequest request) {
+        return request.getFormData() != null && request.getFormData().stream()
+                .anyMatch(f -> f.isEnabled() && f.getType() == FormDataItem.Type.FILE);
+    }
+
+    private ExecutionResponse attemptOnceViaWebClient(ExecutionRequest request) {
         long start = System.currentTimeMillis();
         // Time-to-first-byte: captured when response headers arrive, before the
         // body is read. Best-effort per spec; finer DNS/connect splits are not
@@ -65,7 +127,13 @@ public class ExecutionEngineService {
                     .uri(finalUrl)
                     .headers(h -> applyHeaders(h, request));
 
-            if (hasBody(request)) {
+            if (request.getBodyType() == ExecutionRequest.BodyType.FORM_DATA) {
+                if (hasFormData(request)) {
+                    String boundary = "TestrixBoundary" + UUID.randomUUID().toString().replace("-", "");
+                    spec.header(HttpHeaders.CONTENT_TYPE, "multipart/form-data; boundary=" + boundary);
+                    spec.bodyValue(buildMultipartBody(request, boundary));
+                }
+            } else if (hasBody(request)) {
                 spec.contentType(resolveContentType(request));
                 spec.bodyValue(request.getBody());
             }
@@ -110,8 +178,139 @@ public class ExecutionEngineService {
         }
     }
 
+    private static final String CURL_META_MARKER = "__TESTRIX_CURL_META__";
+
+    private ExecutionResponse attemptOnceViaCurl(ExecutionRequest request) {
+        long start = System.currentTimeMillis();
+        List<java.nio.file.Path> tempFiles = new java.util.ArrayList<>();
+        try {
+            List<String> argv = new java.util.ArrayList<>();
+            argv.add("curl");
+            argv.add("-s"); // silent — no progress meter mixed into stdout
+            argv.add("-S"); // still show real errors on stderr
+            argv.add("-X");
+            argv.add(request.getMethod().toUpperCase());
+            long timeoutSeconds = Math.max(1, (request.getTimeoutMs() + 5_000) / 1000);
+            argv.add("--max-time");
+            argv.add(String.valueOf(timeoutSeconds));
+            if (!request.isVerifySsl()) argv.add("-k");
+            if (request.isFollowRedirects()) argv.add("-L");
+
+            HttpHeaders scratch = new HttpHeaders();
+            applyHeaders(scratch, request);
+            scratch.forEach((name, values) -> values.forEach(v -> {
+                argv.add("-H");
+                argv.add(name + ": " + v);
+            }));
+
+            if (request.getBodyType() == ExecutionRequest.BodyType.FORM_DATA) {
+                for (FormDataItem item : request.getFormData()) {
+                    if (!item.isEnabled() || item.getKey() == null || item.getKey().isBlank()) continue;
+                    argv.add("-F");
+                    if (item.getType() == FormDataItem.Type.FILE) {
+                        if (item.getFileId() == null || item.getFileId().isBlank()) {
+                            throw new IllegalArgumentException(
+                                    "File field '" + item.getKey() + "' has no file attached — attach a file and try again.");
+                        }
+                        byte[] bytes = formDataFileStore.load(item.getFileId());
+                        if (bytes == null) {
+                            throw new IllegalArgumentException(
+                                    "File field '" + item.getKey() + "' — the attached file could not be found, re-attach it and try again.");
+                        }
+                        String filename = item.getFileName() != null ? item.getFileName() : item.getKey();
+                        java.nio.file.Path tmp = java.nio.file.Files.createTempFile("testrix-upload-", "-" + sanitizeFilename(filename));
+                        java.nio.file.Files.write(tmp, bytes);
+                        tempFiles.add(tmp);
+                        argv.add(item.getKey() + "=@" + tmp + ";type=" + guessContentType(filename) + ";filename=" + filename);
+                    } else {
+                        argv.add(item.getKey() + "=" + (item.getValue() == null ? "" : item.getValue()));
+                    }
+                }
+            } else if (hasBody(request)) {
+                argv.add("-H");
+                argv.add("Content-Type: " + resolveContentType(request).toString());
+                argv.add("--data-raw");
+                argv.add(request.getBody());
+            }
+
+            argv.add("-w");
+            argv.add("\n" + CURL_META_MARKER + "%{http_code}|%{content_type}\n");
+            argv.add(buildUrl(request));
+
+            ProcessBuilder pb = new ProcessBuilder(argv);
+            pb.redirectErrorStream(false);
+            Process process = pb.start();
+            String stdout = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            String stderr = new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+            boolean finished = process.waitFor(timeoutSeconds + 5, java.util.concurrent.TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                throw new IllegalStateException("curl process did not exit within " + (timeoutSeconds + 5) + "s");
+            }
+            int exitCode = process.exitValue();
+            long duration = System.currentTimeMillis() - start;
+
+            int markerAt = stdout.lastIndexOf(CURL_META_MARKER);
+            if (exitCode != 0 || markerAt < 0) {
+                String reason = !stderr.isBlank() ? stderr.trim() : ("curl exited " + exitCode);
+                return ExecutionResponse.builder().success(false).errorMessage(reason).durationMs(duration).build();
+            }
+
+            String body = stdout.substring(0, markerAt);
+            if (body.endsWith("\n")) body = body.substring(0, body.length() - 1);
+            String meta = stdout.substring(markerAt + CURL_META_MARKER.length()).trim();
+            String[] parts = meta.split("\\|", -1);
+            int statusCode = parts.length > 0 && !parts[0].isBlank() ? Integer.parseInt(parts[0]) : 0;
+            String contentType = parts.length > 1 ? parts[1] : null;
+
+            return ExecutionResponse.builder()
+                    .success(true)
+                    .statusCode(statusCode)
+                    .statusText(statusText(statusCode))
+                    .headers(new LinkedHashMap<>())
+                    .contentType(contentType != null && !contentType.isBlank() ? contentType : null)
+                    .body(body)
+                    .durationMs(duration)
+                    .sizeBytes(body.getBytes(StandardCharsets.UTF_8).length)
+                    .build();
+
+        } catch (Exception ex) {
+            long duration = System.currentTimeMillis() - start;
+            String msg = rootMessage(ex);
+            log.warn("curl execution failed for {} {}: {}", request.getMethod(), request.getUrl(), msg);
+            return ExecutionResponse.builder().success(false).errorMessage(msg).durationMs(duration).build();
+        } finally {
+            for (java.nio.file.Path tmp : tempFiles) {
+                try {
+                    java.nio.file.Files.deleteIfExists(tmp);
+                } catch (Exception ignored) {
+                    // best effort cleanup
+                }
+            }
+        }
+    }
+
+    private String sanitizeFilename(String filename) {
+        return filename.replaceAll("[^a-zA-Z0-9._-]", "_");
+    }
+
+    /**
+     * A fresh, never-pooled connection per call. This engine hits a different
+     * external host on effectively every request (that's the product), so
+     * Netty's default shared connection pool buys little reuse benefit but
+     * costs real reliability: a remote server that closes its end of an
+     * idle keep-alive connection before our pool notices leaves the next
+     * request writing to a dead socket, which reactor-netty reports as
+     * "finishConnect(..) failed: Connection refused" only after the full
+     * response timeout elapses — indistinguishable from the target actually
+     * being down. A plain curl to the same URL at the same moment succeeds in
+     * under 2s, proving it's pooled-connection staleness here, not the
+     * network — confirmed live against godavari.mp.gov.in on 2026-08-21.
+     */
+    private static final ConnectionProvider NO_POOL = ConnectionProvider.newConnection();
+
     private WebClient buildClient(ExecutionRequest request) throws SSLException {
-        HttpClient httpClient = HttpClient.create()
+        HttpClient httpClient = HttpClient.create(NO_POOL)
                 .responseTimeout(Duration.ofMillis(request.getTimeoutMs()))
                 .followRedirect(request.isFollowRedirects());
 
@@ -186,6 +385,77 @@ public class ExecutionEngineService {
         return request.getBodyType() != ExecutionRequest.BodyType.NONE
                 && request.getBody() != null
                 && !request.getBody().isEmpty();
+    }
+
+    private boolean hasFormData(ExecutionRequest request) {
+        return request.getFormData() != null && !request.getFormData().isEmpty();
+    }
+
+    /**
+     * Builds the raw multipart/form-data body bytes ourselves instead of
+     * handing a {@link MultipartBodyBuilder} to WebClient's reactive writer.
+     * That writer streams parts without a known total length, so it sends
+     * Transfer-Encoding: chunked — plain curl (which knows every part's size
+     * upfront) never does. Confirmed live against godavari.mp.gov.in
+     * (2026-08-21): the identical field set that curl completes in under 2s
+     * consistently hung our client for ~20s before failing, but only when a
+     * file part was included with enough other parts alongside it — pointing
+     * at chunked-multipart handling on the remote (Apache/ModSecurity)
+     * side, not our data or network reachability. Precomputing the full body
+     * gives WebClient a real Content-Length, matching curl's wire behavior.
+     */
+    private byte[] buildMultipartBody(ExecutionRequest request, String boundary) {
+        // ByteArrayOutputStream#write never actually throws IOException (it's a
+        // no-op override) — swallow the checked signature rather than force
+        // every caller to declare it.
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        try {
+            String dashBoundary = "--" + boundary + "\r\n";
+            for (FormDataItem item : request.getFormData()) {
+                if (!item.isEnabled() || item.getKey() == null || item.getKey().isBlank()) continue;
+                out.write(dashBoundary.getBytes(StandardCharsets.UTF_8));
+                if (item.getType() == FormDataItem.Type.FILE) {
+                    if (item.getFileId() == null || item.getFileId().isBlank()) {
+                        throw new IllegalArgumentException(
+                                "File field '" + item.getKey() + "' has no file attached — attach a file and try again.");
+                    }
+                    byte[] bytes = formDataFileStore.load(item.getFileId());
+                    if (bytes == null) {
+                        throw new IllegalArgumentException(
+                                "File field '" + item.getKey() + "' — the attached file could not be found, re-attach it and try again.");
+                    }
+                    String filename = item.getFileName() != null ? item.getFileName() : item.getKey();
+                    String contentType = guessContentType(filename);
+                    out.write(("Content-Disposition: form-data; name=\"" + item.getKey() + "\"; filename=\""
+                            + filename + "\"\r\n").getBytes(StandardCharsets.UTF_8));
+                    out.write(("Content-Type: " + contentType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+                    out.write(bytes);
+                } else {
+                    out.write(("Content-Disposition: form-data; name=\"" + item.getKey() + "\"\r\n\r\n")
+                            .getBytes(StandardCharsets.UTF_8));
+                    out.write((item.getValue() == null ? "" : item.getValue()).getBytes(StandardCharsets.UTF_8));
+                }
+                out.write("\r\n".getBytes(StandardCharsets.UTF_8));
+            }
+            out.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        } catch (java.io.IOException impossible) {
+            throw new IllegalStateException(impossible);
+        }
+        return out.toByteArray();
+    }
+
+    private String guessContentType(String filename) {
+        try {
+            String probed = java.nio.file.Files.probeContentType(java.nio.file.Path.of(filename));
+            if (probed != null) return probed;
+        } catch (Exception ignored) {
+            // fall through to extension guess below
+        }
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".pdf")) return "application/pdf";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        return "application/octet-stream";
     }
 
     private MediaType resolveContentType(ExecutionRequest request) {

@@ -2,6 +2,7 @@ package com.automationportal.apitesting.collections;
 
 import com.automationportal.apitesting.execution.dto.AuthConfig;
 import com.automationportal.apitesting.execution.dto.ExecutionRequest;
+import com.automationportal.apitesting.execution.dto.FormDataItem;
 import com.automationportal.apitesting.execution.dto.KeyValueItem;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,7 +33,7 @@ public class PostmanImportService {
 
     public record ImportResult(ApiCollection collection, int importedRequests, List<String> warnings) { }
 
-    public ImportResult importPostman(String json) {
+    public ImportResult importPostman(String json, Long projectId) {
         JsonNode root;
         try {
             root = objectMapper.readTree(json);
@@ -45,6 +46,7 @@ public class PostmanImportService {
         }
 
         ApiCollection collection = new ApiCollection();
+        collection.setProjectId(projectId);
         collection.setName(info.path("name").asText("Imported Collection"));
         collection.setDescription("Imported from Postman");
         collection.setVariables(extractVariables(root));
@@ -81,7 +83,7 @@ public class PostmanImportService {
                 walkItems(item.path("item"), collectionId, folder.getId(), out, warnings);
             } else if (item.has("request")) {
                 try {
-                    CollectionRequest cr = convert(item, name, collectionId);
+                    CollectionRequest cr = convert(item, name, collectionId, warnings);
                     cr.setFolderId(parentFolderId);
                     out.add(cr);
                 } catch (Exception e) {
@@ -91,7 +93,7 @@ public class PostmanImportService {
         }
     }
 
-    private CollectionRequest convert(JsonNode item, String name, Long collectionId) throws Exception {
+    private CollectionRequest convert(JsonNode item, String name, Long collectionId, List<String> warnings) throws Exception {
         JsonNode req = item.path("request");
 
         ExecutionRequest config = new ExecutionRequest();
@@ -109,7 +111,7 @@ public class PostmanImportService {
         List<KeyValueItem> params = new ArrayList<>();
         for (JsonNode q : urlNode.path("query")) {
             params.add(new KeyValueItem(q.path("key").asText(""), q.path("value").asText(""),
-                    !q.path("disabled").asBoolean(false)));
+                    !q.path("disabled").asBoolean(false), false));
         }
         config.setQueryParams(params);
 
@@ -117,7 +119,7 @@ public class PostmanImportService {
         List<KeyValueItem> headers = new ArrayList<>();
         for (JsonNode h : req.path("header")) {
             headers.add(new KeyValueItem(h.path("key").asText(""), h.path("value").asText(""),
-                    !h.path("disabled").asBoolean(false)));
+                    !h.path("disabled").asBoolean(false), false));
         }
         config.setHeaders(headers);
 
@@ -144,6 +146,30 @@ public class PostmanImportService {
                 }
                 config.setBody(sb.toString());
                 config.setBodyType(ExecutionRequest.BodyType.FORM_URLENCODED);
+            }
+            case "formdata" -> {
+                List<FormDataItem> items = new ArrayList<>();
+                for (JsonNode kv : body.path("formdata")) {
+                    String key = kv.path("key").asText("");
+                    boolean isFile = "file".equals(kv.path("type").asText("text"));
+                    FormDataItem fdi = new FormDataItem();
+                    fdi.setKey(key);
+                    fdi.setEnabled(!kv.path("disabled").asBoolean(false));
+                    if (isFile) {
+                        fdi.setType(FormDataItem.Type.FILE);
+                        String src = kv.path("src").asText("");
+                        fdi.setFileName(src.isBlank() ? null : src.substring(src.lastIndexOf('/') + 1));
+                        // Postman exports never embed file bytes, only a local path reference —
+                        // there is nothing to store here, so this row starts with no fileId.
+                        warnings.add("'" + name + "': form-data file field '" + key + "' needs a file attached before running");
+                    } else {
+                        fdi.setType(FormDataItem.Type.TEXT);
+                        fdi.setValue(kv.path("value").asText(""));
+                    }
+                    items.add(fdi);
+                }
+                config.setFormData(items);
+                config.setBodyType(ExecutionRequest.BodyType.FORM_DATA);
             }
             default -> config.setBodyType(ExecutionRequest.BodyType.NONE);
         }
@@ -203,7 +229,7 @@ public class PostmanImportService {
             for (JsonNode v : variables) {
                 String key = v.path("key").asText("");
                 if (key.isBlank()) continue;
-                out.add(new KeyValueItem(key, v.path("value").asText(""), true));
+                out.add(new KeyValueItem(key, v.path("value").asText(""), true, false));
             }
         }
         return variableResolver.toJson(out);

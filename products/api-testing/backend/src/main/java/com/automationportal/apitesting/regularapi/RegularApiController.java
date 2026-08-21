@@ -32,6 +32,8 @@ public class RegularApiController {
     private final RequestConfigMapper configMapper;
     private final CurrentProjectService currentProjectService;
     private final ApiModuleRepository moduleRepository;
+    private final com.automationportal.apitesting.validation.BusinessValidationService businessValidationService;
+    private final com.automationportal.apitesting.security.CurrentUserService currentUserService;
 
     @Data
     public static class RegularApiPayload {
@@ -43,6 +45,7 @@ public class RegularApiController {
         private String queryParamsTemplate;
         private String bodyType;
         private String bodyTemplate;
+        private String formDataTemplate;   // JSON array of FormDataItem, only used when bodyType=FORM_DATA
         private String authType;
         private String authConfig;
         private boolean dynamic;
@@ -107,6 +110,31 @@ public class RegularApiController {
     @PostMapping("/{id}/execute")
     public DependencyExecutionService.RegularExecutionResult execute(@PathVariable Long id) {
         return dependencyExecutionService.execute(find(id), ExecutionHistory.TriggeredBy.MANUAL, null);
+    }
+
+    /**
+     * On-demand only — never scheduled. Resolves this API's dependencies into a real,
+     * otherwise-valid request, strips every field flagged Required, runs that variant
+     * once, and records which of those fields the backend actually complained about.
+     */
+    @PostMapping("/{id}/validation-check")
+    public com.automationportal.apitesting.validation.ValidationCheckResult runValidationCheck(@PathVariable Long id) {
+        RegularApi api = find(id);
+        try {
+            var request = dependencyExecutionService.resolveRequest(api);
+            return businessValidationService.check(request, api.getProjectId(),
+                    com.automationportal.apitesting.validation.BusinessValidationRun.ApiType.REGULAR, id,
+                    currentUserService.currentEmail());
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/validation-checks")
+    public java.util.List<com.automationportal.apitesting.validation.ValidationCheckResult> validationCheckHistory(@PathVariable Long id) {
+        RegularApi api = find(id);
+        return businessValidationService.history(api.getProjectId(),
+                com.automationportal.apitesting.validation.BusinessValidationRun.ApiType.REGULAR, id);
     }
 
     /** Copies this Regular API into a tester collection as a runnable request (mirrors Base API's convenience endpoint). */
@@ -249,6 +277,7 @@ public class RegularApiController {
         api.setQueryParamsTemplate(p.getQueryParamsTemplate());
         api.setBodyType(p.getBodyType());
         api.setBodyTemplate(p.getBodyTemplate());
+        api.setFormDataTemplate(p.getFormDataTemplate());
         api.setAuthType(p.getAuthType());
         api.setAuthConfig(p.getAuthConfig());
         api.setDynamic(p.isDynamic());

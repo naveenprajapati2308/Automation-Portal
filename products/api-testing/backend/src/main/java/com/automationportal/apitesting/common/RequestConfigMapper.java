@@ -1,6 +1,7 @@
 package com.automationportal.apitesting.common;
 
 import com.automationportal.apitesting.execution.dto.AuthConfig;
+import com.automationportal.apitesting.execution.dto.FormDataItem;
 import com.automationportal.apitesting.execution.dto.KeyValueItem;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,6 +22,15 @@ public class RequestConfigMapper {
         if (json == null || json.isBlank()) return new ArrayList<>();
         try {
             return objectMapper.readValue(json, new TypeReference<List<KeyValueItem>>() { });
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+
+    public List<FormDataItem> formDataItems(String json) {
+        if (json == null || json.isBlank()) return new ArrayList<>();
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<FormDataItem>>() { });
         } catch (Exception e) {
             return new ArrayList<>();
         }

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Send, CalendarClock, History, Database, Workflow, FolderTree } from 'lucide-react';
+import { LayoutDashboard, Send, CalendarClock, History, Database, Workflow, FolderTree, FileBarChart } from 'lucide-react';
 import testrixLogo from '../assets/testrix_logo.png';
 import { reportHeightToParent } from '../../../../../shared/ui/iframe-resize.js';
 
@@ -11,6 +11,7 @@ const NAV = [
   { to: '/regular-apis', label: 'Regular APIs', icon: Workflow },
   { to: '/scheduler', label: 'Scheduler', icon: CalendarClock },
   { to: '/history', label: 'History', icon: History },
+  { to: '/reports', label: 'Reports', icon: FileBarChart },
   { to: '/modules', label: 'Modules', icon: FolderTree },
 ];
 

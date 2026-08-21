@@ -46,6 +46,11 @@ public interface ExecutionHistoryRepository extends JpaRepository<ExecutionHisto
 
     List<ExecutionHistory> findByGroupExecutionIdOrderByExecutedAtAsc(Long groupExecutionId);
 
+    /** Lone scheduled single-API runs (not part of a group) — the other half of the Reports tab
+     * feed alongside ApiGroupExecution rows. */
+    Page<ExecutionHistory> findByProjectIdAndTriggeredByAndGroupExecutionIdIsNullOrderByExecutedAtDesc(
+            Long projectId, ExecutionHistory.TriggeredBy triggeredBy, Pageable pageable);
+
     List<ExecutionHistory> findByExecutedAtAfterAndModuleId(Instant since, Long moduleId);
 
     List<ExecutionHistory> findByProjectIdAndExecutedAtAfter(Long projectId, Instant since);

@@ -50,7 +50,7 @@ export default function ResponseViewer({ response, loading }) {
 
   if (loading) {
     return (
-      <div className="h-[360px] shrink-0 flex items-center justify-center">
+      <div className="h-[160px] shrink-0 flex items-center justify-center">
         <Loader size={32} label="Sending request…" />
       </div>
     );
@@ -58,7 +58,7 @@ export default function ResponseViewer({ response, loading }) {
 
   if (!response) {
     return (
-      <div className="h-[360px] shrink-0 flex items-center justify-center text-[var(--text-muted)] text-sm">
+      <div className="h-[160px] shrink-0 flex items-center justify-center text-[var(--text-muted)] text-sm">
         Send a request to see the response here
       </div>
     );
@@ -66,7 +66,7 @@ export default function ResponseViewer({ response, loading }) {
 
   if (!response.success) {
     return (
-      <div className="h-[360px] shrink-0 flex flex-col items-center justify-center gap-2 text-[var(--danger-text)] px-6 text-center">
+      <div className="h-[160px] shrink-0 flex flex-col items-center justify-center gap-2 text-[var(--danger-text)] px-6 text-center">
         <AlertTriangle size={22} />
         <div className="text-sm font-medium">Request failed</div>
         <div className="text-xs text-[var(--text-secondary)] max-w-xl break-all">{response.errorMessage}</div>

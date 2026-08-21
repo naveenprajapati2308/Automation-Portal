@@ -18,12 +18,14 @@ export function WorkspaceRequests({ setNotice }) {
   const [rejectTarget, setRejectTarget] = useState(null);
   const [approveTarget, setApproveTarget] = useState(null);
   const [approvalResult, setApprovalResult] = useState(null);
+  const [isApproving, setIsApproving] = useState(false);
 
   const load = () => api.adminListWorkspaceRequests(statusFilter || undefined).then(setRequests).catch((e) => setNotice(e.message));
   useEffect(() => { load(); }, [statusFilter]);
 
   const confirmApprove = async () => {
-    if (!approveTarget) return;
+    if (!approveTarget || isApproving) return;
+    setIsApproving(true);
     try {
       const result = await api.adminApproveWorkspaceRequest(approveTarget.id);
       setApproveTarget(null);
@@ -33,6 +35,8 @@ export function WorkspaceRequests({ setNotice }) {
     } catch (e) {
       setNotice(e.message);
       setApproveTarget(null);
+    } finally {
+      setIsApproving(false);
     }
   };
 
@@ -84,8 +88,8 @@ export function WorkspaceRequests({ setNotice }) {
           <h3>Approve Workspace?</h3>
           <p>This creates a real Project workspace for <strong>{approveTarget.projectName}</strong> and a Project Admin account for <strong>{approveTarget.projectManagerName}</strong>.</p>
           <div className="confirm-actions">
-            <button className="secondary-action" onClick={() => setApproveTarget(null)}>Cancel</button>
-            <button className="primary-action" onClick={confirmApprove}>Approve</button>
+            <button className="secondary-action" onClick={() => setApproveTarget(null)} disabled={isApproving}>Cancel</button>
+            <button className="primary-action" onClick={confirmApprove} disabled={isApproving}>{isApproving ? 'Approving…' : 'Approve'}</button>
           </div>
         </ConfirmDialog>
       )}

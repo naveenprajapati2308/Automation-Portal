@@ -88,7 +88,8 @@ public class JwtValidationFilter extends OncePerRequestFilter {
         String tenantId = claims.get("tenantId", String.class);
         String projectCode = claims.get("projectCode", String.class);
         List<String> roles = claims.get("projectRoles", List.class);
+        String email = claims.get("email", String.class);
         return new ProjectContext(Long.valueOf(tenantId), Long.valueOf(projectId), projectCode,
-                roles == null ? List.of() : roles);
+                roles == null ? List.of() : roles, email);
     }
 }

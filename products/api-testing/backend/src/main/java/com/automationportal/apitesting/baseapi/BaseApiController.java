@@ -27,6 +27,8 @@ public class BaseApiController {
     private final com.automationportal.apitesting.common.RequestConfigMapper configMapper;
     private final CurrentProjectService currentProjectService;
     private final ApiModuleRepository moduleRepository;
+    private final com.automationportal.apitesting.validation.BusinessValidationService businessValidationService;
+    private final com.automationportal.apitesting.security.CurrentUserService currentUserService;
 
     @Data
     public static class BaseApiPayload {
@@ -37,6 +39,7 @@ public class BaseApiController {
         private String headers;        // JSON array of {key,value,enabled}
         private String bodyType;
         private String body;
+        private String formData;       // JSON array of FormDataItem, only used when bodyType=FORM_DATA
         private String authType;
         private String authConfig;     // AuthConfig JSON (encrypted at rest)
         private int timeoutMs = 15000;
@@ -101,6 +104,30 @@ public class BaseApiController {
     @PostMapping("/{id}/execute")
     public ExecutionResponse execute(@PathVariable Long id) {
         return executionService.executeManually(find(id));
+    }
+
+    /**
+     * On-demand only — never scheduled. Strips every field flagged Required from a
+     * copy of this API's saved config, runs that variant once, and records which of
+     * those fields the backend actually complained about being missing.
+     */
+    @PostMapping("/{id}/validation-check")
+    public com.automationportal.apitesting.validation.ValidationCheckResult runValidationCheck(@PathVariable Long id) {
+        BaseApi api = find(id);
+        try {
+            return businessValidationService.check(executionService.toExecutionRequest(api), api.getProjectId(),
+                    com.automationportal.apitesting.validation.BusinessValidationRun.ApiType.BASE, id,
+                    currentUserService.currentEmail());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/validation-checks")
+    public java.util.List<com.automationportal.apitesting.validation.ValidationCheckResult> validationCheckHistory(@PathVariable Long id) {
+        BaseApi api = find(id);
+        return businessValidationService.history(api.getProjectId(),
+                com.automationportal.apitesting.validation.BusinessValidationRun.ApiType.BASE, id);
     }
 
     /**
@@ -220,6 +247,7 @@ public class BaseApiController {
         api.setHeaders(p.getHeaders());
         api.setBodyType(p.getBodyType());
         api.setBody(p.getBody());
+        api.setFormData(p.getFormData());
         api.setAuthType(p.getAuthType());
         api.setAuthConfig(p.getAuthConfig());
         api.setTimeoutMs(p.getTimeoutMs());

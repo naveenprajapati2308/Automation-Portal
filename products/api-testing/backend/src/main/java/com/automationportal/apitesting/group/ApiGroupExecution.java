@@ -39,6 +39,11 @@ public class ApiGroupExecution {
     @Column(name = "schedule_id")
     private Long scheduleId;
 
+    /** Email of the user who clicked "Run" for a MANUAL trigger; null for SCHEDULE (see the
+     * owning Schedule's recipients instead). */
+    @Column(name = "triggered_by_email", length = 150)
+    private String triggeredByEmail;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Status status = Status.RUNNING;
@@ -60,4 +65,7 @@ public class ApiGroupExecution {
 
     @Column(name = "finished_at")
     private Instant finishedAt;
+
+    @Column(name = "report_email_sent_at")
+    private Instant reportEmailSentAt;
 }

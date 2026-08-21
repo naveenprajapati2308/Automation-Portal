@@ -284,36 +284,38 @@ export default function GroupsPanel() {
       {/* Group-run drill-down drawer */}
       {execDetailId && (
         <ModalOverlay onClose={() => setExecDetailId(null)} align="end">
-          <div className="w-[620px] h-full bg-[var(--bg-surface)] border-l border-[var(--border)] overflow-auto p-5 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+          <div className="w-[620px] h-full bg-[var(--bg-surface)] border-l border-[var(--border)] flex flex-col">
+            <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
               <h2 className="text-sm font-semibold">
                 Group Run #{execDetailId} {execDetail ? `· ${execDetail.groupName}` : ''}
               </h2>
               <button onClick={() => setExecDetailId(null)} className="text-[var(--text-muted)] hover:text-[var(--text-secondary)]"><X size={16} /></button>
             </div>
-            {execDetail ? (
-              <>
-                <div className="flex flex-wrap gap-4 text-xs">
-                  <Meta k="Status" v={execDetail.execution.status} />
-                  <Meta k="Health" v={execDetail.execution.healthPercent != null ? `${execDetail.execution.healthPercent}%` : '—'} />
-                  <Meta k="Passed / Failed" v={`${execDetail.execution.passedApis} / ${execDetail.execution.failedApis}`} />
-                  <Meta k="Trigger" v={execDetail.execution.triggeredBy} />
-                  <Meta k="Started" v={new Date(execDetail.execution.startedAt).toLocaleString()} />
-                  <Meta k="Correlation" v={execDetail.execution.correlationId} mono />
-                </div>
-                <div className="text-[11px] text-[var(--text-muted)]">
-                  {(execDetail.executions ?? []).length} API call(s) in this run — click any row to see its full request/response data.
-                </div>
-                <div className="border border-[var(--border)] rounded divide-y divide-[var(--border-soft)]">
-                  {(execDetail.executions ?? []).map((h) => <ExecRow key={h.id} h={h} />)}
-                  {(execDetail.executions ?? []).length === 0 && (
-                    <div className="px-3 py-3 text-xs text-[var(--text-muted)]">
-                      {execDetail.execution.status === 'RUNNING' ? 'Still running…' : 'No execution records.'}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : <div className="py-6 flex justify-center"><Loader size={28} label="Loading…" /></div>}
+            <div className="flex-1 min-h-0 overflow-auto p-5 flex flex-col gap-3">
+              {execDetail ? (
+                <>
+                  <div className="flex flex-wrap gap-4 text-xs">
+                    <Meta k="Status" v={execDetail.execution.status} />
+                    <Meta k="Health" v={execDetail.execution.healthPercent != null ? `${execDetail.execution.healthPercent}%` : '—'} />
+                    <Meta k="Passed / Failed" v={`${execDetail.execution.passedApis} / ${execDetail.execution.failedApis}`} />
+                    <Meta k="Trigger" v={execDetail.execution.triggeredBy} />
+                    <Meta k="Started" v={new Date(execDetail.execution.startedAt).toLocaleString()} />
+                    <Meta k="Correlation" v={execDetail.execution.correlationId} mono />
+                  </div>
+                  <div className="text-[11px] text-[var(--text-muted)]">
+                    {(execDetail.executions ?? []).length} API call(s) in this run — click any row to see its full request/response data.
+                  </div>
+                  <div className="border border-[var(--border)] rounded divide-y divide-[var(--border-soft)]">
+                    {(execDetail.executions ?? []).map((h) => <ExecRow key={h.id} h={h} />)}
+                    {(execDetail.executions ?? []).length === 0 && (
+                      <div className="px-3 py-3 text-xs text-[var(--text-muted)]">
+                        {execDetail.execution.status === 'RUNNING' ? 'Still running…' : 'No execution records.'}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : <div className="py-6 flex justify-center"><Loader size={28} label="Loading…" /></div>}
+            </div>
           </div>
         </ModalOverlay>
       )}
@@ -415,7 +417,7 @@ function GroupExpand({ detail, executions, memberIds, regularApis, runMut, addMe
  * One API call inside a group run. Click to expand: fetches the full history
  * record (request, response body, validation results) on first open.
  */
-function ExecRow({ h }) {
+export function ExecRow({ h }) {
   const [open, setOpen] = useState(false);
   const passed = h.errorMessage == null
     && h.responseStatusCode != null && h.responseStatusCode < 400
@@ -587,7 +589,7 @@ function StatusPill({ statusClass, statusCode, small }) {
   );
 }
 
-function Meta({ k, v, mono }) {
+export function Meta({ k, v, mono }) {
   return (
     <div className="flex flex-col">
       <span className="text-[10px] text-[var(--text-muted)] uppercase">{k}</span>

@@ -13,7 +13,7 @@ import java.util.List;
 @Data
 public class ExecutionRequest {
 
-    public enum BodyType { NONE, JSON, XML, TEXT, HTML, FORM_URLENCODED }
+    public enum BodyType { NONE, JSON, XML, TEXT, HTML, FORM_URLENCODED, FORM_DATA }
 
     @NotBlank(message = "HTTP method is required")
     private String method;
@@ -26,6 +26,7 @@ public class ExecutionRequest {
 
     private BodyType bodyType = BodyType.NONE;
     private String body;
+    private List<FormDataItem> formData = new ArrayList<>();
 
     private AuthConfig auth = new AuthConfig();
 

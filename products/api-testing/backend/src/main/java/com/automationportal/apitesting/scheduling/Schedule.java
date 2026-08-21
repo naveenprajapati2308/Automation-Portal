@@ -75,4 +75,14 @@ public class Schedule {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+
+    /** Comma-separated report recipient emails — who gets the execution report after every run. */
+    @Column(name = "recipients", length = 500)
+    private String recipients;
+
+    @Column(name = "created_by_email", length = 150)
+    private String createdByEmail;
+
+    @Column(name = "report_email_sent_at")
+    private Instant reportEmailSentAt;
 }

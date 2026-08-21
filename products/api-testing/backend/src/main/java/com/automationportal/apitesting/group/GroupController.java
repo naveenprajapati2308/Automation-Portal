@@ -12,6 +12,7 @@ import com.automationportal.apitesting.module.ApiModuleRepository;
 import com.automationportal.apitesting.regularapi.RegularApi;
 import com.automationportal.apitesting.regularapi.RegularApiRepository;
 import com.automationportal.apitesting.security.CurrentProjectService;
+import com.automationportal.apitesting.security.CurrentUserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -50,6 +51,7 @@ public class GroupController {
     private final AuditService auditService;
     private final CurrentProjectService currentProjectService;
     private final ApiModuleRepository moduleRepository;
+    private final CurrentUserService currentUserService;
 
     // ------------------------------------------------------------- payloads
 
@@ -306,7 +308,7 @@ public class GroupController {
         }
         auditService.record(currentProjectService.requireProjectId(), AuditLog.EntityType.GROUP, id, AuditLog.Action.EXECUTE,
                 "Manual execution of group '" + group.getName() + "'");
-        return groupExecutionService.executeAsync(group);
+        return groupExecutionService.executeAsync(group, currentUserService.currentEmail());
     }
 
     @GetMapping("/executions")

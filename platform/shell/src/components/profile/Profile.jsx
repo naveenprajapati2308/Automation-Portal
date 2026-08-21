@@ -4,10 +4,6 @@ import {
   Briefcase,
   Building2,
   Calendar,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
   Clock,
   KeyRound,
   LogIn,
@@ -48,16 +44,6 @@ function formatDateTime(raw) {
   });
 }
 
-function timeAgo(raw) {
-  if (!raw) return '';
-  const diff = Math.floor((Date.now() - new Date(raw)) / 1000); // seconds
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 86400 * 7) return `${Math.floor(diff / 86400)}d ago`;
-  return formatDateTime(raw);
-}
-
 // ── Profile Page ───────────────────────────────────────────────────────────────
 // Project role beats the vestigial platform UserRole (almost always VIEWER — see
 // WorkspaceProvisioningService.approve()) for display: it's the role that actually governs
@@ -82,13 +68,7 @@ export function Profile({ setNotice, onProfileSaved, project }) {
   const [emailOtp, setEmailOtp] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editErrors, setEditErrors] = useState({});
-  const [showLogs, setShowLogs] = useState(false);
   const fileRef = useRef();
-
-  // Audit log state
-  const [actionFilter, setActionFilter] = useState('');
-  const [logPage, setLogPage] = useState(1);
-  const LOG_PAGE_SIZE = 5;
 
   const load = async () => {
     const [profileData, auditData] = await Promise.all([api.profile(), api.auditLogs()]);
@@ -157,26 +137,6 @@ export function Profile({ setNotice, onProfileSaved, project }) {
       setUploading(false);
     }
   };
-
-  // ── Audit log derived state ──────────────────────────────────────────────────
-  const actionTypes = useMemo(() => {
-    const set = new Set(logs.map((l) => l.action).filter(Boolean));
-    return [...set].sort();
-  }, [logs]);
-
-  const filteredLogs = useMemo(
-    () => logs.filter((l) => !actionFilter || l.action === actionFilter),
-    [logs, actionFilter]
-  );
-
-  const totalLogPages = Math.ceil(filteredLogs.length / LOG_PAGE_SIZE) || 1;
-  const pagedLogs = filteredLogs.slice(
-    (logPage - 1) * LOG_PAGE_SIZE,
-    logPage * LOG_PAGE_SIZE
-  );
-
-  // Reset page when filter changes
-  useEffect(() => { setLogPage(1); }, [actionFilter]);
 
   // Activity summary counts (from the recent audit trail)
   const stats = useMemo(() => {
@@ -338,100 +298,13 @@ export function Profile({ setNotice, onProfileSaved, project }) {
           <ChangeEmailForm
             setNotice={setNotice}
             onClose={() => setShowChangeEmail(false)}
+            
             emailOtp={emailOtp}
             setEmailOtp={setEmailOtp}
           />
         </div>
       )}
 
-      {/* ── Activity Log (hidden behind Show More) ────────────────────────── */}
-      <div className="pf-card">
-        <div className="pf-log-header">
-          <h3 className="pf-card-title" style={{ margin: 0 }}><Activity size={17} /> Activity Logs</h3>
-          <button className="pf-log-toggle" onClick={() => setShowLogs((v) => !v)}>
-            {showLogs ? <>Show Less <ChevronUp size={14} /></> : <>Show More <ChevronDown size={14} /></>}
-          </button>
-        </div>
-
-        {showLogs && (
-          <div className="pf-log-body">
-            {/* Filter toolbar */}
-            <div className="audit-toolbar">
-              <select
-                className="um-filter-select"
-                value={actionFilter}
-                onChange={(e) => setActionFilter(e.target.value)}
-              >
-                <option value="">All Actions</option>
-                {actionTypes.map((a) => <option key={a} value={a}>{a}</option>)}
-              </select>
-              <span className="um-count">
-                {filteredLogs.length} event{filteredLogs.length !== 1 ? 's' : ''}
-              </span>
-              {actionFilter && (
-                <button className="um-clear-btn" onClick={() => setActionFilter('')}>Clear</button>
-              )}
-            </div>
-
-            {/* Table */}
-            <div className="um-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Action</th>
-                    <th>Details</th>
-                    <th>Date &amp; Time</th>
-                    <th>When</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pagedLogs.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px' }}>
-                        No activity logs found
-                      </td>
-                    </tr>
-                  ) : pagedLogs.map((log, idx) => (
-                    <tr key={log.id ?? idx}>
-                      <td style={{ color: 'var(--text-muted)', width: 32 }}>
-                        {(logPage - 1) * LOG_PAGE_SIZE + idx + 1}
-                      </td>
-                      <td>
-                        <span className="status">{log.action}</span>
-                      </td>
-                      <td style={{ maxWidth: 180, wordBreak: 'break-word' }}>
-                        {log.details || '—'}
-                      </td>
-                      <td className="audit-datetime">{formatDateTime(log.createdAt)}</td>
-                      <td className="audit-ago">{timeAgo(log.createdAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalLogPages > 1 && (
-              <div className="um-pagination">
-                <button
-                  onClick={() => setLogPage((p) => Math.max(1, p - 1))}
-                  disabled={logPage === 1}
-                >
-                  <ChevronLeft size={14} /> Prev
-                </button>
-                <span>Page {logPage} of {totalLogPages}</span>
-                <button
-                  onClick={() => setLogPage((p) => Math.min(totalLogPages, p + 1))}
-                  disabled={logPage === totalLogPages}
-                >
-                  Next <ChevronRight size={14} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
     </section>
   );
 }

@@ -43,6 +43,12 @@ public class BaseApi {
     @Column(columnDefinition = "TEXT")
     private String body;
 
+    /** JSON array of FormDataItem — only used when bodyType=FORM_DATA. File rows carry a
+     * fileId reference (FormDataFileStore), never raw bytes. */
+    @Lob
+    @Column(name = "form_data", columnDefinition = "LONGTEXT")
+    private String formData;
+
     @Column(name = "auth_type", length = 20)
     private String authType;
 

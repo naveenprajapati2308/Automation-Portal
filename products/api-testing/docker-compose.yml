@@ -37,12 +37,18 @@ services:
       REDIS_HOST: api-testing-redis
       FRONTEND_URL: http://localhost:15000
       HISTORY_BODY_STORE_DIR: /app/history-bodies
+      FORM_DATA_FILE_STORE_DIR: /app/form-data-files
       APITESTING_ENCRYPTION_KEY: ${APITESTING_ENCRYPTION_KEY:?APITESTING_ENCRYPTION_KEY must be set in .env}
       PORTAL_JWT_SECRET: ${PORTAL_JWT_SECRET:?PORTAL_JWT_SECRET must be set in .env}
+      # Execution reports are emailed via automation-portal's internal mail endpoint (same SMTP
+      # account, same shared secret its execution-events endpoint already uses).
+      INTERNAL_MAIL_URL: http://automation-portal-backend:8080/api/internal/reports/mail
+      PORTAL_EVENTS_API_KEY: ${PORTAL_EVENTS_API_KEY:?PORTAL_EVENTS_API_KEY must be set in .env}
     ports:
       - "8081:8080"
     volumes:
       - api_testing_history_bodies:/app/history-bodies
+      - api_testing_form_data_files:/app/form-data-files
     networks:
       - testrix
 
@@ -53,3 +59,5 @@ networks:
 volumes:
   api_testing_history_bodies:
     name: api_testing_history_bodies
+  api_testing_form_data_files:
+    name: api_testing_form_data_files

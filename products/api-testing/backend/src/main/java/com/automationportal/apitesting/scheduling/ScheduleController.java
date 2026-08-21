@@ -3,6 +3,7 @@ package com.automationportal.apitesting.scheduling;
 import com.automationportal.apitesting.regularapi.RegularApi;
 import com.automationportal.apitesting.regularapi.RegularApiRepository;
 import com.automationportal.apitesting.security.CurrentProjectService;
+import com.automationportal.apitesting.security.CurrentUserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -31,6 +32,7 @@ public class ScheduleController {
     private final ScheduleWorker scheduleWorker;
     private final org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor scheduleWorkerExecutor;
     private final CurrentProjectService currentProjectService;
+    private final CurrentUserService currentUserService;
 
     @Data
     public static class SchedulePayload {
@@ -42,6 +44,8 @@ public class ScheduleController {
         @NotNull private Schedule.FrequencyType frequencyType;
         private String frequencyValue;
         private Integer maxRetries;
+        /** Comma-separated report recipient emails. */
+        @NotBlank private String recipients;
     }
 
     @Data
@@ -83,6 +87,7 @@ public class ScheduleController {
         Schedule s = new Schedule();
         apply(s, payload);
         s.setProjectId(currentProjectService.requireProjectId());
+        s.setCreatedByEmail(currentUserService.currentEmail());
         s.setNextRunAt(initialNextRun(s)); // anchored types wait for their time; others run on the next poll tick
         s = repository.save(s);
         auditService.record(currentProjectService.requireProjectId(),
@@ -154,6 +159,7 @@ public class ScheduleController {
         s.setGroupId(target == Schedule.TargetType.GROUP ? payload.getGroupId() : null);
         s.setFrequencyType(payload.getFrequencyType());
         s.setFrequencyValue(payload.getFrequencyValue());
+        s.setRecipients(payload.getRecipients().trim());
         if (payload.getMaxRetries() != null) s.setMaxRetries(Math.max(0, payload.getMaxRetries()));
     }
 

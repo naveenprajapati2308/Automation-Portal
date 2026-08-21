@@ -1,5 +1,15 @@
-// Sub-menu shown when "Automation" is expanded in the main sidebar — mirrors
-// automation-portal's own USER_NAV, one page per key.
+
+export const API_TESTING_NAV = [
+  { key: 'dashboard', label: 'Overview', icon: 'LayoutDashboard', path: '/' },
+  { key: 'tester', label: 'Test APIs', icon: 'Send', path: '/tester' },
+  { key: 'base-apis', label: 'Base APIs', icon: 'Database', path: '/base-apis' },
+  { key: 'regular-apis', label: 'Regular APIs', icon: 'Workflow', path: '/regular-apis' },
+  { key: 'scheduler', label: 'Scheduler', icon: 'CalendarClock', path: '/scheduler' },
+  { key: 'reports', label: 'Reports', icon: 'FileText', path: '/reports' },
+  { key: 'history', label: 'History', icon: 'History', path: '/history' },
+  { key: 'modules', label: 'Modules', icon: 'FolderTree', path: '/modules' }
+];
+
 export const AUTOMATION_NAV = [
   { key: 'dashboard', label: 'Overview', icon: 'Gauge' },
   { key: 'execution', label: 'Execution Center', icon: 'Play' },
@@ -8,21 +18,10 @@ export const AUTOMATION_NAV = [
   { key: 'screenshots', label: 'Screenshots', icon: 'Camera' },
   { key: 'compare', label: 'Historical Compare', icon: 'GitCompare' },
   { key: 'environments', label: 'Environments', icon: 'Globe2' },
-  // Re-enters the Automation Setup Wizard (registering an additional framework, e.g. Selenium
-  // then Playwright later) — only a Project Admin can complete it, so only they see it here
-  // (Sidebar filters on projectAdminOnly, same gate as automation-portal's own copy of this item).
   { key: 'automation-setup', label: 'Add Framework', icon: 'Wrench', projectAdminOnly: true }
 ];
 
-export const API_TESTING_NAV = [
-  { key: 'dashboard', label: 'Overview', icon: 'LayoutDashboard', path: '/' },
-  { key: 'tester', label: 'API Tester', icon: 'Send', path: '/tester' },
-  { key: 'base-apis', label: 'Base APIs', icon: 'Database', path: '/base-apis' },
-  { key: 'regular-apis', label: 'Regular APIs', icon: 'Workflow', path: '/regular-apis' },
-  { key: 'scheduler', label: 'Scheduler', icon: 'CalendarClock', path: '/scheduler' },
-  { key: 'history', label: 'History', icon: 'History', path: '/history' },
-  { key: 'modules', label: 'Modules', icon: 'FolderTree', path: '/modules' }
-];
+
 
 export const PERFORMANCE_NAV = [
   { key: 'dashboard', label: 'Overview', icon: 'LayoutDashboard', path: '/' },
@@ -34,16 +33,12 @@ export const PERFORMANCE_NAV = [
   { key: 'runs', label: 'Run History', icon: 'History', path: '/runs' }
 ];
 
-// Module administration (which Selenium/Playwright modules exist, which environments they run
-// in, per-combo overrides) lives exclusively under the Admin Workspace's own nav
-// (ADMIN_WORKSPACE_NAV below, automation-admin -> module-management) — Super Admin never works
-// inside the regular product sidebar (docs/version2.2.md isolation). Cross-project environment
-// oversight used to have its own separate admin page here too; removed since every project
-// already self-manages its own environments via Workspace Settings.
+
 export const SIDEBAR_NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-  { key: 'automation', label: 'Automation', icon: 'Play', children: AUTOMATION_NAV },
   { key: 'apitest', label: 'API Testing', icon: 'Globe2', children: API_TESTING_NAV },
+  { key: 'automation', label: 'Automation', icon: 'Play', children: AUTOMATION_NAV },
+
   { key: 'perf', label: 'Performance', icon: 'Gauge', children: PERFORMANCE_NAV },
   { key: 'documentation', label: 'Documentation', icon: 'BookOpen' },
   { key: 'profile', label: 'Profile', icon: 'UserCircle' }

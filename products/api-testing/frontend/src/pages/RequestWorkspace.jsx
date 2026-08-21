@@ -6,6 +6,8 @@ import { Loader } from '../../../../../shared/ui/Loader.jsx';
 import { apiClient } from '../api/client.js';
 import axios from 'axios';
 import KeyValueEditor from '../components/KeyValueEditor.jsx';
+import FormDataEditor from '../components/FormDataEditor.jsx';
+import ValidationCheckPanel from '../components/ValidationCheckPanel.jsx';
 import ResponseViewer from '../components/ResponseViewer.jsx';
 import RequestHistoryPanel from '../components/RequestHistoryPanel.jsx';
 import { EMPTY_AUTH } from '../components/AuthEditor.jsx';
@@ -16,7 +18,7 @@ import { METHOD_COLORS } from '../lib/statusColors.js';
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
 
 const BUILDER_SUBTABS = ['Parameters', 'Body', 'Headers', 'Authorization'];
-const BODY_TYPES = ['NONE', 'JSON', 'XML', 'TEXT', 'HTML', 'FORM_URLENCODED'];
+const BODY_TYPES = ['NONE', 'JSON', 'XML', 'TEXT', 'HTML', 'FORM_DATA', 'FORM_URLENCODED'];
 
 function flattenFolders(nodes, depth = 0) {
   const out = [];
@@ -39,6 +41,7 @@ export default function RequestWorkspace() {
   const [headers, setHeaders] = useState([]);
   const [bodyType, setBodyType] = useState('NONE');
   const [body, setBody] = useState('');
+  const [formData, setFormData] = useState([]);
   const [auth, setAuth] = useState({ ...EMPTY_AUTH });
   const [builderSubTab, setBuilderSubTab] = useState('Parameters');
   const [response, setResponse] = useState(null);
@@ -67,7 +70,7 @@ export default function RequestWorkspace() {
   useEffect(() => {
     if (isNew) {
       setMethod('GET'); setUrl(''); setQueryParams([]); setHeaders([]);
-      setBodyType('NONE'); setBody(''); setAuth({ ...EMPTY_AUTH });
+      setBodyType('NONE'); setBody(''); setFormData([]); setAuth({ ...EMPTY_AUTH });
       setRequestName(''); setFolderId(''); setResponse(null);
     }
   }, [requestId, isNew]);
@@ -82,6 +85,7 @@ export default function RequestWorkspace() {
       setHeaders(cfg.headers ?? []);
       setBodyType(cfg.bodyType ?? 'NONE');
       setBody(cfg.body ?? '');
+      setFormData(cfg.formData ?? []);
       setAuth({ ...EMPTY_AUTH, ...(cfg.auth ?? {}) });
       setRequestName(existing.name);
       setFolderId(existing.folderId ?? '');
@@ -89,7 +93,7 @@ export default function RequestWorkspace() {
   }, [existing]);
 
   const buildConfig = () => ({
-    method, url, queryParams, headers, bodyType, body, auth,
+    method, url, queryParams, headers, bodyType, body, formData, auth,
     timeoutMs: 30000, followRedirects: true, verifySsl: true,
   });
 
@@ -114,7 +118,7 @@ export default function RequestWorkspace() {
     setLoading(true);
     setIsExecuting(true);
     setResponse(null);
- 
+
     const abortCtrl = new AbortController();
     executeAbortRef.current = abortCtrl;
     try {
@@ -122,15 +126,15 @@ export default function RequestWorkspace() {
       const name = requestName.trim() || existing?.name || `${method} ${url}`.slice(0, 80);
       const payload = { name, config: buildConfig(), folderId: folderId ? Number(folderId) : null };
       if (isNew) {
-     
+
         const { data: created } = await apiClient.post(`/v1/collections/${collectionId}/requests`, payload);
         activeRequestId = created.id;
         setRequestName(name);
       } else {
-       
+
         await apiClient.put(`/v1/collections/${collectionId}/requests/${requestId}`, payload);
       }
-     
+
       const baseUrl = apiClient.defaults.baseURL;
       const token = JSON.parse(localStorage.getItem('automationPortalAuth') || 'null')?.accessToken;
       const { data } = await axios.post(
@@ -175,7 +179,7 @@ export default function RequestWorkspace() {
             {flatFolders.map((f) => <option key={f.id} value={f.id}>{'—'.repeat(f.depth)} {f.name}</option>)}
           </select>
         </div>
-        <button onClick={() => saveMut.mutate()} disabled={!requestName.trim() || saveMut.isPending}
+        <button onClick={() => saveMut.mutate()} disabled={!requestName.trim() || saveMut.isPending || loading}
           className="flex items-center gap-1.5 rounded border border-[var(--accent-border-soft)] text-[var(--accent-text)] hover:bg-[var(--accent-bg-soft)] disabled:opacity-40 px-3 py-1.5 text-xs font-semibold">
           <Save size={12} /> {isNew ? 'Save' : 'Update'}
         </button>
@@ -201,14 +205,14 @@ export default function RequestWorkspace() {
             placeholder="Enter request URL"
             className="flex-1 bg-transparent border-l border-[var(--border)] px-3 py-2 text-sm outline-none placeholder:text-[var(--text-muted)]" />
         </div>
-        <button onClick={run} disabled={loading}
+        <button onClick={run} disabled={loading || saveMut.isPending}
           className="flex items-center gap-2 rounded-md bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 px-5 py-2 text-sm font-semibold text-white">
           {loading ? <><Loader size={14} /> Sending…</> : <><Send size={14} /> Send</>}
         </button>
       </div>
 
       <div className="flex flex-col">
-        <div className="h-[150px] shrink-0 flex flex-col border-b border-[var(--border)] min-h-0">
+        <div className="h-[130px] shrink-0 flex flex-col border-b border-[var(--border)] min-h-0">
           <div className="flex gap-1 px-4 pt-2 border-b border-[var(--border)]">
             {BUILDER_SUBTABS.map((t) => (
               <button key={t} onClick={() => setBuilderSubTab(t)}
@@ -218,19 +222,24 @@ export default function RequestWorkspace() {
             ))}
           </div>
           <div className="flex-1 overflow-auto p-4 min-h-0">
-            {builderSubTab === 'Parameters' && <KeyValueEditor items={queryParams} onChange={setQueryParams} keyPlaceholder="Parameter" />}
-            {builderSubTab === 'Headers' && <KeyValueEditor items={headers} onChange={setHeaders} keyPlaceholder="Header" />}
+            {builderSubTab === 'Parameters' && <KeyValueEditor items={queryParams} onChange={setQueryParams} keyPlaceholder="Parameter" showRequired />}
+            {builderSubTab === 'Headers' && <KeyValueEditor items={headers} onChange={setHeaders} keyPlaceholder="Header" showRequired />}
             {builderSubTab === 'Body' && (
               <div className="h-full flex flex-col gap-2">
                 <div className="flex gap-1">
                   {BODY_TYPES.map((bt) => (
                     <button key={bt} onClick={() => setBodyType(bt)}
                       className={`px-2.5 py-1 rounded text-[11px] ${bodyType === bt ? 'bg-[var(--accent-bg-soft)] text-[var(--accent-text)] border border-[var(--accent-border-soft)]' : 'text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text-secondary)]'}`}>
-                      {bt === 'FORM_URLENCODED' ? 'x-www-form-urlencoded' : bt}
+                      {bt === 'FORM_URLENCODED' ? 'x-www-form-urlencoded' : bt === 'FORM_DATA' ? 'form-data' : bt}
                     </button>
                   ))}
                 </div>
-                {bodyType !== 'NONE' && (
+                {bodyType === 'FORM_DATA' && (
+                  <div className="flex-1 min-h-0 overflow-auto">
+                    <FormDataEditor items={formData} onChange={setFormData} />
+                  </div>
+                )}
+                {bodyType !== 'NONE' && bodyType !== 'FORM_DATA' && (
                   <div className="flex-1 min-h-0 border border-[var(--border)] rounded-md overflow-hidden">
                     <ThemedEditor height="100%"
                       language={bodyType === 'JSON' ? 'json' : bodyType === 'XML' || bodyType === 'HTML' ? 'html' : 'plaintext'}
@@ -244,11 +253,17 @@ export default function RequestWorkspace() {
           </div>
         </div>
 
+        {!isNew && (
+          <div className="px-4 pt-3">
+            <ValidationCheckPanel baseUrl={`/v1/collections/${collectionId}/requests/${requestId}`} />
+          </div>
+        )}
+
         <ResponseViewer response={response} loading={loading} />
 
         {/* History for this specific API — pinned at the bottom, collapsible.
             Unrelated to the sidebar's global History page. */}
-        <RequestHistoryPanel requestId={isNew ? null : Number(requestId)} pausePolling={isExecuting} />
+        <RequestHistoryPanel requestId={isNew ? null : Number(requestId)} />
       </div>
     </div>
   );

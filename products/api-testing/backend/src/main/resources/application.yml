@@ -2,6 +2,10 @@ server:
   port: 8080
 
 spring:
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
   application:
     name: api-testing-platform-backend
   autoconfigure:
@@ -63,6 +67,17 @@ apitesting:
     # Local gzip store for oversized bodies (MinIO-shaped interface; swap the
     # BodyStore impl when/if MinIO is introduced).
     body-store-dir: ${HISTORY_BODY_STORE_DIR:history-bodies}
+  formdata:
+    # Local raw-bytes store for uploaded form-data files (Text/File body rows).
+    store-dir: ${FORM_DATA_FILE_STORE_DIR:form-data-files}
+
+report:
+  mail:
+    # Execution reports send mail through automation-portal's already-configured SMTP account
+    # (see automation-portal's InternalMailController) instead of standing up a second mailer
+    # here. Same shared secret automation-portal's own execution-events endpoint already uses.
+    internal-url: ${INTERNAL_MAIL_URL:http://localhost:18080/api/internal/reports/mail}
+    api-key: ${PORTAL_EVENTS_API_KEY}
 
 security:
   jwt:

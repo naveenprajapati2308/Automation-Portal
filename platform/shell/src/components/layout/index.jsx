@@ -360,7 +360,7 @@ function WorkspaceBadge({ project }) {
           {projects === null ? (
             <div className="ws-badge-loading">Loading workspaces…</div>
           ) : projects.length <= 1 ? (
-            <div className="ws-badge-loading">You belong to only this workspace.</div>
+            <div className="ws-badge-loading">There is only one workspace assigned to you.</div>
           ) : (
             projects.map((p) => (
               <button

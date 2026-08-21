@@ -49,4 +49,12 @@ public final class ProjectUserDtos {
         ProjectUserStatus status,
         Instant joinedAt
     ) {}
+
+    /** One row of "which OTHER workspaces do the caller and this member share" (see {@code /shared-workspaces}). */
+    public record SharedWorkspaceMembership(
+        Long projectId,
+        String projectName,
+        List<String> roles,
+        String membershipStatus
+    ) {}
 }

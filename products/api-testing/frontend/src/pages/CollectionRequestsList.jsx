@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus, Download, ChevronDown, ChevronRight, ChevronLeft, CheckCircle2, XCircle,
-  Trash2, Copy, Braces, X, Save, FolderPlus, Folder, Layers, Pencil,
+  Trash2, Copy, Braces, X, Save, FolderPlus, Folder, Layers, Pencil, RefreshCw,
 } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 import KeyValueEditor from '../components/KeyValueEditor.jsx';
@@ -11,6 +11,7 @@ import { Button } from '../components/Button.jsx';
 import { ModalOverlay } from '../components/ModalOverlay.jsx';
 import { Pagination } from '../components/Pagination.jsx';
 import { INPUT_CLASS as inputCls, methodColor, CLASS_COLORS } from '../lib/statusColors.js';
+import { downloadFrom } from '../lib/download.js';
 
 const GRID_COLS = 'grid grid-cols-[1fr_90px_1.2fr_140px_160px_90px] gap-2 items-center';
 
@@ -19,22 +20,6 @@ function statusPillClass(cls) {
   if (cls === '4xx' || cls === '5xx') return CLASS_COLORS['4xx'];
   if (cls === 'TIMEOUT') return CLASS_COLORS.TIMEOUT;
   return 'text-[var(--text-muted)]';
-}
-
-async function downloadFrom(url, fallbackName) {
-  const res = await apiClient.get(url, { responseType: 'blob' });
-  const disposition = res.headers['content-disposition'] || '';
-  const starMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-  const plainMatch = disposition.match(/filename="([^"]+)"/i);
-  const filename = starMatch ? decodeURIComponent(starMatch[1]) : (plainMatch ? plainMatch[1] : fallbackName);
-  const blobUrl = window.URL.createObjectURL(res.data);
-  const a = document.createElement('a');
-  a.href = blobUrl;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.URL.revokeObjectURL(blobUrl);
 }
 
 function flattenFolders(nodes, depth = 0) {
@@ -71,10 +56,9 @@ export default function CollectionRequestsList() {
   });
   const collection = collections.find((c) => String(c.id) === collectionId);
 
-  const { data: requests = [] } = useQuery({
+  const { data: requests = [], isFetching: requestsFetching, refetch: refetchRequests } = useQuery({
     queryKey: ['collection-requests', collectionId],
     queryFn: async () => (await apiClient.get(`/v1/collections/${collectionId}/requests`)).data,
-    refetchInterval: 8000,
   });
 
   const { data: folderTree = [] } = useQuery({
@@ -295,6 +279,13 @@ export default function CollectionRequestsList() {
           <button onClick={() => { setNewFolderParent(null); setNewFolderName(''); }}
             className="flex items-center gap-1.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-3 py-1.5 text-xs font-semibold">
             <FolderPlus size={12} /> New Folder
+          </button>
+          <button
+            onClick={() => refetchRequests()}
+            disabled={requestsFetching}
+            title="Refresh request list"
+            className="flex items-center gap-1.5 rounded border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] px-3 py-1.5 text-xs font-semibold disabled:opacity-50">
+            <RefreshCw size={12} className={requestsFetching ? 'animate-spin' : ''} /> Refresh
           </button>
           <Button onClick={() => navigate(`/tester/${collectionId}/new`)}>
             <Plus size={14} /> New Request

@@ -3,22 +3,25 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Play, Plus, Trash2, Save, Workflow, CheckCircle2, XCircle, Layers, Zap } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 import KeyValueEditor from '../components/KeyValueEditor.jsx';
+import FormDataEditor from '../components/FormDataEditor.jsx';
+import ValidationCheckPanel from '../components/ValidationCheckPanel.jsx';
 import AuthEditor, { EMPTY_AUTH } from '../components/AuthEditor.jsx';
 import { flattenModules } from './BaseApis.jsx';
 import ModuleApiTree from '../components/ModuleApiTree.jsx';
+import ModuleTreeSelect from '../components/ModuleTreeSelect.jsx';
 import { ThemedEditor } from '../components/ThemedEditor.jsx';
 import { Button } from '../components/Button.jsx';
 import { INPUT_CLASS as inputCls } from '../lib/statusColors.js';
 
 const METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'];
-const BODY_TYPES = ['NONE', 'JSON', 'XML', 'TEXT', 'HTML', 'FORM_URLENCODED'];
+const BODY_TYPES = ['NONE', 'JSON', 'XML', 'TEXT', 'HTML', 'FORM_DATA', 'FORM_URLENCODED'];
 const TABS = ['Request', 'Dynamic Data', 'Validation Rules', 'Groups'];
 const OPERATORS = ['EQUALS', 'NOT_EQUALS', 'CONTAINS', 'REGEX', 'EXISTS', 'TYPE_IS', 'RANGE'];
 
 const emptyForm = {
   name: '', method: 'GET', urlTemplate: '', moduleId: '',
   headersTemplate: [], queryParamsTemplate: [],
-  bodyType: 'NONE', bodyTemplate: '', auth: { ...EMPTY_AUTH },
+  bodyType: 'NONE', bodyTemplate: '', formDataTemplate: [], auth: { ...EMPTY_AUTH },
   dynamic: false, timeoutMs: 15000, followRedirects: true, verifySsl: true,
 };
 
@@ -81,6 +84,7 @@ export default function RegularApis() {
     headersTemplate: JSON.stringify(form.headersTemplate),
     queryParamsTemplate: JSON.stringify(form.queryParamsTemplate),
     bodyType: form.bodyType, bodyTemplate: form.bodyTemplate || null,
+    formDataTemplate: JSON.stringify(form.formDataTemplate || []),
     authType: form.auth.type, authConfig: JSON.stringify(form.auth),
     dynamic: form.dynamic, timeoutMs: Number(form.timeoutMs) || 15000,
     followRedirects: form.followRedirects, verifySsl: form.verifySsl,
@@ -179,6 +183,7 @@ export default function RegularApis() {
       headersTemplate: safeParse(api.headersTemplate, []),
       queryParamsTemplate: safeParse(api.queryParamsTemplate, []),
       bodyType: api.bodyType || 'NONE', bodyTemplate: api.bodyTemplate || '',
+      formDataTemplate: safeParse(api.formDataTemplate, []),
       auth: { ...EMPTY_AUTH, ...safeParse(api.authConfig, {}) },
       dynamic: api.dynamic, timeoutMs: api.timeoutMs,
       followRedirects: api.followRedirects, verifySsl: api.verifySsl,
@@ -294,22 +299,25 @@ export default function RegularApis() {
           <div className="flex flex-col gap-3">
             <div>
               <div className="text-xs text-[var(--text-muted)] mb-1.5">Query Parameters (values may use {'{{vars}}'})</div>
-              <KeyValueEditor items={form.queryParamsTemplate} onChange={(v) => setForm({ ...form, queryParamsTemplate: v })} keyPlaceholder="Parameter" />
+              <KeyValueEditor items={form.queryParamsTemplate} onChange={(v) => setForm({ ...form, queryParamsTemplate: v })} keyPlaceholder="Parameter" showRequired />
             </div>
             <div>
               <div className="text-xs text-[var(--text-muted)] mb-1.5">Headers (values may use {'{{vars}}'})</div>
-              <KeyValueEditor items={form.headersTemplate} onChange={(v) => setForm({ ...form, headersTemplate: v })} keyPlaceholder="Header" />
+              <KeyValueEditor items={form.headersTemplate} onChange={(v) => setForm({ ...form, headersTemplate: v })} keyPlaceholder="Header" showRequired />
             </div>
             <div>
               <div className="flex gap-1 mb-1.5">
                 {BODY_TYPES.map((bt) => (
                   <button key={bt} onClick={() => setForm({ ...form, bodyType: bt })}
                     className={`px-2.5 py-1 rounded text-[11px] ${form.bodyType === bt ? 'bg-[var(--accent-bg-soft)] text-[var(--accent-text)] border border-[var(--accent-border-soft)]' : 'text-[var(--text-muted)] border border-[var(--border)] hover:text-[var(--text-secondary)]'}`}>
-                    {bt === 'FORM_URLENCODED' ? 'x-www-form-urlencoded' : bt}
+                    {bt === 'FORM_URLENCODED' ? 'x-www-form-urlencoded' : bt === 'FORM_DATA' ? 'form-data' : bt}
                   </button>
                 ))}
               </div>
-              {form.bodyType !== 'NONE' && (
+              {form.bodyType === 'FORM_DATA' && (
+                <FormDataEditor items={form.formDataTemplate} onChange={(formDataTemplate) => setForm({ ...form, formDataTemplate })} />
+              )}
+              {form.bodyType !== 'NONE' && form.bodyType !== 'FORM_DATA' && (
                 <div className="h-32 border border-[var(--border)] rounded overflow-hidden">
                   <ThemedEditor height="100%"
                     language={form.bodyType === 'JSON' ? 'json' : 'plaintext'}
@@ -327,6 +335,7 @@ export default function RegularApis() {
               <label className="flex items-center gap-2"><input type="checkbox" className="accent-[var(--accent)]" checked={form.verifySsl} onChange={(e) => setForm({ ...form, verifySsl: e.target.checked })} /> Verify SSL</label>
               <label className="flex items-center gap-2">Timeout <input type="number" min="100" value={form.timeoutMs} onChange={(e) => setForm({ ...form, timeoutMs: e.target.value })} className={`${inputCls} w-24 py-1`} /> ms</label>
             </div>
+            {selectedId && <ValidationCheckPanel baseUrl={`/v1/regular-apis/${selectedId}`} />}
           </div>
         )}
 
@@ -369,12 +378,15 @@ export default function RegularApis() {
                       <>
                         <div className="text-xs text-[var(--text-muted)]">Add from a Base API:</div>
                         <div className="flex gap-2">
-                          <select value={bindingBase}
-                            onChange={(e) => { setBindingBase(e.target.value); setBaseTestResult(null); }}
-                            className={`${inputCls} flex-1`}>
-                            <option value="">Choose base API…</option>
-                            {baseApis.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                          </select>
+                          <div className="flex-1">
+                            <ModuleTreeSelect
+                              modules={modules}
+                              apis={baseApis}
+                              selectedId={bindingBase ? Number(bindingBase) : null}
+                              onSelect={(b) => { setBindingBase(String(b.id)); setBaseTestResult(null); }}
+                              placeholder="Choose base API…"
+                            />
+                          </div>
                           {bindingBase && (
                             <button onClick={testBaseApi} disabled={baseTesting}
                               className="flex items-center gap-1.5 rounded border border-[var(--info-text)]/50 text-[var(--info-text)] hover:bg-[var(--info-text)]/10 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold"
@@ -414,12 +426,16 @@ export default function RegularApis() {
                           Add from another Regular API's response (it will be executed first, resolving its own bindings, however deep that chain goes):
                         </div>
                         <div className="flex gap-2">
-                          <select value={bindingRegular}
-                            onChange={(e) => { setBindingRegular(e.target.value); setRegularTestResult(null); }}
-                            className={`${inputCls} flex-1`}>
-                            <option value="">Choose regular API…</option>
-                            {apis.filter((a) => a.id !== selectedId).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                          </select>
+                          <div className="flex-1">
+                            <ModuleTreeSelect
+                              modules={modules}
+                              apis={apis.filter((a) => a.id !== selectedId)}
+                              selectedId={bindingRegular ? Number(bindingRegular) : null}
+                              onSelect={(a) => { setBindingRegular(String(a.id)); setRegularTestResult(null); }}
+                              placeholder="Choose regular API…"
+                              renderLabel={(a) => `${a.method} ${a.name}`}
+                            />
+                          </div>
                           {bindingRegular && (
                             <button onClick={testRegularApi} disabled={regularTesting}
                               className="flex items-center gap-1.5 rounded border border-[var(--info-text)]/50 text-[var(--info-text)] hover:bg-[var(--info-text)]/10 disabled:opacity-40 px-3 py-1.5 text-xs font-semibold"

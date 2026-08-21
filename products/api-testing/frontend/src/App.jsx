@@ -8,6 +8,7 @@ import BaseApis from './pages/BaseApis.jsx';
 import RegularApis from './pages/RegularApis.jsx';
 import Scheduler from './pages/Scheduler.jsx';
 import History from './pages/History.jsx';
+import Reports from './pages/Reports.jsx';
 import Modules from './pages/Modules.jsx';
 
 export default function App() {
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/regular-apis" element={<RegularApis />} />
         <Route path="/scheduler" element={<Scheduler />} />
         <Route path="/history" element={<History />} />
+        <Route path="/reports" element={<Reports />} />
         <Route path="/modules" element={<Modules />} />
       </Route>
     </Routes>

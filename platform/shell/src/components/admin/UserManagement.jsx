@@ -1,4 +1,4 @@
-import { KeyRound, Search, Trash2, UserCheck, UserMinus, UserPen, Users } from 'lucide-react';
+import { Building2, Eye, KeyRound, Search, Trash2, UserCheck, UserMinus, UserPen, Users } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { ROLES } from '../../constants.js';
@@ -6,7 +6,12 @@ import { Field } from '../shared/Field.jsx';
 import { Panel, DataTable, Modal, ConfirmDialog } from '../shared/index.jsx';
 
 // ── Validation helpers ────────────────────────────────────────────────────────
-const MOBILE_REGEX = /^[0-9]{10,15}$/;
+const MOBILE_REGEX = /^[0-9]{10}$/;
+// The platform-level `role` field only ever matters for the Super Admin distinction now — every
+// other value (QA_LEAD, AUTOMATION_ENGINEER, etc.) is a per-workspace concept granted via
+// project_users instead (see the "View" workspace-breakdown action), so this page's inline editor
+// only offers the one platform-wide choice that's actually meaningful here.
+const PLATFORM_ROLE_OPTIONS = ['SUPER_ADMIN', 'VIEWER'];
 
 function validate(form) {
   const errors = {};
@@ -30,7 +35,7 @@ function validateEdit(form) {
   if (!form.fullName?.trim()) errors.fullName = 'Full name is required';
   if (!form.mobileNumber?.trim()) errors.mobileNumber = 'Mobile number is required';
   else if (!MOBILE_REGEX.test(form.mobileNumber.trim()))
-    errors.mobileNumber = 'Enter a valid mobile number (10–15 digits)';
+    errors.mobileNumber = 'Enter a valid mobile number';
   if (!form.designation?.trim()) errors.designation = 'Designation is required';
   return errors;
 }
@@ -42,6 +47,7 @@ export function UserManagement({ setNotice }) {
   const [editUser, setEditUser] = useState(null);
   const [resetTarget, setResetTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [viewTarget, setViewTarget] = useState(null);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -53,16 +59,6 @@ export function UserManagement({ setNotice }) {
 
   const loadUsers = () => api.adminListUsers().then(setUsers).catch((e) => setNotice(e.message));
   useEffect(() => { loadUsers(); }, []);
-
-  const disable = async (id) => {
-    try { await api.adminDisableUser(id); setNotice('User disabled successfully.'); await loadUsers(); }
-    catch (e) { setNotice(e.message); }
-  };
-
-  const enable = async (id) => {
-    try { await api.adminEnableUser(id); setNotice('User enabled successfully.'); await loadUsers(); }
-    catch (e) { setNotice(e.message); }
-  };
 
   const changeRole = async (id, role) => {
     try { await api.adminAssignRole(id, role); setNotice('Role updated successfully.'); await loadUsers(); }
@@ -120,15 +116,16 @@ export function UserManagement({ setNotice }) {
     },
     {
       key: 'role',
-      label: 'Role',
+      label: 'Platform Role',
       render: (val, u) => (
         <select
-          value={val}
+          value={PLATFORM_ROLE_OPTIONS.includes(val) ? val : 'VIEWER'}
           onChange={(e) => changeRole(u.id, e.target.value)}
           disabled={val === 'SUPER_ADMIN'}
+          title="Platform-wide role — per-workspace roles are under View"
           className="role-select"
         >
-          {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          {PLATFORM_ROLE_OPTIONS.map((r) => <option key={r} value={r}>{r === 'SUPER_ADMIN' ? 'Super Admin' : 'Regular User'}</option>)}
         </select>
       )
     },
@@ -146,29 +143,9 @@ export function UserManagement({ setNotice }) {
       key: 'actions',
       label: 'Actions',
       render: (_, u) => (
-        <div className="um-actions" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          <button className="action-btn edit-btn" onClick={() => setEditUser(u)} title="Edit user">
-            <UserPen size={13} /> Edit
-          </button>
-          {u.status === 'ACTIVE'
-            ? <button className="action-btn disable-btn" onClick={() => disable(u.id)} disabled={u.role === 'SUPER_ADMIN'} title="Disable user">
-              <UserMinus size={13} /> Disable
-            </button>
-            : <button className="action-btn enable-btn" onClick={() => enable(u.id)} title="Enable user">
-              <UserCheck size={13} /> Enable
-            </button>}
-          <button className="action-btn reset-btn" onClick={() => setResetTarget(u)} title="Reset password">
-            <KeyRound size={13} /> Reset Pwd
-          </button>
-          <button
-            className="action-btn delete-btn"
-            onClick={() => setDeleteTarget(u)}
-            disabled={u.role === 'SUPER_ADMIN'}
-            title={u.role === 'SUPER_ADMIN' ? 'Super admin Can not be deleted' : 'Delete user'}
-          >
-            <Trash2 size={13} /> Delete
-          </button>
-        </div>
+        <button className="action-btn" onClick={() => setViewTarget(u)} title="View & manage this user">
+          <Eye size={12} /> View
+        </button>
       )
     }
   ], [users]);
@@ -236,6 +213,19 @@ export function UserManagement({ setNotice }) {
             setNotice={setNotice}
             onSaved={() => { setEditUser(null); loadUsers(); }}
             onCancel={() => setEditUser(null)}
+          />
+        </Modal>
+      )}
+
+      {viewTarget && (
+        <Modal title={`Manage User — ${viewTarget.username}`} onClose={() => setViewTarget(null)} closeOnBackdrop={false}>
+          <UserDetailPanel
+            user={viewTarget}
+            setNotice={setNotice}
+            onChanged={loadUsers}
+            onEdit={() => { setViewTarget(null); setEditUser(viewTarget); }}
+            onResetPassword={() => { setViewTarget(null); setResetTarget(viewTarget); }}
+            onDelete={() => { setViewTarget(null); setDeleteTarget(viewTarget); }}
           />
         </Modal>
       )}
@@ -395,6 +385,126 @@ function ResetPasswordForm({ userId, setNotice, onDone, onCancel }) {
         </button>
       </div>
     </form>
+  );
+}
+
+// ── User detail panel (View action) — account-level actions (Edit/Reset Pwd/Disable/Delete,
+// moved here from the main table's row so that table only ever shows one "View" action) plus
+// every workspace this user belongs to, their role(s) in each, and workspace-scoped
+// disable/remove (reusing the same endpoints Project Admins use for their own team, per
+// docs/version2.1.md — Super Admin is allowed to call them for any project). ─────────────────
+function UserDetailPanel({ user, setNotice, onChanged, onEdit, onResetPassword, onDelete }) {
+  const [account, setAccount] = useState(user);
+  const [memberships, setMemberships] = useState(null);
+  const [removeTarget, setRemoveTarget] = useState(null);
+
+  const load = () => {
+    api.adminGetUser(user.id).then(setAccount).catch((e) => setNotice(e.message));
+    api.adminGetUserWorkspaces(user.id).then(setMemberships).catch((e) => setNotice(e.message));
+  };
+  useEffect(() => { load(); }, [user.id]);
+
+  const toggleAccountStatus = async () => {
+    try {
+      if (account.status === 'ACTIVE') await api.adminDisableUser(user.id);
+      else await api.adminEnableUser(user.id);
+      setNotice(`User ${account.status === 'ACTIVE' ? 'disabled' : 'enabled'}.`);
+      load();
+      onChanged();
+    } catch (e) {
+      setNotice(e.message);
+    }
+  };
+
+  const toggleStatus = async (m) => {
+    try {
+      await api.setProjectUserStatus(m.projectId, user.id, m.membershipStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE');
+      setNotice(`${m.projectName}: membership ${m.membershipStatus === 'ACTIVE' ? 'disabled' : 'enabled'}.`);
+      await load();
+    } catch (e) {
+      setNotice(e.message);
+    }
+  };
+
+  const confirmRemove = async () => {
+    if (!removeTarget) return;
+    try {
+      await api.removeProjectUser(removeTarget.projectId, user.id);
+      setNotice(`Removed from ${removeTarget.projectName}.`);
+      setRemoveTarget(null);
+      await load();
+    } catch (e) {
+      setNotice(e.message);
+      setRemoveTarget(null);
+    }
+  };
+
+  return (
+    <>
+      <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+        <div style={{ flex: 1, minWidth: 160 }}>
+          <div style={{ fontWeight: 600 }}>{account.email}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{account.mobileNumber || '—'}</div>
+        </div>
+        <span className={`status ${account.status?.toLowerCase()}`}>{account.status}</span>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <button className="action-btn edit-btn" onClick={onEdit} title="Edit user"><UserPen size={13} /> Edit</button>
+          <button className="action-btn reset-btn" onClick={onResetPassword} title="Reset password"><KeyRound size={13} /> Reset Pwd</button>
+          {account.status === 'ACTIVE'
+            ? <button className="action-btn disable-btn" onClick={toggleAccountStatus} disabled={account.role === 'SUPER_ADMIN'} title="Disable user"><UserMinus size={13} /> Disable</button>
+            : <button className="action-btn enable-btn" onClick={toggleAccountStatus} title="Enable user"><UserCheck size={13} /> Enable</button>}
+          <button
+            className="action-btn delete-btn"
+            onClick={onDelete}
+            disabled={account.role === 'SUPER_ADMIN'}
+            title={account.role === 'SUPER_ADMIN' ? 'Super admin can not be deleted' : 'Delete user'}
+          >
+            <Trash2 size={13} /> Delete
+          </button>
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: 8 }}>
+        Workspaces
+      </div>
+
+      {memberships === null ? (
+        <p style={{ color: 'var(--text-muted)' }}>Loading…</p>
+      ) : memberships.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)' }}>Not a member of any workspace.</p>
+      ) : (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {memberships.map((m) => (
+          <div key={m.projectId} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <Building2 size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <div style={{ fontWeight: 600 }}>{m.projectName}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{m.roles.join(', ') || '—'}</div>
+            </div>
+            <span className={`status ${m.membershipStatus?.toLowerCase()}`}>{m.membershipStatus}</span>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {m.membershipStatus === 'ACTIVE'
+                ? <button className="action-btn disable-btn" onClick={() => toggleStatus(m)} title="Disable in this workspace"><UserMinus size={13} /> Disable</button>
+                : <button className="action-btn enable-btn" onClick={() => toggleStatus(m)} title="Enable in this workspace"><UserCheck size={13} /> Enable</button>}
+              <button className="action-btn delete-btn" onClick={() => setRemoveTarget(m)} title="Remove from this workspace"><Trash2 size={13} /> Remove</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      )}
+
+      {removeTarget && (
+        <ConfirmDialog onClose={() => setRemoveTarget(null)}>
+          <div className="confirm-icon"><Trash2 size={30} /></div>
+          <h3>Remove from Workspace?</h3>
+          <p>Remove this user from <strong>{removeTarget.projectName}</strong>?</p>
+          <div className="confirm-actions">
+            <button className="secondary-action" onClick={() => setRemoveTarget(null)}>Cancel</button>
+            <button className="danger-action" onClick={confirmRemove}>Remove</button>
+          </div>
+        </ConfirmDialog>
+      )}
+    </>
   );
 }
 

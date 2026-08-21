@@ -7,6 +7,8 @@ import GroupsPanel, { ActionBtn, MemberRow, HistoryDetailPanel } from './GroupsP
 import { Pagination } from '../components/Pagination.jsx';
 import { INPUT_CLASS as inputCls } from '../lib/statusColors.js';
 import { Loader } from '../../../../../shared/ui/Loader.jsx';
+import { currentUserEmail } from '../lib/currentUser.js';
+import ValidationCheckPanel from '../components/ValidationCheckPanel.jsx';
 
 const FREQ_LABEL = {
   EVERY_X_MIN: (v) => `Every ${v} min`,
@@ -28,6 +30,7 @@ export default function Scheduler() {
     name: '', targetType: 'API', regularApiId: '', groupId: '',
     frequencyType: 'EVERY_X_MIN', frequencyValue: '5',
     dailyTime: '10:00', weeklyDay: 'MON', weeklyTime: '10:00',
+    recipients: currentUserEmail(),
   };
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
@@ -72,6 +75,7 @@ export default function Scheduler() {
         groupId: form.targetType === 'GROUP' ? Number(form.groupId) : null,
         frequencyType: form.frequencyType,
         frequencyValue: frequencyValueFor(),
+        recipients: form.recipients,
       };
       return editingId
         ? apiClient.put(`/v1/schedules/${editingId}`, payload)
@@ -87,7 +91,8 @@ export default function Scheduler() {
 
   // Load a schedule into the form, mapping frequencyValue back to the pickers.
   const startEdit = (s) => {
-    const f = { ...emptyForm, name: s.name, targetType: s.targetType, frequencyType: s.frequencyType };
+    const f = { ...emptyForm, name: s.name, targetType: s.targetType, frequencyType: s.frequencyType,
+      recipients: s.recipients || currentUserEmail() };
     if (s.targetType === 'API') f.regularApiId = String(s.regularApiId ?? '');
     else f.groupId = String(s.groupId ?? '');
     const v = s.frequencyValue ?? '';
@@ -123,7 +128,8 @@ export default function Scheduler() {
     && (form.targetType === 'API' ? form.regularApiId : form.groupId)
     && (!['EVERY_X_MIN', 'CRON'].includes(form.frequencyType) || form.frequencyValue.trim())
     && (form.frequencyType !== 'DAILY' || form.dailyTime)
-    && (form.frequencyType !== 'WEEKLY' || (form.weeklyDay && form.weeklyTime));
+    && (form.frequencyType !== 'WEEKLY' || (form.weeklyDay && form.weeklyTime))
+    && form.recipients.trim();
 
   return (
     <div className="flex-1 overflow-auto p-6 flex flex-col gap-5">
@@ -243,6 +249,11 @@ export default function Scheduler() {
                 onChange={(e) => setForm({ ...form, frequencyValue: e.target.value })} />
             </label>
           )}
+          <label className="flex flex-col gap-1 text-xs text-[var(--text-muted)]">
+            Report recipients
+            <input className={`${inputCls} w-64`} placeholder="a@x.com, b@x.com" value={form.recipients}
+              onChange={(e) => setForm({ ...form, recipients: e.target.value })} />
+          </label>
           <button disabled={!canCreate || createMut.isPending} onClick={() => createMut.mutate()}
             className="flex items-center gap-2 rounded-md bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-40 px-4 py-2 text-sm font-semibold text-white">
             {editingId ? <><Pencil size={14} /> Update Schedule</> : <><Plus size={14} /> Create Schedule</>}
@@ -404,6 +415,11 @@ function ScheduleApiExpand({ apiId, regularApis }) {
         : latestId
           ? <HistoryDetailPanel historyId={latestId} />
           : <div className="px-4 pb-3 text-xs text-[var(--text-muted)]">This API has never run yet — no data to show.</div>}
+      {apiId && (
+        <div className="px-4 pb-3">
+          <ValidationCheckPanel baseUrl={`/v1/regular-apis/${apiId}`} />
+        </div>
+      )}
     </div>
   );
 }

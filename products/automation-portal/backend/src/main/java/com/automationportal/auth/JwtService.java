@@ -33,7 +33,7 @@ public class JwtService {
         Instant now = Instant.now();
         return Jwts.builder()
             .subject(user.getUsername())
-            .claims(Map.of("role", user.getRole().name(), "uid", user.getId()))
+            .claims(Map.of("role", user.getRole().name(), "uid", user.getId(), "email", user.getEmail()))
             .issuedAt(Date.from(now))
             .expiration(Date.from(now.plusSeconds(expirationMinutes * 60)))
             .signWith(key)
@@ -46,6 +46,7 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", user.getRole().name());
         claims.put("uid", user.getId());
+        claims.put("email", user.getEmail());
         claims.put("tenantId", String.valueOf(context.tenantId()));
         claims.put("projectId", String.valueOf(context.projectId()));
         claims.put("projectCode", context.projectCode());

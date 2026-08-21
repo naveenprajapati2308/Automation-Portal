@@ -50,7 +50,8 @@ export function ChangeEmailForm({ setNotice, onClose, emailOtp, setEmailOtp }) {
         </form>
       ) : (
         <form onSubmit={verify} className="auth-form">
-          <Field label="New Email" type="email" value={newEmail} onChange={(value) => { setNewEmail(value); setFormError(''); }} error={!otp ? formError : ''} />
+          <Field label="New Email" type="email" value={newEmail} onChange={(value) => { setNewEmail(value); setFormError(''); }} error={!otp ? formError : 
+            ''} />
           {emailOtp && (
             <div className="otp-reveal">
               <span className="otp-label">Your OTP Code</span>

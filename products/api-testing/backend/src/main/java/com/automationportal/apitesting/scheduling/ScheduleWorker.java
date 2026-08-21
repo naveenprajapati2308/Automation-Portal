@@ -5,6 +5,11 @@ import com.automationportal.apitesting.history.ExecutionHistory;
 import com.automationportal.apitesting.regularapi.DependencyExecutionService;
 import com.automationportal.apitesting.regularapi.RegularApi;
 import com.automationportal.apitesting.regularapi.RegularApiRepository;
+import com.automationportal.apitesting.report.ReportData;
+import com.automationportal.apitesting.report.ReportMailClient;
+import com.automationportal.apitesting.report.ReportMarkdownRenderer;
+import com.automationportal.apitesting.report.ReportPdfRenderer;
+import com.automationportal.apitesting.report.ReportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.support.CronExpression;
@@ -33,6 +38,10 @@ public class ScheduleWorker {
     private final DependencyExecutionService dependencyExecutionService;
     private final com.automationportal.apitesting.group.ApiGroupRepository groupRepository;
     private final com.automationportal.apitesting.group.GroupExecutionService groupExecutionService;
+    private final ReportService reportService;
+    private final ReportMarkdownRenderer markdownRenderer;
+    private final ReportPdfRenderer pdfRenderer;
+    private final ReportMailClient mailClient;
 
     public void run(Long scheduleId) {
         Schedule schedule = scheduleRepository.findById(scheduleId).orElse(null);
@@ -73,6 +82,7 @@ public class ScheduleWorker {
                 schedule.setLastRunStatus(Schedule.RunStatus.FAILED);
                 applyRetryOrAdvance(schedule, now);
             }
+            emailReport(schedule, result.getExecutionHistoryId());
         } catch (Exception ex) {
             log.error("Schedule '{}' crashed: {}", schedule.getName(), ex.getMessage(), ex);
             schedule.setLastRunStatus(Schedule.RunStatus.FAILED);
@@ -106,6 +116,29 @@ public class ScheduleWorker {
         } else {
             schedule.setLastRunStatus(Schedule.RunStatus.FAILED);
             applyRetryOrAdvance(schedule, now);
+        }
+    }
+
+    /** Best-effort: a report/email failure must never affect the schedule's own recorded
+     * pass/fail result, so everything here is caught and only logged. */
+    private void emailReport(Schedule schedule, Long executionHistoryId) {
+        if (executionHistoryId == null) return;
+        try {
+            if (schedule.getRecipients() == null || schedule.getRecipients().isBlank()) {
+                log.warn("Schedule '{}' has no report recipients — skipping email", schedule.getName());
+                return;
+            }
+            var recipients = java.util.Arrays.stream(schedule.getRecipients().split(","))
+                    .map(String::trim).filter(s -> !s.isEmpty()).toList();
+            var data = reportService.buildForHistory(executionHistoryId);
+            data.setRecipients(schedule.getRecipients());
+            String subject = "Execution Report — \"" + schedule.getName() + "\" (" + data.getStatus() + ")";
+            String html = "<p>Schedule <b>" + schedule.getName() + "</b> finished with status <b>"
+                    + data.getStatus() + "</b>. Full report attached (PDF + Markdown).</p>";
+            mailClient.send(recipients, subject, html, pdfRenderer.render(data), markdownRenderer.render(data).getBytes());
+            schedule.setReportEmailSentAt(Instant.now());
+        } catch (Exception e) {
+            log.error("Failed to build/send report for schedule '{}': {}", schedule.getName(), e.getMessage(), e);
         }
     }
 
